@@ -1,10 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import cn from "classnames";
 import styles from "./Description.module.sass";
-import { Link } from "react-router-dom";
 import Icon from "../../../components/Icon";
 import Details from "./Details";
 import Receipt from "../../../components/Receipt";
+import AddOnsModal from "../../../components/AddOnsModal";
 
 const items = [
   {
@@ -44,49 +44,63 @@ const receipt = [
 ];
 
 const Description = ({ classSection }) => {
+  const [showAddOnsModal, setShowAddOnsModal] = useState(false);
+
+  const handleReserveClick = (e) => {
+    e.preventDefault();
+    setShowAddOnsModal(true);
+  };
+
   return (
-    <div className={cn(classSection, styles.section)}>
-      <div className={cn("container", styles.container)}>
-        <div className={styles.wrapper}>
-          <Details className={styles.details} />
-          <Receipt
-            className={styles.receipt}
-            items={items}
-            priceOld="$119"
-            priceActual="$109"
-            time="night"
-          >
-            <div className={styles.btns}>
-              <button className={cn("button-stroke", styles.button)}>
-                <span>Save</span>
-                <Icon name="plus" size="16" />
-              </button>
-              <Link
-                className={cn("button", styles.button)}
-                to="/stays-checkout"
-              >
-                <span>Reserve</span>
-                <Icon name="bag" size="16" />
-              </Link>
-            </div>
-            <div className={styles.table}>
-              {receipt.map((x, index) => (
-                <div className={styles.line} key={index}>
-                  <div className={styles.cell}>{x.title}</div>
-                  <div className={styles.cell}>{x.content}</div>
-                </div>
-              ))}
-            </div>
-            <div className={styles.foot}>
-              <button className={styles.report}>
-                <Icon name="flag" size="12" />
-                Report this property
-              </button>
-            </div>
-          </Receipt>
+    <>
+      <div className={cn(classSection, styles.section)}>
+        <div className={cn("container", styles.container)}>
+          <div className={styles.wrapper}>
+            <Details className={styles.details} />
+            <Receipt
+              className={styles.receipt}
+              items={items}
+              priceOld="$119"
+              priceActual="$109"
+              time="night"
+            >
+              <div className={styles.btns}>
+                <button className={cn("button-stroke", styles.button)}>
+                  <span>Save</span>
+                  <Icon name="plus" size="16" />
+                </button>
+                <button
+                  className={cn("button", styles.button)}
+                  onClick={handleReserveClick}
+                >
+                  <span>Reserve</span>
+                  <Icon name="bag" size="16" />
+                </button>
+              </div>
+              <div className={styles.table}>
+                {receipt.map((x, index) => (
+                  <div className={styles.line} key={index}>
+                    <div className={styles.cell}>{x.title}</div>
+                    <div className={styles.cell}>{x.content}</div>
+                  </div>
+                ))}
+              </div>
+              <div className={styles.foot}>
+                <button className={styles.report}>
+                  <Icon name="flag" size="12" />
+                  Report this property
+                </button>
+              </div>
+            </Receipt>
+          </div>
         </div>
       </div>
-    </div>
+      <AddOnsModal
+        visible={showAddOnsModal}
+        onClose={() => setShowAddOnsModal(false)}
+        basePrice={833}
+      />
+    </>
   );
 };
 

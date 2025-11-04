@@ -1,17 +1,16 @@
 @import ../../styles/helpers
 
 .section
+    padding-top: 24px
+    +d
+        padding-top: 64px
     +m
         padding-top: 48px
-
-.control
-    +m
-        display: none
 
 .head
     display: flex
     align-items: flex-start
-    margin-bottom: 64px
+    margin-bottom: 24px
     +m
         display: block
         margin-bottom: 48px
@@ -79,3 +78,8 @@
 
 .actions
     flex-shrink: 0
+    margin-top: 20px
+    +t
+        margin-top: 16px
+    +m
+        margin-top: 0

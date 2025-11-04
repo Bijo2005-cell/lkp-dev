@@ -550,3 +550,50 @@
         left: calc(50% - 44px)
     .slick-next
         right: calc(50% - 44px)
+
+// itinerary slider
+.itinerary-slider
+    position: static
+    +m
+        padding-bottom: 80px
+    .slick-list
+        overflow: visible
+        +d
+            margin: 0 -180px 0 0
+        +m
+            margin-right: -260px
+    .slick-track
+        display: flex
+        align-items: stretch
+    .slick-slide
+        height: auto
+        padding: 0 16px
+        opacity: 0
+        visibility: hidden
+        transition: opacity .4s cubic-bezier(0.645, 0.045, 0.355, 1), visibility .4s
+        +m
+            padding: 0 8px
+        & > div
+            height: 100%
+            display: flex
+        &.slick-active
+            opacity: 1
+            visibility: visible
+    .slick-arrow
+       top: 4px
+       transition: opacity .2s, transform .2s
+       +m
+            top: auto
+            bottom: 0
+       &:hover
+            opacity: 0.8
+    .slick-prev
+        right: 48px
+        +m
+            right: auto
+            left: 0
+    .slick-next
+        right: 0
+        +m
+            right: auto
+            left: 48px

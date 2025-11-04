@@ -3,6 +3,7 @@ import cn from "classnames";
 import styles from "./StaysProduct.module.sass";
 import Product from "../../components/Product";
 import Description from "./Description";
+import Itinerary from "../../components/Itinerary";
 import CommentsProduct from "../../components/CommentsProduct";
 import Browse from "../../components/Browse";
 import Newsletter from "../../components/Newsletter";
@@ -11,29 +12,13 @@ import Newsletter from "../../components/Newsletter";
 import { browse1 } from "../../mocks/browse";
 import { browse2 } from "../../mocks/browse";
 
-const breadcrumbs = [
-  {
-    title: "Home",
-    url: "/",
-  },
-  {
-    title: "Stays",
-    url: "/",
-  },
-  {
-    title: "New Zealand",
-    url: "/stays-category",
-  },
-  {
-    title: "South Island",
-  },
-];
-
 const gallery = [
   "/images/content/photo-1.1.jpg",
   "/images/content/photo-1.2.jpg",
   "/images/content/photo-1.3.jpg",
   "/images/content/photo-1.4.jpg",
+  "/images/content/photo-1.1.jpg",
+  "/images/content/photo-1.2.jpg",
 ];
 
 const options = [
@@ -78,14 +63,13 @@ const StaysProduct = () => {
     <>
       <Product
         classSection="section-mb64"
-        urlHome="/stays-category"
         title="Spectacular views of Queenstown"
-        breadcrumbs={breadcrumbs}
         options={options}
         gallery={gallery}
         type="stays"
       />
       <Description classSection="section" />
+      <Itinerary classSection="section" />
       <CommentsProduct
         className={cn("section", styles.comment)}
         parametersUser={parametersUser}

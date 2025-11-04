@@ -20,7 +20,7 @@ const Main = () => {
             <img src="/images/content/main-pic-3.jpg" alt="Main" />
           </picture>
           <div className={styles.wrap}>
-            <h1 className={cn("hero", styles.title)}>Air, sleep, dream</h1>
+            <h1 className={cn("hero", styles.title)}>LKP</h1>
             <div className={cn("info", styles.info)}>
               Find and book a great experience.
             </div>

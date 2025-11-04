@@ -31,29 +31,55 @@ const Gallery = ({ className, items, type }) => {
             }
           )}
         >
-          {items.map((x, index) =>
-            index > 0 ? (
-              <div
-                className={styles.preview}
-                key={index}
-                onClick={() => handleOpen(index)}
-              >
+          {items.slice(0, 2).map((x, index) => (
+            <div className={styles.preview} key={index}>
+              <div className={styles.view} onClick={() => handleOpen(index)}>
                 <img src={x} alt="Product Details"></img>
               </div>
-            ) : (
-              <div className={styles.preview} key={index}>
-                <div className={styles.view} onClick={() => handleOpen(index)}>
-                  <img src={x} alt="Product Details"></img>
-                </div>
-                <Link
-                  to="/full-photo"
-                  className={cn("button-white button-small", styles.button)}
-                >
-                  <Icon name="image" size="16" />
-                  <span>Show all photos</span>
-                </Link>
+            </div>
+          ))}
+          {items.slice(2, items.length > 6 ? 6 : items.length).map((x, index) => {
+            const actualIndex = index + 2;
+            // Web: 6th image (index 5), Mobile: 4th image (index 3)
+            const isWebButtonImage = actualIndex === 5; // 6th image for web
+            const isMobileButtonImage = actualIndex === 3; // 4th image for mobile
+            return (
+              <div
+                className={styles.preview}
+                key={actualIndex}
+                onClick={() => handleOpen(actualIndex)}
+              >
+                <img src={x} alt="Product Details"></img>
+                {(isWebButtonImage || isMobileButtonImage) && (
+                  <Link
+                    to="/full-photo"
+                    className={cn(
+                      "button-white button-small",
+                      styles.button,
+                      {
+                        [styles.buttonWeb]: isWebButtonImage,
+                        [styles.buttonMobile]: isMobileButtonImage,
+                      }
+                    )}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Icon name="arrow-next" size="16" />
+                    <span>More</span>
+                  </Link>
+                )}
               </div>
-            )
+            );
+          })}
+          {items.length > 6 && (
+            <div
+              className={cn(styles.preview, styles.morePhotos)}
+              onClick={() => handleOpen(6)}
+            >
+              <div className={styles.moreContent}>
+                <Icon name="image" size="24" />
+                <span className={styles.moreText}>+{items.length - 6}</span>
+              </div>
+            </div>
           )}
         </div>
       </div>

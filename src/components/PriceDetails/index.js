@@ -14,6 +14,8 @@ const PriceDetails = ({
   items,
   table,
   discoundCode,
+  addOns,
+  onRemoveAddOn,
 }) => {
   const [discound, setDiscound] = useState("");
 
@@ -67,6 +69,28 @@ const PriceDetails = ({
             </div>
           ))}
         </div>
+        {addOns && addOns.length > 0 && (
+          <div className={styles.addOnsSection}>
+            <div className={styles.addOnsTitle}>Add-ons</div>
+            <div className={styles.addOnsList}>
+              {addOns.map((addOn, index) => (
+                <div className={styles.addOnItem} key={index}>
+                  <div className={styles.addOnItemName}>{addOn.name}</div>
+                  <div className={styles.addOnItemPrice}>${addOn.price}</div>
+                  {onRemoveAddOn && (
+                    <button
+                      className={styles.addOnRemoveButton}
+                      onClick={() => onRemoveAddOn(index)}
+                      aria-label={`Remove ${addOn.name}`}
+                    >
+                      <Icon name="close" size="16" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div className={styles.note}>
         <Icon name="coin" size="12" />

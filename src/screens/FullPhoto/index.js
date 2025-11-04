@@ -1,15 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import cn from "classnames";
 import styles from "./FullPhoto.module.sass";
 import Product from "../../components/Product";
 import Icon from "../../components/Icon";
 import { Link } from "react-router-dom";
-import Masonry from "react-masonry-css";
-
-const breakpointCols = {
-  default: 2,
-  768: 1,
-};
+import PhotoView from "../../components/PhotoView";
 
 const breadcrumbs = [
   {
@@ -53,6 +48,14 @@ const options = [
 ];
 
 const FullPhoto = () => {
+  const [initialSlide, setInitialSlide] = useState(0);
+  const [visible, setVisible] = useState(false);
+
+  const handleOpen = (index) => {
+    setInitialSlide(index);
+    setVisible(true);
+  };
+
   return (
     <>
       <Product
@@ -64,29 +67,20 @@ const FullPhoto = () => {
       ></Product>
       <div className={cn("section-mb80", styles.section)}>
         <div className={cn("container", styles.container)}>
-          {gallery.map(
-            (x, index) =>
-              index === 0 && (
-                <div className={styles.preview} key={index}>
-                  <img src={x} alt="Nature" />
+          <div className={styles.galleryGrid}>
+            {gallery.map((x, index) => (
+              <div
+                key={index}
+                className={cn(styles.preview, {
+                  [styles.previewLarge]: index === 0 || index === 3,
+                })}
+                onClick={() => handleOpen(index)}
+              >
+                <div className={styles.imageWrapper}>
+                  <img src={x} alt={`Gallery image ${index + 1}`} />
                 </div>
-              )
-          )}
-          <div className={styles.inner}>
-            <Masonry
-              className={styles.grid}
-              columnClassName={styles.column}
-              breakpointCols={breakpointCols}
-            >
-              {gallery.map(
-                (x, index) =>
-                  index > 0 && (
-                    <div className={styles.preview} key={index}>
-                      <img src={x} alt="Nature" />
-                    </div>
-                  )
-              )}
-            </Masonry>
+              </div>
+            ))}
           </div>
           <div className={styles.foot}>
             <Link
@@ -98,6 +92,13 @@ const FullPhoto = () => {
           </div>
         </div>
       </div>
+      <PhotoView
+        title="Spectacular views of Queenstown"
+        initialSlide={initialSlide}
+        visible={visible}
+        items={gallery}
+        onClose={() => setVisible(false)}
+      />
     </>
   );
 };
