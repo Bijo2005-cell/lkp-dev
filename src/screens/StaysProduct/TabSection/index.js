@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import cn from "classnames";
 import styles from "./TabSection.module.sass";
 import Icon from "../../../components/Icon";
@@ -55,10 +55,78 @@ const tabContent = {
   },
 };
 
-const TabSection = ({ classSection }) => {
+const TabSection = ({ classSection, listing }) => {
   const [activeTab, setActiveTab] = useState(tabs[0].id);
 
-  const currentContent = tabContent[activeTab];
+  const dynamicMeetingPoint = useMemo(() => {
+    const title = "Meeting Point";
+    // Per request: address should show meetingLocationName, instructions should show meetingAddress
+    const address = listing?.meetingLocationName || tabContent["meeting-point"].title;
+    const instructions = listing?.meetingAddress || tabContent["meeting-point"].address;
+    const pickupHeading = tabContent["meeting-point"].pickupHeading;
+    const pickupOptions = tabContent["meeting-point"].pickupOptions;
+    const lat = listing?.meetingLatitude;
+    const lng = listing?.meetingLongitude;
+    const query = lat && lng
+      ? `${lat},${lng}`
+      : encodeURIComponent(listing?.meetingAddress || "");
+    const mapUrl = query
+      ? `https://www.google.com/maps?q=${query}&z=14&output=embed`
+      : tabContent["meeting-point"].mapUrl;
+    return {
+      title,
+      isCard: true,
+      address,
+      instructions,
+      pickupHeading,
+      pickupOptions,
+      mapUrl,
+    };
+  }, [listing]);
+
+  const dynamicWhatToBring = useMemo(() => {
+    const base = tabContent["what-to-bring"];
+    const setting = Array.isArray(listing?.guestRequirements)
+      ? listing.guestRequirements.find(
+          (gr) => gr?.setting?.settingId === 4 && gr?.setting?.isActive
+        )
+      : null;
+    const items = setting && Array.isArray(setting.questions)
+      ? setting.questions
+          .filter((q) => q?.question?.isActive)
+          .map((q) => q.question.title)
+      : base.content;
+    return {
+      title: base.title,
+      content: items,
+    };
+  }, [listing]);
+
+  const dynamicRulesPolicies = useMemo(() => {
+    const base = tabContent["rules-policies"];
+    const setting = Array.isArray(listing?.guestRequirements)
+      ? listing.guestRequirements.find(
+          (gr) => gr?.setting?.settingId === 6 && gr?.setting?.isActive
+        )
+      : null;
+    const items = setting && Array.isArray(setting.questions)
+      ? setting.questions
+          .filter((q) => q?.question?.isActive)
+          .map((q) => q.question.title)
+      : base.content;
+    return {
+      title: base.title,
+      content: items,
+    };
+  }, [listing]);
+
+  const contentMap = {
+    "meeting-point": dynamicMeetingPoint,
+    "what-to-bring": dynamicWhatToBring,
+    "rules-policies": dynamicRulesPolicies,
+  };
+
+  const currentContent = contentMap[activeTab];
 
   return (
     <div className={cn(classSection, styles.section)}>

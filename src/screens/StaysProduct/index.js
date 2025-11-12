@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import cn from "classnames";
 import styles from "./StaysProduct.module.sass";
 import Product from "../../components/Product";
@@ -66,22 +67,100 @@ const socials = [
 ];
 
 const StaysProduct = () => {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const idParam = params.get("id");
+  const id = idParam ? idParam : "2"; // default to 2 as requested
+
+  const [listing, setListing] = useState(null);
+  const [galleryItems, setGalleryItems] = useState(gallery);
+  const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  let mounted = true;
+  const load = async () => {
+    try {
+      setLoading(true);
+      const { getListing } = await import("../../utils/api");
+      const data = await getListing(id);
+      if (!mounted) return;
+
+      setListing(data || null);
+
+      // ✅ Build gallery dynamically from API
+      const galleryImages = [];
+
+      // 1️⃣ Add cover photo (if exists)
+      if (data?.coverPhotoUrl) {
+        galleryImages.push(data.coverPhotoUrl);
+      }
+
+      // 2️⃣ Add listingMedia images
+      if (Array.isArray(data?.listingMedia)) {
+        data.listingMedia.forEach((media) => {
+          // Each media object has either 'url' or 'fileUrl'
+          const imageUrl =
+            media.url ||
+            (media.fileUrl?.startsWith("http")
+              ? media.fileUrl
+              : `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${media.fileUrl}`);
+          if (imageUrl) galleryImages.push(imageUrl);
+        });
+      }
+
+      // 3️⃣ Add keyActivities images (optional, if you want them too)
+      if (Array.isArray(data?.keyActivities)) {
+        data.keyActivities.forEach((activity) => {
+          if (Array.isArray(activity.images)) {
+            activity.images.forEach((img) => {
+              const imageUrl =
+                img.url ||
+                (img.imageUrl?.startsWith("http")
+                  ? img.imageUrl
+                  : `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${img.imageUrl}`);
+              if (imageUrl) galleryImages.push(imageUrl);
+            });
+          }
+        });
+      }
+
+      // ✅ Final fallback if no images
+      setGalleryItems(galleryImages.length ? galleryImages : gallery);
+    } catch (e) {
+      console.error("Failed to load listing", e);
+      setListing(null);
+      setGalleryItems(gallery);
+    } finally {
+      if (mounted) setLoading(false);
+    } 
+  };
+
+  load();
+  return () => {
+    mounted = false;
+  };
+}, [id]);
+
+
   return (
     <>
       <Product
         classSection="section-mb64"
-        title="Spectacular views of Queenstown"
+        title={listing?.title || "Spectacular views of Queenstown"}
         options={options}
-        gallery={gallery}
+        gallery={galleryItems}
         type="stays"
       />
-      <Description classSection="section" />
-      <Itinerary classSection="section" />
-      <TabSection classSection="section" />
+      <Description classSection="section" listing={listing} />
+      <Itinerary classSection="section" listing={listing} />
+      <TabSection classSection="section" listing={listing} />
       <CommentsProduct
         className={cn("section", styles.comment)}
         parametersUser={parametersUser}
-        info="Described by Queenstown House & Garden magazine as having 'one of the best views we've ever seen' you will love relaxing in this newly built"
+        info={
+          listing?.description ||
+          "Described by Queenstown House & Garden magazine as having 'one of the best views we've ever seen' you will love relaxing in this newly built"
+        }
         socials={socials}
         buttonText="Contact"
       />

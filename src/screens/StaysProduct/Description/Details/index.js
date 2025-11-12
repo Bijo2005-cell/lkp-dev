@@ -102,29 +102,105 @@ export const addOns = [
   },
 ];
 
-const Details = ({ className, selectedAddOns, onToggleAddOn }) => {
+const Details = ({ className, listing, selectedAddOns, onToggleAddOn }) => {
+  const displayAddOns = Array.isArray(listing?.addons) && listing.addons.length
+    ? listing.addons.map((a) => ({
+        id: a?.addon?.addonId ?? a?.addonId ?? a?.assignmentId,
+        title: a?.addon?.title || "Addon",
+        description: a?.addon?.briefDescription || "",
+        price: a?.addon?.price
+          ? `${a.addon.price} ${a.addon.currency || ""}`.trim()
+          : "",
+        isPopular: false,
+      }))
+    : addOns;
+
+  // Only show the 'What's Included' setting (settingId = 7)
+  const whatsIncludedSetting = Array.isArray(listing?.guestRequirements)
+    ? listing.guestRequirements.find((gr) => gr?.setting?.settingId === 7 && gr?.setting?.isActive)
+    : null;
+
+  const requirementItems = whatsIncludedSetting && Array.isArray(whatsIncludedSetting.questions)
+    ? whatsIncludedSetting.questions
+        .filter((q) => q?.question?.isActive)
+        .map((q) => ({ title: q.question.title, icon: "flag" }))
+    : [];
   return (
     <div className={cn(className, styles.details)}>
       <h4 className={cn("h4", styles.title)}>Private room in house</h4>
       <div className={styles.content}>
-        <p>
-          Described by Queenstown House & Garden magazine as having 'one of the
-          best views we've ever seen' you will love relaxing in this newly
-          built, architectural house sitting proudly on Queenstown Hill.
-        </p>
-        <p>
-          Enjoy breathtaking 180' views of Lake Wakatipu from your well
-          appointed & privately accessed bedroom with modern en suite and
-          floor-to-ceiling windows.
-        </p>
-        <p>
-          Your private patio takes in the afternoon sun, letting you soak up
-          unparalleled lake and mountain views by day and the stars & city
-          lights by night.
-        </p>
+        {listing?.description ? (
+          <>
+            <p>{listing.description}</p>
+            {listing.meetingInstructions && <p>{listing.meetingInstructions}</p>}
+          </>
+        ) : (
+          <>
+            <p>
+              Described by Queenstown House & Garden magazine as having 'one of the
+              best views we've ever seen' you will love relaxing in this newly
+              built, architectural house sitting proudly on Queenstown Hill.
+            </p>
+            <p>
+              Enjoy breathtaking 180' views of Lake Wakatipu from your well
+              appointed & privately accessed bedroom with modern en suite and
+              floor-to-ceiling windows.
+            </p>
+            <p>
+              Your private patio takes in the afternoon sun, letting you soak up
+              unparalleled lake and mountain views by day and the stars & city
+              lights by night.
+            </p>
+          </>
+        )}
       </div>
       <div className={styles.facts}>
-        {facts.map((x, index) => (
+        {(
+          (() => {
+            if (!listing) return facts;
+            const minP = typeof listing.minParticipants === "number" ? listing.minParticipants : undefined;
+
+            const computed = [
+              {
+                heading: "Duration",
+                value: [listing.duration, listing.durationUnit].filter(Boolean).join(" "),
+                icon: "stopwatch",
+              },
+              {
+                heading: "Difficulty Level",
+                value: listing.difficultyLevel,
+                icon: "lightning",
+              },
+              {
+                heading: "Minimum Age",
+                value: listing.minimumAge ? `${listing.minimumAge}+` : "",
+                icon: "user",
+              },
+              {
+                heading: "Group Size",
+                value: typeof minP === "number" ? `${minP}+` : "",
+                icon: "user",
+              },
+              {
+                heading: "Private Option",
+                value:
+                  typeof listing.privateOptionAvailable === "boolean"
+                    ? listing.privateOptionAvailable
+                      ? "Available"
+                      : "Not available"
+                    : "",
+                icon: "lock",
+              },
+              {
+                heading: "Languages",
+                value: Array.isArray(listing.languagesOffered) ? listing.languagesOffered.join(", ") : "",
+                icon: "flag",
+              },
+            ].filter((i) => i.value);
+
+            return computed.length ? computed : facts;
+          })()
+        ).map((x, index) => (
           <div className={styles.fact} key={index}>
             <div className={styles.factIcon}>
               <Icon name={x.icon} size="20" />
@@ -139,7 +215,7 @@ const Details = ({ className, selectedAddOns, onToggleAddOn }) => {
       <div className={styles.enhanceSection}>
         <h4 className={styles.enhanceTitle}>Enhance Your Experience</h4>
         <div className={styles.addOnsList}>
-          {addOns.map((addOn) => (
+          {displayAddOns.map((addOn) => (
             <div
               key={addOn.id}
               className={cn(styles.addOnCard, {
@@ -168,10 +244,10 @@ const Details = ({ className, selectedAddOns, onToggleAddOn }) => {
           ))}
         </div>
       </div>
-      <div className={styles.info}>What's Included</div>
+      <div className={styles.info}>{whatsIncludedSetting?.setting?.title || "What's Included"}</div>
       <div className={styles.optionsWrapper}>
         <div className={styles.options}>
-          {options.map((x, index) => (
+          {(requirementItems.length ? requirementItems : options).map((x, index) => (
             <div className={styles.option} key={index}>
               <Icon name={x.icon} size="24" />
               {x.title}

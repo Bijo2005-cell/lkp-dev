@@ -8,23 +8,27 @@ import Details, { addOns } from "./Details";
 import Receipt from "../../../components/Receipt";
 import DateTimeModal from "../../../components/DateTimeModal";
 
-const basePrice = 833;
-const discount = 125;
-const serviceFee = 103;
-
-const Description = ({ classSection }) => {
+const Description = ({ classSection, listing }) => {
   const history = useHistory();
   const [selectedAddOns, setSelectedAddOns] = useState([]);
   // default values
-  const defaultDate = new Date();
+  const defaultDate = listing?.timeSlots?.[0]?.startDate
+    ? new Date(listing.timeSlots[0].startDate)
+    : new Date();
   const formattedDefaultDate = defaultDate.toLocaleDateString("en-US", {
     month: "short",
     day: "2-digit",
     year: "numeric",
   });
-  const timeSlots = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
+  const timeSlotOptions = useMemo(
+    () => (Array.isArray(listing?.timeSlots) ? listing.timeSlots.map((t) => t?.slotName).filter(Boolean) : []),
+    [listing]
+  );
+  const fallbackTimeSlots = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
   const [selectedDate, setSelectedDate] = useState(moment(defaultDate));
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState(timeSlots[0]);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(
+    listing?.timeSlots?.[0]?.slotName || timeSlotOptions[0] || fallbackTimeSlots[0]
+  );
 
   const items = [
     {
@@ -59,50 +63,29 @@ const Description = ({ classSection }) => {
       const addOn = addOns.find((a) => a.id === id);
       return sum + (addOn?.priceValue || 0);
     }, 0);
-    
-    const total = basePrice - discount + serviceFee + addOnsPrice;
-    
-    const receiptData = [
-      {
-        title: "$119 x 7 nights",
-        content: `$${basePrice}`,
-      },
-      {
-        title: "10% campaign discount",
-        content: `-$${discount}`,
-      },
-    ];
+    const currency = listing?.currency || "INR";
 
+    const receiptData = [];
     if (addOnsPrice > 0) {
       receiptData.push({
         title: `Add-ons (${selectedAddOns.length})`,
-        content: `+$${addOnsPrice}`,
+        content: `+${currency} ${addOnsPrice}`,
       });
     }
 
-    receiptData.push(
-      {
-        title: "Service fee",
-        content: `$${serviceFee}`,
-      },
-      {
-        title: "Total",
-        content: `$${total}`,
-      }
-    );
-
     return {
       addOnsTotal: addOnsPrice,
-      finalTotal: total,
+      finalTotal: addOnsPrice,
       receipt: receiptData,
     };
-  }, [selectedAddOns]);
+  }, [selectedAddOns, listing]);
 
   const handleReserveClick = (e) => {
     e.preventDefault();
     const selectedAddOnsData = selectedAddOns
       .map((id) => addOns.find((a) => a.id === id))
       .filter(Boolean);
+
     
     history.push({
       pathname: "/stays-checkout",
@@ -124,6 +107,29 @@ const Description = ({ classSection }) => {
     setSelectedTimeSlot(timeText);
   };
 
+  // derive price display values
+  const currency = listing?.currency || "INR";
+  const firstSlot = listing?.timeSlots?.[0];
+  const hasPerPerson = firstSlot && firstSlot.pricePerPerson !== undefined && firstSlot.pricePerPerson !== null;
+  const hasB2B = firstSlot && firstSlot.b2bRate !== undefined && firstSlot.b2bRate !== null;
+  const unitPerPerson = hasPerPerson ? Number(firstSlot.pricePerPerson) : null;
+  const b2bRate = hasB2B ? Number(firstSlot.b2bRate) : null;
+  let priceOldValue = null;
+  let priceActualValue = null;
+  let priceUnit = undefined;
+  if (hasPerPerson) {
+    priceUnit = "person";
+    if (b2bRate !== null && !Number.isNaN(b2bRate) && unitPerPerson !== null && !Number.isNaN(unitPerPerson) && b2bRate < unitPerPerson) {
+      priceOldValue = `${currency} ${unitPerPerson}`;
+      priceActualValue = `${currency} ${b2bRate}`;
+    } else if (unitPerPerson !== null && !Number.isNaN(unitPerPerson)) {
+      priceActualValue = `${currency} ${unitPerPerson}`;
+    }
+  } else if (listing?.pricePerNight !== undefined && listing?.pricePerNight !== null) {
+    priceUnit = "night";
+    priceActualValue = `${currency} ${listing.pricePerNight}`;
+  }
+
   return (
     <>
       <div className={cn(classSection, styles.section)}>
@@ -131,15 +137,16 @@ const Description = ({ classSection }) => {
           <div className={styles.wrapper}>
             <Details 
               className={styles.details}
+              listing={listing}
               selectedAddOns={selectedAddOns}
               onToggleAddOn={handleToggleAddOn}
             />
             <Receipt
               className={styles.receipt}
               items={items}
-              priceOld="$119"
-              priceActual="$109"
-              time="night"
+              priceOld={priceOldValue}
+              priceActual={priceActualValue}
+              time={priceUnit}
               onItemClick={handleOpenDateTime}
             >
               <div className={styles.btns}>

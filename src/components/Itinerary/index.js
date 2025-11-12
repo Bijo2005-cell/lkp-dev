@@ -4,7 +4,7 @@ import styles from "./Itinerary.module.sass";
 import Icon from "../Icon";
 import Modal from "../Modal";
 
-const items = [
+const defaultItems = [
   {
     title: "Wine Tasting Tour",
     description: "Explore the finest vineyards in Queenstown with a guided tour of local wineries, sampling premium New Zealand wines and learning about the region's wine-making heritage.",
@@ -71,7 +71,7 @@ const items = [
   },
 ];
 
-const Itinerary = ({ classSection }) => {
+const Itinerary = ({ classSection, listing }) => {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [selectedActivityIndex, setSelectedActivityIndex] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -208,7 +208,7 @@ const Itinerary = ({ classSection }) => {
   };
 
   const handleNext = () => {
-    if (selectedActivityIndex !== null && selectedActivityIndex < items.length - 1 && !isTransitioning) {
+    if (selectedActivityIndex !== null && selectedActivityIndex < dataItems.length - 1 && !isTransitioning) {
       const direction = 'next';
       setTransitionDirection(direction);
       setIsTransitioning(true);
@@ -218,7 +218,7 @@ const Itinerary = ({ classSection }) => {
         requestAnimationFrame(() => {
           setTimeout(() => {
             const nextIndex = selectedActivityIndex + 1;
-            setSelectedActivity(items[nextIndex]);
+            setSelectedActivity(dataItems[nextIndex]);
             setSelectedActivityIndex(nextIndex);
             
             // Allow DOM to update, then slide in new content
@@ -248,7 +248,7 @@ const Itinerary = ({ classSection }) => {
         requestAnimationFrame(() => {
           setTimeout(() => {
             const prevIndex = selectedActivityIndex - 1;
-            setSelectedActivity(items[prevIndex]);
+            setSelectedActivity(dataItems[prevIndex]);
             setSelectedActivityIndex(prevIndex);
             
             // Allow DOM to update, then slide in new content
@@ -267,7 +267,29 @@ const Itinerary = ({ classSection }) => {
     }
   };
 
-  const canGoNext = selectedActivityIndex !== null && selectedActivityIndex < items.length - 1;
+  // Map listing keyActivities to items if provided
+  const dataItems = Array.isArray(listing?.keyActivities) && listing.keyActivities.length
+    ? listing.keyActivities.map((act) => ({
+        title: act.name || "Activity",
+        description: act.description || act.pilot || "",
+        fullDescription: act.description || act.pilot || "",
+        image: (() => {
+          const firstImg = Array.isArray(act.images) && act.images.length ? act.images[0] : null;
+          if (!firstImg) return "/images/content/photo-1.1.jpg";
+          if (firstImg.url) return firstImg.url;
+          if (firstImg.imageUrl) {
+            return firstImg.imageUrl.startsWith("http")
+              ? firstImg.imageUrl
+              : `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${firstImg.imageUrl}`;
+          }
+          return "/images/content/photo-1.1.jpg";
+        })(),
+        duration: "",
+        highlights: [],
+      }))
+    : defaultItems;
+
+  const canGoNext = selectedActivityIndex !== null && selectedActivityIndex < dataItems.length - 1;
   const canGoPrevious = selectedActivityIndex !== null && selectedActivityIndex > 0;
 
   return (
@@ -286,7 +308,7 @@ const Itinerary = ({ classSection }) => {
               className={styles.scrollWrapper}
               ref={scrollContainerRef}
             >
-              {items.map((x, index) => (
+              {dataItems.map((x, index) => (
                 <div
                   key={index}
                   className={styles.item}
