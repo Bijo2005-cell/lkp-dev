@@ -319,11 +319,6 @@ const Itinerary = ({ classSection, listing }) => {
                   </div>
                   <div className={styles.body}>
                     <div className={styles.subtitle}>{x.title}</div>
-                    <div className={styles.description}>
-                      <span className={styles.descriptionText}>
-                        {x.description}
-                      </span>
-                    </div>
                   </div>
                 </div>
               ))}

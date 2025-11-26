@@ -25,12 +25,10 @@
     position: sticky
     top: 24px
     align-self: flex-start
-    max-height: calc(100vh - 48px)
     overflow: visible
     +t
         position: relative
         top: 0
-        max-height: none
     +m
         margin: 0 -16px
         position: sticky
@@ -50,6 +48,10 @@
     .button
         &:first-child
             flex-shrink: 0
+        &:disabled
+            opacity: 0.6
+            cursor: not-allowed
+            pointer-events: none
             margin-right: 8px
             +m
                 margin-right: 0
@@ -69,9 +71,10 @@
 .line
     display: flex
     padding: 8px 12px
-    overflow: visible
+    overflow: hidden
     width: 100%
     box-sizing: border-box
+    min-width: 0
     &:last-child
         background: $n7
         border-radius: 8px
@@ -84,18 +87,24 @@
                     color: $n8
 
 .cell
-    overflow: visible
+    overflow: hidden
     &:first-child
         margin-right: auto
         color: $n4
         min-width: 0
         flex: 1
+        overflow: hidden
+        text-overflow: ellipsis
+        white-space: nowrap
+        word-break: break-word
     &:nth-child(2)
         flex-shrink: 0
         margin-left: 20px
         text-align: right
         font-weight: 500
         white-space: nowrap
+        overflow: hidden
+        text-overflow: ellipsis
 
 .foot
     text-align: center

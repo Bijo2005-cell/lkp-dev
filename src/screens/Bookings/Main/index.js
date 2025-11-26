@@ -1,119 +1,741 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import cn from "classnames";
 import styles from "./Main.module.sass";
-import Control from "../../../components/Control";
-import Dropdown from "../../../components/Dropdown";
-import Flight from "../../../components/Flight";
-import Card from "../../../components/Card";
-import Loader from "../../../components/Loader";
+import Icon from "../../../components/Icon";
+import Modal from "../../../components/Modal";
+import { emptyStateCopy } from "../../../mocks/bookings";
+import { cancelOrder, getListing, getCompletedOrders } from "../../../utils/api";
 
-import { wishlists } from "../../../mocks/wishlists";
+// Helper function to format image URLs
+const formatImageUrl = (url) => {
+  if (!url) return "/images/content/card-pic-13.jpg";
+  
+  // If already a full URL, return as is
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  
+  // If it's an Azure blob storage path, prepend the base URL
+  if (url.includes("/") && !url.startsWith("/")) {
+    return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+  }
+  
+  // If it's a relative path, return as is
+  if (url.startsWith("/")) {
+    return url;
+  }
+  
+  // Default fallback
+  return "/images/content/card-pic-13.jpg";
+};
 
-const breadcrumbs = [
-  {
-    title: "Home",
-    url: "/",
-  },
-  {
-    title: "Bookings",
-  },
+// Helper function to transform multiple bookings with listing data
+// Optimized to cache listing data and avoid duplicate API calls
+const transformMultipleBookings = async (bookingsArray) => {
+  if (!Array.isArray(bookingsArray) || bookingsArray.length === 0) {
+    return [];
+  }
+
+  // Step 1: Collect unique listingIds
+  const uniqueListingIds = [...new Set(
+    bookingsArray
+      .map(booking => booking.listingId)
+      .filter(id => id != null && id !== undefined)
+  )];
+
+  // Step 2: Fetch all unique listings in parallel (cached)
+  const listingCache = new Map();
+  
+  if (uniqueListingIds.length > 0) {
+    const listingPromises = uniqueListingIds.map(async (listingId) => {
+      try {
+        const listingData = await getListing(listingId);
+        listingCache.set(listingId, listingData);
+        console.log(`✅ Fetched listing ${listingId} (cached for reuse)`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch listing ${listingId}:`, error.message);
+        listingCache.set(listingId, null); // Cache null to avoid retrying
+      }
+    });
+    
+    await Promise.all(listingPromises);
+  }
+
+  // Step 3: Transform bookings using cached listing data
+  return bookingsArray.map((apiBooking) => {
+    const listingData = apiBooking.listingId ? listingCache.get(apiBooking.listingId) : null;
+    return transformBookingData(apiBooking, listingData);
+  });
+};
+
+// Transform API booking data to component format
+const transformBookingData = (apiBooking, listingData = null) => {
+  // Format date from "2025-11-19" to "Fri, 21 Nov 2025" format
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
+  // Determine status mapping
+  const statusMap = {
+    PENDING: "Upcoming",
+    CONFIRMED: "Upcoming",
+    COMPLETED: "Completed",
+    CANCELLED: "Cancelled",
+  };
+
+  const status = statusMap[apiBooking.orderStatus] || "Upcoming";
+
+  // Get title - prefer listing data, then booking data
+  const title = listingData?.title || 
+                apiBooking?.listingTitle || 
+                apiBooking?.listing?.title || 
+                apiBooking?.title || 
+                "Booking";
+  
+  // Get category - prefer listing data, then booking data
+  const category = listingData?.category || 
+                   listingData?.categoryName ||
+                   apiBooking?.listingCategory || 
+                   apiBooking?.listing?.category || 
+                   apiBooking?.category || 
+                   apiBooking?.categoryName || 
+                   "Experience";
+  
+  // Extract location - prefer listing data, then booking data
+  let location = "Location TBD";
+  
+  // Priority 1: Check listing data first (most accurate)
+  if (listingData) {
+    if (listingData.meetingAddress) {
+      location = listingData.meetingAddress;
+    } else if (listingData.meetingLocationName) {
+      location = listingData.meetingLocationName;
+    } else if (listingData.location) {
+      location = listingData.location;
+    } else if (listingData.city && listingData.state) {
+      location = `${listingData.city}, ${listingData.state}`;
+    } else if (listingData.city) {
+      location = listingData.city;
+    } else if (listingData.address) {
+      location = listingData.address;
+    }
+  }
+  
+  // Priority 2: Check booking data if listing data not available
+  if (location === "Location TBD") {
+    if (apiBooking?.meetingAddress) {
+      location = apiBooking.meetingAddress;
+    } else if (apiBooking?.meetingLocationName) {
+      location = apiBooking.meetingLocationName;
+    } else if (apiBooking?.location) {
+      location = apiBooking.location;
+    } else if (apiBooking?.city && apiBooking?.state) {
+      location = `${apiBooking.city}, ${apiBooking.state}`;
+    } else if (apiBooking?.city) {
+      location = apiBooking.city;
+    } else if (apiBooking?.address) {
+      location = apiBooking.address;
+    } else if (apiBooking?.listing?.meetingAddress) {
+      location = apiBooking.listing.meetingAddress;
+    } else if (apiBooking?.listing?.location) {
+      location = apiBooking.listing.location;
+    } else if (apiBooking?.listing?.city && apiBooking?.listing?.state) {
+      location = `${apiBooking.listing.city}, ${apiBooking.listing.state}`;
+    }
+  }
+  
+  // Get cover photo - prefer listing data, then booking data
+  let coverPhotoUrl = null;
+  
+  if (listingData?.coverPhotoUrl) {
+    coverPhotoUrl = listingData.coverPhotoUrl;
+  } else if (apiBooking?.listingCoverPhoto) {
+    coverPhotoUrl = apiBooking.listingCoverPhoto;
+  } else if (apiBooking?.listing?.coverPhotoUrl) {
+    coverPhotoUrl = apiBooking.listing.coverPhotoUrl;
+  } else if (apiBooking?.coverPhotoUrl) {
+    coverPhotoUrl = apiBooking.coverPhotoUrl;
+  }
+  
+  // Format the image URL to ensure it's a valid full URL
+  coverPhotoUrl = formatImageUrl(coverPhotoUrl);
+
+  // Determine type - prefer listing data, then booking data
+  const type = listingData?.businessInterest === "EXPERIENCE" ||
+               apiBooking?.businessInterest === "EXPERIENCE" || 
+               apiBooking?.listing?.businessInterest === "EXPERIENCE" 
+               ? "EXPERIENCE" 
+               : "SERVICE";
+
+  return {
+    id: `bk-${apiBooking.orderId}`,
+    orderId: apiBooking.orderId,
+    title: title,
+    type: type,
+    category: category,
+    location: location,
+    startDate: formatDate(apiBooking.bookingDate),
+    endDate: formatDate(apiBooking.bookingDate), // You may want to calculate end date based on bookingSlotId
+    status: status,
+    statusTone: status.toLowerCase(),
+    thumbnail: {
+      src: coverPhotoUrl,
+      srcSet: coverPhotoUrl,
+      alt: title,
+    },
+    // Include original booking data for details
+    bookingData: apiBooking,
+  };
+};
+
+const tabs = [
+  { id: "upcoming", label: "Upcoming" },
+  { id: "completed", label: "Completed" },
+  { id: "cancelled", label: "Cancelled" },
 ];
 
-const sortingOptions = ["Upcoming", "Future", "Past"];
+const actionsByStatus = {
+  Upcoming: [
+    { label: "View Details", variant: "primary" },
+    { label: "Cancel Booking", variant: "secondary" },
+    { label: "Message Host", variant: "secondary" },
+  ],
+  Completed: [
+    { label: "View Details", variant: "primary" },
+  ],
+  Cancelled: [
+    { label: "View Details", variant: "primary" },
+  ],
+};
 
-const Main = () => {
-  const options = [];
-  wishlists.map((x) => options.push(x.title));
+const Main = ({ 
+  bookingData: propBookingData = null, 
+  completedOrders: propCompletedOrders = null,
+  completedCount = 0,
+  setCompletedOrders = null
+}) => {
+  const [activeTab, setActiveTab] = useState(tabs[0].id);
+  const [displayedTab, setDisplayedTab] = useState(tabs[0].id);
+  const [transitionPhase, setTransitionPhase] = useState("idle");
+  const [pendingTab, setPendingTab] = useState(null);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [bookingToCancel, setBookingToCancel] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [adminOverride, setAdminOverride] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState(null);
+  const [transformedBookings, setTransformedBookings] = useState([]);
+  const [transformedCompletedBookings, setTransformedCompletedBookings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingCompleted, setLoadingCompleted] = useState(false);
+  const [initialTabSet, setInitialTabSet] = useState(false); // Track if initial tab has been set
 
-  const [activeTab, setActiveTab] = useState(options[0]);
-  const [sorting, setSorting] = useState(sortingOptions[0]);
+  // Transform booking data when propBookingData is provided
+  useEffect(() => {
+    const transformBookings = async () => {
+      setLoading(true);
+      try {
+        let regularTransformed = [];
+        let completedTransformed = [];
+        
+        // Handle regular bookings (upcoming, pending, cancelled - excluding completed)
+        if (propBookingData !== null && propBookingData !== undefined) {
+          const bookingsArray = Array.isArray(propBookingData) 
+            ? propBookingData 
+            : [propBookingData];
+          
+          // Filter out COMPLETED status orders from regular bookings
+          const filteredBookings = bookingsArray.filter(
+            booking => booking && booking.orderStatus !== "COMPLETED"
+          );
+          
+          if (filteredBookings.length > 0) {
+            regularTransformed = await transformMultipleBookings(filteredBookings);
+            setTransformedBookings(regularTransformed);
+          } else {
+            setTransformedBookings([]);
+          }
+        } else {
+          setTransformedBookings([]);
+        }
+
+        // Handle completed/expired orders separately
+        if (propCompletedOrders !== null && propCompletedOrders !== undefined) {
+          const completedArray = Array.isArray(propCompletedOrders) 
+            ? propCompletedOrders 
+            : [propCompletedOrders];
+          
+          // Filter to ensure we only have valid orders
+          const validCompletedOrders = completedArray.filter(order => order);
+          
+          if (validCompletedOrders.length > 0) {
+            completedTransformed = await transformMultipleBookings(validCompletedOrders);
+            setTransformedCompletedBookings(completedTransformed);
+          } else {
+            setTransformedCompletedBookings([]);
+          }
+        } else {
+          setTransformedCompletedBookings([]);
+        }
+
+        // Set the correct tab based on first booking status (or most common status)
+        // Only set default tab on initial load - never override user's manual selection
+        if (!initialTabSet && (regularTransformed.length > 0 || completedTransformed.length > 0)) {
+          const statusCounts = {
+            upcoming: regularTransformed.filter(b => b.statusTone === "upcoming").length,
+            completed: completedTransformed.length,
+            cancelled: regularTransformed.filter(b => b.statusTone === "cancelled").length,
+          };
+          
+          // Set tab to the one with most bookings, defaulting to upcoming
+          const defaultTab = Object.keys(statusCounts).reduce((a, b) => 
+            statusCounts[a] > statusCounts[b] ? a : b, "upcoming"
+          );
+          
+          setActiveTab(defaultTab);
+          setDisplayedTab(defaultTab);
+          setInitialTabSet(true); // Mark that initial tab has been set - prevent future auto-switching
+        }
+      } catch (error) {
+        console.error("Error transforming booking data:", error);
+        // Fallback: transform with empty arrays on error
+        setTransformedBookings([]);
+        setTransformedCompletedBookings([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    transformBookings();
+  }, [propBookingData, propCompletedOrders]);
+
+  const countsByTab = useMemo(() => {
+    // Count upcoming and cancelled from regular bookings
+    const categorized = transformedBookings.reduce((acc, booking) => {
+      const tabId = booking.statusTone === "upcoming" ? "upcoming" 
+                 : "cancelled";
+      acc[tabId] = (acc[tabId] || 0) + 1;
+      return acc;
+    }, {});
+    
+    // Use completedCount from API initially, but update to actual loaded orders count once fetched
+    if (transformedCompletedBookings.length > 0) {
+      categorized.completed = transformedCompletedBookings.length;
+    } else {
+      categorized.completed = completedCount || 0;
+    }
+    
+    return tabs.reduce((acc, tab) => {
+      acc[tab.id] = categorized[tab.id] || 0;
+      return acc;
+    }, {});
+  }, [transformedBookings, transformedCompletedBookings, completedCount]);
+
+  const bookingsForTab = useMemo(() => {
+    // For completed tab, use completed/expired bookings
+    if (displayedTab === "completed") {
+      return transformedCompletedBookings;
+    }
+    
+    // For upcoming and cancelled tabs, use regular bookings
+    return transformedBookings.filter((booking) => {
+      const tabId = booking.statusTone === "upcoming" ? "upcoming" 
+                 : "cancelled";
+      return tabId === displayedTab;
+    });
+  }, [transformedBookings, transformedCompletedBookings, displayedTab]);
+
+  const emptyState = emptyStateCopy[displayedTab] || emptyStateCopy.upcoming;
+
+  useEffect(() => {
+    if (transitionPhase === "fadingOut") {
+      const timeout = setTimeout(() => {
+        if (pendingTab) {
+          setDisplayedTab(pendingTab);
+        }
+        setTransitionPhase("fadingIn");
+      }, 180);
+
+      return () => clearTimeout(timeout);
+    }
+
+    if (transitionPhase === "fadingIn") {
+      const timeout = setTimeout(() => {
+        setTransitionPhase("idle");
+        setPendingTab(null);
+      }, 220);
+
+      return () => clearTimeout(timeout);
+    }
+
+    return undefined;
+  }, [pendingTab, transitionPhase]);
+
+  const handleTabChange = async (nextTab) => {
+    if (nextTab === activeTab || transitionPhase === "fadingOut") {
+      return;
+    }
+
+    // Immediately mark that user has manually selected a tab to prevent auto-switching
+    // This prevents the useEffect from resetting the tab when propCompletedOrders changes
+    setInitialTabSet(true);
+    
+    // Set the tab immediately so user sees the change
+    setActiveTab(nextTab);
+    setPendingTab(nextTab);
+    setTransitionPhase("fadingOut");
+
+    // If clicking on completed tab and we haven't loaded completed orders yet, fetch them
+    if (nextTab === "completed" && transformedCompletedBookings.length === 0 && !loadingCompleted) {
+      setLoadingCompleted(true);
+      try {
+        const completedOrdersData = await getCompletedOrders(1, 20);
+        console.log("✅ Fetched completed orders:", completedOrdersData);
+        
+        if (Array.isArray(completedOrdersData) && completedOrdersData.length > 0) {
+          // Transform the completed orders directly without updating parent state
+          // This prevents triggering the useEffect which might reset the tab
+          const transformed = await transformMultipleBookings(completedOrdersData);
+          setTransformedCompletedBookings(transformed);
+          
+          // Don't update parent state here to avoid triggering useEffect
+          // The parent state is only for initial load, not for dynamic fetching
+        }
+      } catch (error) {
+        console.error("❌ Error fetching completed orders:", error);
+      } finally {
+        setLoadingCompleted(false);
+      }
+    }
+  };
+
+  const getButtonClassName = (variant) => {
+    switch (variant) {
+      case "secondary":
+        return cn("button-stroke", "button-small", styles.actionButton);
+      case "ghost":
+        return cn("button-stroke", "button-small", styles.ghostButton, styles.actionButton);
+      default:
+        return cn("button", "button-small", styles.actionButton);
+    }
+  };
+
+  const handleCancelBookingClick = (booking) => {
+    setBookingToCancel(booking);
+    setCancelReason("");
+    setAdminOverride(false);
+    setCancelError(null);
+    setCancelModalVisible(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!bookingToCancel || !cancelReason.trim()) {
+      setCancelError("Please enter a reason for cancellation");
+      return;
+    }
+
+    setIsCancelling(true);
+    setCancelError(null);
+
+    try {
+      // Call the cancel API - adminOverride is always false by default
+      await cancelOrder(bookingToCancel.orderId, {
+        reason: cancelReason.trim(),
+        adminOverride: false, // Always false by default
+      });
+
+      // Update the booking status in the transformed bookings
+      setTransformedBookings((prevBookings) => {
+        return prevBookings.map((booking) => {
+          if (booking.orderId === bookingToCancel.orderId) {
+            // Update the booking to cancelled status
+            const updatedBooking = {
+              ...booking,
+              status: "Cancelled",
+              statusTone: "cancelled",
+              bookingData: {
+                ...booking.bookingData,
+                orderStatus: "CANCELLED",
+              },
+            };
+            return updatedBooking;
+          }
+          return booking;
+        });
+      });
+
+      // Switch to cancelled tab if not already there
+      if (activeTab !== "cancelled") {
+        setActiveTab("cancelled");
+        setPendingTab("cancelled");
+        setTransitionPhase("fadingOut");
+      }
+
+      // Close modal and reset state
+      setCancelModalVisible(false);
+      setBookingToCancel(null);
+      setCancelReason("");
+      setAdminOverride(false);
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      setCancelError(
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to cancel booking. Please try again."
+      );
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleCloseCancelModal = () => {
+    setCancelModalVisible(false);
+    setBookingToCancel(null);
+    setCancelReason("");
+    setAdminOverride(false);
+    setCancelError(null);
+  };
+
+  // Show loading state while fetching/transforming data
+  // Show loading if: (1) currently loading, OR (2) no data provided yet (null)
+  if ((loading && transformedBookings.length === 0) || (propBookingData === null && transformedBookings.length === 0)) {
+    return (
+      <div className={cn("section", styles.section)}>
+        <div className={cn("container", styles.container)}>
+          <header className={styles.head}>
+            <div className={styles.heading}>
+              <h1 className={cn("h2", styles.title)}>My bookings</h1>
+            </div>
+          </header>
+          <div style={{ padding: "3rem", textAlign: "center" }}>
+            <p>Loading your bookings...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("section", styles.section)}>
       <div className={cn("container", styles.container)}>
-        <Control
-          className={styles.control}
-          urlHome="/"
-          breadcrumbs={breadcrumbs}
-        />
-        <div className={styles.head}>
-          <h1 className={cn("h2", styles.title)}>Bookings</h1>
-          <div className={styles.counter}>You added 8 items to bookings</div>
-          <div className={styles.line}>
-            <div className={styles.nav}>
-              {wishlists.map((x, index) => (
-                <button
-                  className={cn(styles.link, {
-                    [styles.active]: x.title === activeTab,
-                  })}
-                  onClick={() => setActiveTab(x.title)}
-                  key={index}
-                >
-                  {x.title}
-                </button>
-              ))}
-            </div>
-            <Dropdown
-              className={cn("mobile-show", styles.dropdown)}
-              value={activeTab}
-              setValue={setActiveTab}
-              options={options}
-            />
-            <Dropdown
-              className={styles.dropdown}
-              value={sorting}
-              setValue={setSorting}
-              options={sortingOptions}
-            />
+        <header className={styles.head}>
+          <div className={styles.heading}>
+            <h1 className={cn("h2", styles.title)}>My bookings</h1>
+          </div>
+        </header>
+        <div className={styles.tabsWrapper}>
+          <div className={styles.tabs}>
+            {tabs.map((tab) => (
+              <button
+                type="button"
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(styles.tab, {
+                  [styles.tabActive]: tab.id === activeTab,
+                })}
+              >
+                <span>{tab.label}</span>
+                <span className={styles.count}>{countsByTab[tab.id]}</span>
+              </button>
+            ))}
           </div>
         </div>
-        <div className={styles.wrapper}>
-          {activeTab === options[0] && (
-            <>
-              <div className={styles.list}>
-                {wishlists
-                  .find((x) => x.title === activeTab)
-                  .items.map((x, index) => (
-                    <Card className={styles.card} item={x} key={index} />
-                  ))}
+        <div
+          className={cn(styles.panel, {
+            [styles.fadeOut]: transitionPhase === "fadingOut",
+            [styles.fadeIn]: transitionPhase === "fadingIn",
+          })}
+        >
+          {loadingCompleted && displayedTab === "completed" ? (
+            <div style={{ padding: "3rem", textAlign: "center" }}>
+              <p>Loading completed orders...</p>
+            </div>
+          ) : bookingsForTab.length > 0 ? (
+            <div className={styles.list}>
+              {bookingsForTab.map((booking) => (
+                <article className={styles.card} key={booking.id}>
+                  <div className={styles.media}>
+                    <img
+                      src={booking.thumbnail.src}
+                      srcSet={`${booking.thumbnail.srcSet} 2x`}
+                      alt={booking.thumbnail.alt}
+                    />
+                  </div>
+                  <div className={styles.body}>
+                    <div className={styles.bodyTop}>
+                      <div className={styles.meta}>
+                        <div className={styles.typeRow}>
+                          <span className={styles.type}>{booking.type}</span>
+                          <span className={styles.dot} aria-hidden="true">
+                            •
+                          </span>
+                          <span className={styles.category}>
+                            {booking.category}
+                          </span>
+                        </div>
+                        <h2 className={styles.cardTitle}>{booking.title}</h2>
+                        <div className={styles.locationRow}>
+                          <Icon name="marker" size="16" />
+                          <span>{booking.location}</span>
+                        </div>
+                        <div className={styles.dateRow}>
+                          <Icon name="calendar" size="16" />
+                          <span>
+                            {booking.startDate}
+                            {booking.endDate &&
+                              booking.endDate !== booking.startDate && (
+                                <>
+                                  <span aria-hidden="true"> · </span>
+                                  {booking.endDate}
+                                </>
+                              )}
+                          </span>
+                        </div>
+                      </div>
+                      <div className={styles.actions}>
+                        {(actionsByStatus[booking.status] || []).map((action) => {
+                          if (action.label === "View Details") {
+                            return (
+                              <Link
+                                key={`${booking.id}-${action.label}`}
+                                to={`/viewdetails?id=${booking.id}`}
+                                className={getButtonClassName(action.variant)}
+                              >
+                                {action.label}
+                              </Link>
+                            );
+                          }
+                          if (action.label === "Cancel Booking") {
+                            return (
+                              <button
+                                type="button"
+                                key={`${booking.id}-${action.label}`}
+                                className={getButtonClassName(action.variant)}
+                                onClick={() => handleCancelBookingClick(booking)}
+                              >
+                                {action.label}
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              key={`${booking.id}-${action.label}`}
+                              className={getButtonClassName(action.variant)}
+                            >
+                              {action.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIllustration}>
+                <img
+                  src={emptyState.illustration}
+                  srcSet={`${emptyState.illustrationSet} 2x`}
+                  alt={emptyState.illustrationAlt}
+                />
               </div>
-              <div className={styles.btns}>
-                <button className={cn("button-stroke", styles.button)}>
-                  <Loader className={styles.loader} />
-                  <span>Show more</span>
+              <div className={styles.emptyContent}>
+                <h2 className={styles.emptyTitle}>
+                  {emptyState.title}
+                </h2>
+                <p className={styles.emptyDescription}>
+                  {emptyState.description}
+                </p>
+                <button type="button" className="button">
+                  Explore experiences
                 </button>
               </div>
-            </>
-          )}
-          {activeTab === options[1] && (
-            <div className={styles.group}>
-              {wishlists
-                .find((x) => x.title === activeTab)
-                .items.map((x, index) => (
-                  <Flight className={styles.flight} item={x} key={index} />
-                ))}
-            </div>
-          )}
-          {activeTab === options[2] && (
-            <div className={styles.list}>
-              {wishlists
-                .find((x) => x.title === activeTab)
-                .items.map((x, index) => (
-                  <Card className={styles.card} item={x} key={index} car />
-                ))}
-            </div>
-          )}
-          {activeTab === options[3] && (
-            <div className={styles.list}>
-              {wishlists
-                .find((x) => x.title === activeTab)
-                .items.map((x, index) => (
-                  <Card className={styles.card} item={x} key={index} />
-                ))}
             </div>
           )}
         </div>
       </div>
+
+      <Modal 
+        visible={cancelModalVisible} 
+        onClose={handleCloseCancelModal}
+        outerClassName={styles.cancelModalOuter}
+      >
+        <div className={styles.cancelModalContent}>
+          <div className={styles.cancelModalHeader}>
+            <h2 className={styles.cancelModalTitle}>
+              Cancel Booking
+            </h2>
+            <p className={styles.cancelModalDescription}>
+              Please provide a reason for cancelling this booking.
+            </p>
+          </div>
+          <div className={styles.cancelModalBody}>
+            <div className={styles.cancelModalFormGroup}>
+              <label htmlFor="cancelReason" className={styles.cancelModalLabel}>
+                Reason for Cancellation <span className={styles.required}>*</span>
+              </label>
+              <textarea
+                id="cancelReason"
+                className={cn(styles.cancelModalInput, styles.cancelModalTextarea, {
+                  [styles.inputError]: cancelError && !cancelReason.trim(),
+                })}
+                value={cancelReason}
+                onChange={(e) => {
+                  setCancelReason(e.target.value);
+                  setCancelError(null);
+                }}
+                placeholder="Enter the reason for cancellation..."
+                rows={4}
+                disabled={isCancelling}
+              />
+            </div>
+            {cancelError && (
+              <div className={styles.cancelModalError}>
+                {cancelError}
+              </div>
+            )}
+          </div>
+          <div className={styles.cancelModalFooter}>
+            <button
+              type="button"
+              className={cn("button-stroke", styles.cancelModalBtn)}
+              onClick={handleCloseCancelModal}
+              disabled={isCancelling}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={cn("button", styles.cancelModalBtn)}
+              onClick={handleConfirmCancel}
+              disabled={isCancelling || !cancelReason.trim()}
+            >
+              {isCancelling ? "Cancelling..." : "Submit"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

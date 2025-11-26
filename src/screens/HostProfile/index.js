@@ -1,18 +1,18 @@
 import React from "react";
+import { useLocation } from "react-router-dom";
 import styles from "./HostProfile.module.sass";
 import Main from "./Main";
-import Best from "../../components/Best";
 import Testimonials from "../../components/Testimonials";
 
 const HostProfile = () => {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const hostIdParam = params.get("id");
+  const hostId = hostIdParam || null;
+
   return (
     <>
-      <Main />
-      <Best
-        classSection="section-mb0"
-        title="Fleet’s super hosts"
-        info="You may also like"
-      />
+      <Main hostId={hostId} />
       <Testimonials classSection="section-pd section-mb0" />
     </>
   );

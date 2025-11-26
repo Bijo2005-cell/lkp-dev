@@ -1,11 +1,64 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import cn from "classnames";
 import styles from "./List.module.sass";
 import Card from "../../../../components/Card";
 import Icon from "../../../../components/Icon";
 import Slider from "react-slick";
 
-const locations = [
+// Helper to format image URL from API
+const formatImageUrl = (url) => {
+  if (!url) return "/images/content/card-pic-13.jpg";
+
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  if (url.includes("/") && !url.startsWith("/")) {
+    return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+  }
+
+  if (url.startsWith("/")) {
+    return url;
+  }
+
+  return "/images/content/card-pic-13.jpg";
+};
+
+// Transform API listing to Card component format
+const transformListingToCard = (listing) => {
+  const coverPhotoUrl = formatImageUrl(listing.coverPhotoUrl);
+  const location = [listing.location, listing.state, listing.country]
+    .filter(Boolean)
+    .join(", ") || "";
+
+  const price = listing.individualPrice || 0;
+  const hasPrice = price > 0;
+  const priceDisplay = hasPrice ? `₹${price.toLocaleString("en-IN")}` : null;
+
+  return {
+    id: `listing-${listing.listingId}`,
+    listingId: listing.listingId,
+    title: listing.title || "Listing",
+    src: coverPhotoUrl,
+    srcSet: coverPhotoUrl,
+    url: `/stays-product?id=${listing.listingId}`,
+    location: location,
+    priceActual: priceDisplay, // Only show price if individualPrice exists
+    hasPrice: hasPrice,
+    rating: listing.averageRating || 0,
+    reviews: listing.totalReviews || 0,
+    briefDescription: listing.description || listing.briefDescription,
+    // Card component expects these optional fields
+    priceOld: null,
+    cost: priceDisplay, // Only show price if individualPrice exists
+    options: [],
+    categoryText: null,
+    comment: null,
+    avatar: null,
+  };
+};
+
+const defaultLocations = [
   {
     title: "Stays",
     list: [
@@ -176,8 +229,29 @@ const SlickArrow = ({ currentSlide, slideCount, children, ...props }) => (
   <button {...props}>{children}</button>
 );
 
-const List = ({ className }) => {
+const List = ({ className, listings = [], hostName = "Host" }) => {
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // Transform listings to card format
+  const transformedListings = useMemo(() => {
+    if (!Array.isArray(listings) || listings.length === 0) {
+      return [];
+    }
+    return listings.map(transformListingToCard);
+  }, [listings]);
+
+  // Build locations array from listings
+  const locations = useMemo(() => {
+    if (transformedListings.length > 0) {
+      return [
+        {
+          title: "Listings",
+          list: transformedListings,
+        },
+      ];
+    }
+    return defaultLocations;
+  }, [transformedListings]);
 
   const settings = {
     infinite: false,
@@ -196,28 +270,44 @@ const List = ({ className }) => {
     ),
   };
 
+  // Don't show if no listings
+  if (!transformedListings.length && listings.length === 0) {
+    return (
+      <div className={cn(className, styles.list)}>
+        <div className={styles.title}>{hostName}'s listings</div>
+        <div className={styles.content}>No listings available</div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(className, styles.list)}>
-      <div className={styles.title}>Zoe Towne’s listing</div>
-      <div className={styles.nav}>
-        {locations.map((x, index) => (
-          <button
-            className={cn(styles.link, {
-              [styles.active]: index === activeIndex,
-            })}
-            onClick={() => setActiveIndex(index)}
-            key={index}
-          >
-            {x.title}
-          </button>
-        ))}
-      </div>
-      <div className={styles.wrapper}>
-        <Slider className="profile-slider" {...settings}>
-          {locations[activeIndex].list.map((x, index) => (
-            <Card className={styles.card} item={x} key={index} />
+      <div className={styles.title}>{hostName}'s listings</div>
+      {locations.length > 1 && (
+        <div className={styles.nav}>
+          {locations.map((x, index) => (
+            <button
+              className={cn(styles.link, {
+                [styles.active]: index === activeIndex,
+              })}
+              onClick={() => setActiveIndex(index)}
+              key={index}
+            >
+              {x.title}
+            </button>
           ))}
-        </Slider>
+        </div>
+      )}
+      <div className={styles.wrapper}>
+        {transformedListings.length > 0 ? (
+          <Slider className="profile-slider" {...settings}>
+            {transformedListings.map((x, index) => (
+              <Card className={styles.card} item={x} key={x.id || index} />
+            ))}
+          </Slider>
+        ) : (
+          <div>No listings to display</div>
+        )}
       </div>
     </div>
   );

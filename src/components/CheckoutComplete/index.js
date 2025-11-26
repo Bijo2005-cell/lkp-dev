@@ -4,17 +4,28 @@ import { Link } from "react-router-dom";
 import styles from "./CheckoutComplete.module.sass";
 import Icon from "../Icon";
 
-const CheckoutComplete = ({ className, title, parameters, options, items }) => {
+const CheckoutComplete = ({ className, title, parameters, options, items, paymentFailed = false, onRetryPayment }) => {
   return (
     <div className={cn(className, styles.complete)}>
       <div className={styles.head}>
-        <div className={cn("h2", styles.title)}>Congratulation!</div>
-        <div className={styles.info}>
-          You trip has been booked!{" "}
-          <span role="img" aria-label="firework">
-            🎉
-          </span>
-        </div>
+        {paymentFailed ? (
+          <>
+            <div className={cn("h2", styles.title)} style={{ color: "#e74c3c" }}>Payment Failed</div>
+            <div className={styles.info} style={{ color: "#e74c3c" }}>
+              Your payment could not be processed. Please try again.
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={cn("h2", styles.title)}>Congratulation!</div>
+            <div className={styles.info}>
+              You trip has been booked!{" "}
+              <span role="img" aria-label="firework">
+                🎉
+              </span>
+            </div>
+          </>
+        )}
         <div className={styles.subtitle}>{title}</div>
         <div className={styles.author}>
           <div className={styles.text}>Hosted by</div>
@@ -69,12 +80,31 @@ const CheckoutComplete = ({ className, title, parameters, options, items }) => {
         ))}
       </div>
       <div className={styles.btns}>
-        <Link className={cn("button-stroke", styles.button)} to="/your-trips">
-          Your trips
-        </Link>
-        <Link className={cn("button", styles.button)} to="/things-to-do">
-          Explore things to do
-        </Link>
+        {paymentFailed ? (
+          <>
+            <Link className={cn("button-stroke", styles.button)} to="/bookings">
+              Your trips
+            </Link>
+            {onRetryPayment && (
+              <button
+                type="button"
+                className={cn("button", styles.button)}
+                onClick={onRetryPayment}
+              >
+                Retry Payment
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <Link className={cn("button-stroke", styles.button)} to="/bookings">
+              Your trips
+            </Link>
+            <Link className={cn("button", styles.button)} to="/things-to-do">
+              Explore things to do
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );

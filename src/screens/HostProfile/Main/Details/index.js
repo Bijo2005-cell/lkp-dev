@@ -1,53 +1,61 @@
 import React from "react";
 import cn from "classnames";
-import { Link } from "react-router-dom";
 import styles from "./Details.module.sass";
 import Icon from "../../../../components/Icon";
 
-const options = [
-  {
-    title: "Lives in",
-    content: "Auckland, New Zealand",
-    icon: "home",
-  },
-  {
-    title: "Date:",
-    url: "/stays",
-    content: "Get direction",
-    icon: "route",
-  },
-  {
-    title: "Speak",
-    content: "English, Vietnamese",
-    icon: "comment",
-  },
-];
+const Details = ({ className, host, businessInterests }) => {
+  // Format host name
+  const hostName = host
+    ? `${host.firstName || ""} ${host.lastName || ""}`.trim() || "Host"
+    : "Host";
 
-const Details = ({ className }) => {
+  // Build options from host data
+  const options = [];
+  
+  if (host?.location) {
+    options.push({
+      title: "Lives in",
+      content: host.location,
+      icon: "home",
+    });
+  }
+  
+  if (Array.isArray(businessInterests) && businessInterests.length > 0) {
+    options.push({
+      title: "Interests",
+      content: businessInterests.join(", "),
+      icon: "route",
+    });
+  }
+
+  // If no options, provide defaults
+  if (options.length === 0) {
+    options.push({
+      title: "Location",
+      content: "Location not specified",
+      icon: "home",
+    });
+  }
+
   return (
     <div className={cn(className, styles.details)}>
-      <div className={styles.title}>About Zoe Towne</div>
+      <div className={styles.title}>About {hostName}</div>
       <div className={styles.content}>
-        Described by Queenstown House & Garden magazine as having 'one of the
-        best views we've ever seen' you will love relaxing in this newly built
+        {host?.bio || "No biography available."}
       </div>
-      <div className={styles.options}>
-        {options.map((x, index) => (
-          <div className={styles.option} key={index}>
-            <div className={styles.category}>
-              <Icon name={x.icon} size="20" />
-              {x.title}
-            </div>
-            {x.url ? (
-              <Link className={cn(styles.text, styles.link)} to={x.url}>
-                {x.content}
-              </Link>
-            ) : (
+      {options.length > 0 && (
+        <div className={styles.options}>
+          {options.map((x, index) => (
+            <div className={styles.option} key={index}>
+              <div className={styles.category}>
+                <Icon name={x.icon} size="20" />
+                {x.title}
+              </div>
               <div className={styles.text}>{x.content}</div>
-            )}
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

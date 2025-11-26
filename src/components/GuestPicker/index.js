@@ -19,6 +19,7 @@ const GuestPicker = ({
   allowPets = false,
   childrenAllowed = true,
   infantsAllowed = true,
+  adultsLabel = "Adults",
   className,
 }) => {
   const [guests, setGuests] = useState(initialGuests);
@@ -113,7 +114,7 @@ const GuestPicker = ({
   const guestCategories = [
     {
       type: "adults",
-      label: "Adults",
+      label: adultsLabel,
       subtitle: "Age 13+",
       value: guests.adults,
       show: true, // Always show adults
@@ -152,7 +153,7 @@ const GuestPicker = ({
             <div className={styles.headerLabel}>GUESTS</div>
             <div className={styles.headerValue}>{guestCountText}</div>
           </div>
-          <button className={styles.collapseButton} onClick={onClose}>
+          <button type="button" className={styles.collapseButton} onClick={onClose}>
             <Icon name="arrow-bottom" size="16" />
           </button>
         </div>
@@ -179,6 +180,7 @@ const GuestPicker = ({
                 </div>
                 <div className={styles.counter}>
                   <button
+                    type="button"
                     className={cn(styles.counterButton, {
                       [styles.disabled]: !canDecrement(category.type),
                     })}
@@ -189,6 +191,7 @@ const GuestPicker = ({
                   </button>
                   <div className={styles.counterValue}>{category.value}</div>
                   <button
+                    type="button"
                     className={cn(styles.counterButton, {
                       [styles.disabled]: !canIncrement(category.type),
                     })}
@@ -212,7 +215,7 @@ const GuestPicker = ({
               </div>
             )}
           </div>
-          <button className={styles.closeButton} onClick={onClose}>
+          <button type="button" className={styles.closeButton} onClick={onClose}>
             Close
           </button>
         </div>

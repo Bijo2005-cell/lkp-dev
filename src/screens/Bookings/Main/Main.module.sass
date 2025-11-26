@@ -1,108 +1,575 @@
 @import ../../../styles/helpers
 
-.control
-    margin-bottom: 48px
+.section
+    padding-top: 40px
+    padding-bottom: 80px
+    +m
+        padding-top: 24px
+        padding-bottom: 64px
+
+.container
+    max-width: 1440px
+    +w
+        padding: 0 40px
+    +t
+        padding: 0 24px
+    +m
+        padding: 0 20px
+
+.head
+    margin-bottom: 32px
     +m
         margin-bottom: 24px
 
-.head
-    margin-bottom: 64px
-    +m
-        margin-bottom: 32px
-
-.title
-    margin-bottom: 12px
-
-.counter
-    margin-bottom: 48px
-    +body-bold-2
-    color: $n4
-    +m
-        margin-bottom: 32px
-
-.line
+.heading
     display: flex
     align-items: center
+    justify-content: space-between
     +m
-        display: block
-    & > div
-        &:not(:last-child)
-            +m
-                margin-bottom: 12px
+        flex-direction: column
+        align-items: flex-start
+        gap: 16px
 
-.nav
+.title
+    margin: 0
+    +m
+        font-size: 28px
+        line-height: 1.3
+
+.tabsWrapper
+    margin-bottom: 32px
+    +m
+        margin-bottom: 24px
+
+.tabs
     display: flex
+    gap: 0
+    border-bottom: 1px solid $n6
+    +dark
+        border-color: $n3
+    +m
+        overflow-x: auto
+        -webkit-overflow-scrolling: touch
+        scrollbar-width: none
+        margin: 0 -20px
+        padding: 0 20px
+        &::-webkit-scrollbar
+            display: none
+
+.tab
+    flex: 1
+    display: flex
+    align-items: center
     justify-content: center
-    margin-right: auto
-    +m
-        display: none
-
-.link
-    display: flex
-    padding: 6px 12px
-    border-radius: 14px
+    gap: 8px
+    padding: 12px 16px
+    border: none
     background: none
-    +button-2
+    border-bottom: 2px solid transparent
+    +body-bold-1
     color: $n4
-    transition: all .2s
-    svg
-        margin-right: 8px
-        fill: $n4
-        transition: fill .2s
-    &:hover
-        color: $n3
-        svg
-            fill: $n3
-        +dark
-            color: $n6
-    &.active
-        background: $n3
-        color: $n8
-        svg
-            fill: $n8
-        +dark
-            background: $n8
-            color: $n2
-    &:not(:last-child)
-        margin-right: 8px
-
-.dropdown
-    flex-shrink: 0
-    width: 256px
-    margin-left: auto
+    cursor: pointer
+    transition: all .2s ease
+    text-align: center
+    position: relative
+    +dark
+        color: $n5
     +m
-        width: 100%
-        margin: 0
+        flex: 0 0 auto
+        min-width: auto
+        padding: 10px 16px
+        white-space: nowrap
+    &:hover
+        color: $n2
+        +dark
+            color: $n8
+
+.tabActive
+    color: $n2
+    border-bottom-color: $p4
+    +dark
+        color: $n8
+        border-bottom-color: $p4
+    &:hover
+        color: $n2
+        +dark
+            color: $n8
+
+.count
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    min-width: 24px
+    height: 24px
+    padding: 0 8px
+    border-radius: 12px
+    background: $n6
+    +caption-bold-2
+    color: $n3
+    +dark
+        background: $n3
+        color: $n6
+
+.tabActive .count
+    background: $p4
+    color: $n8
+
+.panel
+    position: relative
+    min-height: 200px
+    opacity: 1
+    transition: opacity .2s ease
+
+.fadeOut
+    opacity: 0
+
+.fadeIn
+    opacity: 1
 
 .list
     display: flex
-    flex-wrap: wrap
-    margin: -30px -15px 0
+    flex-direction: column
+    gap: 24px
     +m
-        display: block
-        margin: 0
+        gap: 20px
 
 .card
-    flex: 0 0 calc(33.333% - 30px)
-    width: calc(33.333% - 30px)
-    margin: 30px 15px 0
-    +t
-        flex: 0 0 calc(50% - 30px)
-        width: calc(50% - 30px)
+    display: flex
+    gap: 20px
+    padding: 0
+    background: $n8
+    border: 1px solid $n6
+    border-radius: 16px
+    transition: all .2s ease
+    align-items: stretch
+    overflow: hidden
+    min-height: 180px
+    height: 180px
+    +dark
+        background: $n1
+        border-color: $n3
     +m
+        flex-direction: column
+        gap: 0
+        align-items: stretch
+        min-height: auto
+        height: auto
+    &:hover
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08)
+        border-color: $p4
+        +dark
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3)
+            border-color: $p4
+
+.media
+    flex: 0 0 180px
+    width: 180px
+    height: 180px
+    border-radius: 0
+    overflow: hidden
+    background: $n7
+    +dark
+        background: $n2
+    +m
+        flex: 0 0 auto
         width: 100%
-        margin: 32px 0 0
+        height: 200px
+    img
+        width: 100%
+        height: 100%
+        object-fit: cover
 
-.flight
-    &:not(:last-child)
-        margin-bottom: 24px
+.body
+    flex: 1
+    display: flex
+    flex-direction: column
+    min-width: 0
+    justify-content: center
+    padding: 16px 16px 16px 0
+    +m
+        padding: 16px
 
-.btns
-    margin-top: 48px
+.bodyTop
+    display: flex
+    justify-content: space-between
+    gap: 20px
+    align-items: center
+    +m
+        flex-direction: column
+        gap: 16px
+        align-items: stretch
+
+.meta
+    flex: 1
+    min-width: 0
+
+.typeRow
+    display: flex
+    align-items: center
+    gap: 8px
+    margin-bottom: 4px
+    flex-wrap: wrap
+
+.type
+    +caption-bold-2
+    color: $n4
+    text-transform: uppercase
+    letter-spacing: 0.5px
+    +dark
+        color: $n5
+
+.dot
+    color: $n4
+    +dark
+        color: $n5
+
+.category
+    +caption-2
+    color: $n4
+    +dark
+        color: $n5
+
+.cardTitle
+    +body-bold-1
+    font-size: 18px
+    line-height: 1.3
+    margin: 0 0 6px 0
+    color: $n2
+    +dark
+        color: $n8
+    +m
+        font-size: 18px
+        margin-bottom: 6px
+
+.locationRow,
+.dateRow
+    display: flex
+    align-items: center
+    gap: 8px
+    margin-bottom: 4px
+    +body-2
+    color: $n4
+    +dark
+        color: $n5
+    svg
+        fill: $n4
+        flex-shrink: 0
+        +dark
+            fill: $n5
+    &:last-child
+        margin-bottom: 0
+
+.actions
+    display: flex
+    flex-direction: column
+    gap: 8px
+    align-items: flex-end
+    flex-shrink: 0
+    +m
+        flex-direction: row
+        flex-wrap: wrap
+        align-items: flex-start
+        width: 100%
+
+// Specific class for action buttons to ensure uniform dimensions
+// Target all possible combinations to override global styles
+.actionButton,
+a.actionButton,
+button.actionButton,
+a.actionButton.button-small,
+button.actionButton.button-small,
+a.actionButton.button-stroke,
+button.actionButton.button-stroke,
+a.actionButton.button-stroke.button-small,
+button.actionButton.button-stroke.button-small,
+a.actionButton.button.button-small,
+button.actionButton.button.button-small
+    white-space: nowrap !important
+    min-width: 140px !important
+    width: 140px !important
+    max-width: 140px !important
+    min-height: 40px !important
+    height: 40px !important
+    max-height: 40px !important
+    line-height: 1 !important
+    justify-content: center !important
+    align-items: center !important
+    padding: 0 16px !important
+    box-sizing: border-box !important
+    text-align: center !important
+    flex: 0 0 140px !important
+    flex-shrink: 0 !important
+    flex-grow: 0 !important
+    display: inline-flex !important
+    margin: 0 !important
+    overflow: hidden !important
+    text-overflow: ellipsis !important
+    +m
+        flex: 1 1 auto !important
+        min-width: 0
+        width: 100% !important
+        max-width: 100% !important
+        min-height: 40px !important
+        height: 40px !important
+        max-height: 40px !important
+        line-height: 1 !important
+
+// Fallback for any buttons in actions container
+.actions > *,
+.actions .button,
+.actions .button-stroke,
+.actions a.button,
+.actions a.button-stroke,
+.actions button.button,
+.actions button.button-stroke
+    white-space: nowrap !important
+    min-width: 140px !important
+    width: 140px !important
+    max-width: 140px !important
+    min-height: 40px !important
+    height: 40px !important
+    max-height: 40px !important
+    line-height: 1 !important
+    justify-content: center !important
+    align-items: center !important
+    padding: 0 16px !important
+    box-sizing: border-box !important
+    text-align: center !important
+    flex: 0 0 140px !important
+    flex-shrink: 0 !important
+    flex-grow: 0 !important
+    display: inline-flex !important
+    margin: 0 !important
+    overflow: hidden !important
+    text-overflow: ellipsis !important
+    +m
+        flex: 1 1 auto !important
+        min-width: 0
+        width: 100% !important
+        max-width: 100% !important
+        min-height: 40px !important
+        height: 40px !important
+        max-height: 40px !important
+        line-height: 1 !important
+
+.ghostButton
+    background: transparent
+    border-color: transparent
+    &:hover
+        background: $n7
+        border-color: $n6
+        +dark
+            background: $n2
+            border-color: $n3
+
+// Empty State
+.emptyState
+    display: flex
+    flex-direction: column
+    align-items: center
+    justify-content: center
+    padding: 80px 40px
     text-align: center
     +m
-        margin-top: 32px
-    .button
-        .loader
-            margin: 0 16px 0 2px
-            transform: scale(.8)
+        padding: 60px 20px
+
+.emptyIllustration
+    margin-bottom: 32px
+    +m
+        margin-bottom: 24px
+    img
+        max-width: 300px
+        width: 100%
+        height: auto
+        +m
+            max-width: 240px
+
+.emptyContent
+    max-width: 500px
+
+.emptyTitle
+    +body-bold-1
+    font-size: 24px
+    line-height: 1.3
+    margin: 0 0 12px 0
+    color: $n2
+    +dark
+        color: $n8
+    +m
+        font-size: 20px
+
+.emptyDescription
+    +body-2
+    color: $n4
+    line-height: 1.6
+    margin: 0 0 24px 0
+    +dark
+        color: $n5
+    +m
+        font-size: 14px
+        margin-bottom: 20px
+
+// Cancel Modal Styles
+.cancelModalOuter
+    max-width: 480px
+    +m
+        max-width: calc(100% - 40px)
+    & > div
+        padding: 0
+
+.cancelModalContent
+    display: flex
+    flex-direction: column
+    min-height: 200px
+    background: $n8
+    border-radius: 20px
+    overflow: hidden
+    +dark
+        background: $n1
+    +m
+        min-height: auto
+        border-radius: 16px
+
+.cancelModalHeader
+    padding: 32px 32px 24px
+    +m
+        padding: 24px 24px 20px
+
+.cancelModalTitle
+    +body-bold-1
+    font-size: 20px
+    line-height: 1.4
+    margin: 0 0 8px 0
+    color: $n2
+    +dark
+        color: $n8
+    +m
+        font-size: 18px
+        line-height: 1.3
+
+.cancelModalDescription
+    +body-2
+    font-size: 14px
+    line-height: 1.5
+    margin: 0
+    color: $n4
+    +dark
+        color: $n5
+
+.cancelModalBody
+    padding: 0 32px 24px
+    +m
+        padding: 0 24px 20px
+
+.cancelModalFormGroup
+    margin-bottom: 20px
+    &:last-of-type
+        margin-bottom: 0
+
+.cancelModalLabel
+    display: block
+    +body-bold-2
+    font-size: 14px
+    margin-bottom: 8px
+    color: $n2
+    +dark
+        color: $n8
+
+.required
+    color: #e74c3c
+
+.cancelModalInput,
+.cancelModalTextarea
+    width: 100%
+    padding: 12px 16px
+    border: 1px solid $n6
+    border-radius: 8px
+    +body-2
+    font-size: 14px
+    color: $n2
+    background: $n8
+    transition: all .2s ease
+    box-sizing: border-box
+    font-family: inherit
+    +dark
+        background: $n1
+        border-color: $n3
+        color: $n8
+    &:focus
+        outline: none
+        border-color: $p4
+        box-shadow: 0 0 0 3px rgba($p4, 0.1)
+    &:disabled
+        opacity: 0.6
+        cursor: not-allowed
+    &::placeholder
+        color: $n4
+        +dark
+            color: $n5
+
+.cancelModalTextarea
+    resize: vertical
+    min-height: 100px
+
+.inputError
+    border-color: #e74c3c
+    &:focus
+        border-color: #e74c3c
+        box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1)
+
+.cancelModalCheckboxLabel
+    display: flex
+    align-items: center
+    gap: 10px
+    cursor: pointer
+    +body-2
+    font-size: 14px
+    color: $n2
+    +dark
+        color: $n8
+    &:hover
+        .cancelModalCheckbox
+            border-color: $p4
+
+.cancelModalCheckbox
+    width: 18px
+    height: 18px
+    cursor: pointer
+    accent-color: $p4
+    &:disabled
+        opacity: 0.6
+        cursor: not-allowed
+
+.cancelModalError
+    margin-top: 12px
+    padding: 12px 16px
+    border-radius: 8px
+    background: rgba(231, 76, 60, 0.1)
+    border: 1px solid rgba(231, 76, 60, 0.3)
+    +body-2
+    font-size: 14px
+    color: #e74c3c
+    line-height: 1.5
+
+.cancelModalFooter
+    display: flex
+    gap: 12px
+    padding: 24px 32px 32px
+    border-top: 1px solid $n6
+    +dark
+        border-color: $n3
+    +m
+        flex-direction: column-reverse
+        padding: 20px 24px 24px
+        gap: 12px
+
+.cancelModalBtn
+    flex: 1
+    justify-content: center
+    min-width: 0
+    &:disabled
+        opacity: 0.6
+        cursor: not-allowed
+    +m
+        flex: none
+        width: 100%

@@ -14,6 +14,23 @@ const Gallery = ({ className, items, type }) => {
     setVisible(true);
   };
 
+  // Determine how many images to show in the grid
+  const imageCount = items.length;
+  const maxDisplayImages = 6;
+  const displayImages = Math.min(imageCount, maxDisplayImages);
+  const showMoreButton = imageCount > maxDisplayImages;
+
+  // Get dynamic class based on image count for "stays" type
+  const getImageCountClass = () => {
+    if (type !== "stays") return "";
+    // Only apply custom classes for 1-3 images to prevent empty spaces
+    // For 4-6 images, use default layout which works fine
+    if (displayImages <= 3) {
+      return styles[`count${displayImages}`] || "";
+    }
+    return "";
+  };
+
   return (
     <>
       <div className={cn(styles.gallery, className)}>
@@ -28,28 +45,23 @@ const Gallery = ({ className, items, type }) => {
             },
             {
               [styles.tour]: type === "tour",
-            }
+            },
+            getImageCountClass()
           )}
         >
-          {items.slice(0, 2).map((x, index) => (
-            <div className={styles.preview} key={index}>
-              <div className={styles.view} onClick={() => handleOpen(index)}>
-                <img src={x} alt="Product Details"></img>
-              </div>
-            </div>
-          ))}
-          {items.slice(2, items.length > 6 ? 6 : items.length).map((x, index) => {
-            const actualIndex = index + 2;
+          {items.slice(0, displayImages).map((x, index) => {
             // Web: 6th image (index 5), Mobile: 4th image (index 3)
-            const isWebButtonImage = actualIndex === 5; // 6th image for web
-            const isMobileButtonImage = actualIndex === 3; // 4th image for mobile
+            const isWebButtonImage = index === 5 && displayImages >= 6; // 6th image for web
+            const isMobileButtonImage = index === 3 && displayImages >= 4; // 4th image for mobile
             return (
               <div
                 className={styles.preview}
-                key={actualIndex}
-                onClick={() => handleOpen(actualIndex)}
+                key={index}
+                onClick={() => handleOpen(index)}
               >
-                <img src={x} alt="Product Details"></img>
+                <div className={styles.view}>
+                  <img src={x} alt="Product Details"></img>
+                </div>
                 {(isWebButtonImage || isMobileButtonImage) && (
                   <Link
                     to="/full-photo"
@@ -70,14 +82,14 @@ const Gallery = ({ className, items, type }) => {
               </div>
             );
           })}
-          {items.length > 6 && (
+          {showMoreButton && (
             <div
               className={cn(styles.preview, styles.morePhotos)}
-              onClick={() => handleOpen(6)}
+              onClick={() => handleOpen(maxDisplayImages)}
             >
               <div className={styles.moreContent}>
                 <Icon name="image" size="24" />
-                <span className={styles.moreText}>+{items.length - 6}</span>
+                <span className={styles.moreText}>+{items.length - maxDisplayImages}</span>
               </div>
             </div>
           )}

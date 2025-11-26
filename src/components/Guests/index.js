@@ -26,6 +26,7 @@ const Guests = ({ className, title }) => {
         })}
       >
         <button
+          type="button"
           className={cn("button-stroke button-small", styles.button)}
           onClick={() => setVisible(!visible)}
         >

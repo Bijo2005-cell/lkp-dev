@@ -3,11 +3,15 @@ import React from "react";
 import styles from "./Rating.module.sass";
 import Rating from "react-rating";
 
-const Form = ({ className, initialRating, readonly }) => {
+const Form = ({ className, initialRating, rating, onChange, readonly }) => {
+  // Use controlled rating if provided, otherwise use initialRating
+  const ratingValue = rating !== undefined ? rating : initialRating;
+  
   return (
     <Rating
       className={className}
-      initialRating={initialRating}
+      initialRating={ratingValue}
+      onChange={onChange}
       readonly={readonly}
       emptySymbol={
         <img

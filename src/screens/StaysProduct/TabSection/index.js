@@ -27,8 +27,6 @@ const tabContent = {
     isCard: true,
     address: "Queenstown Gardens, Beach Street, Queenstown 9300",
     instructions: "We'll meet at the main entrance of Queenstown Gardens. Look for our guide wearing a bright blue jacket. Free parking is available nearby.",
-    pickupHeading: "Pickup available from:",
-    pickupOptions: ["Queenstown Airport", "Downtown Queenstown Hotels"],
     mapUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2830.5!2d168.6614!3d-45.0312!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xa9d51df1d7a8e5fb%3A0x500ef868479a1c00!2sQueenstown%20Gardens!5e0!3m2!1sen!2sus!4v1234567890",
   },
   "what-to-bring": {
@@ -63,8 +61,6 @@ const TabSection = ({ classSection, listing }) => {
     // Per request: address should show meetingLocationName, instructions should show meetingAddress
     const address = listing?.meetingLocationName || tabContent["meeting-point"].title;
     const instructions = listing?.meetingAddress || tabContent["meeting-point"].address;
-    const pickupHeading = tabContent["meeting-point"].pickupHeading;
-    const pickupOptions = tabContent["meeting-point"].pickupOptions;
     const lat = listing?.meetingLatitude;
     const lng = listing?.meetingLongitude;
     const query = lat && lng
@@ -78,8 +74,6 @@ const TabSection = ({ classSection, listing }) => {
       isCard: true,
       address,
       instructions,
-      pickupHeading,
-      pickupOptions,
       mapUrl,
     };
   }, [listing]);
@@ -154,17 +148,6 @@ const TabSection = ({ classSection, listing }) => {
                   <span className={styles.address}>{currentContent.address}</span>
                 </div>
                 <p className={styles.instructions}>{currentContent.instructions}</p>
-              </div>
-              <div className={styles.separator}></div>
-              <div className={styles.pickupSection}>
-                <h4 className={styles.pickupHeading}>{currentContent.pickupHeading}</h4>
-                <div className={styles.pickupTags}>
-                  {currentContent.pickupOptions.map((option, index) => (
-                    <span key={index} className={styles.pickupTag}>
-                      {option}
-                    </span>
-                  ))}
-                </div>
               </div>
               <div className={styles.mapContainer}>
                 <iframe

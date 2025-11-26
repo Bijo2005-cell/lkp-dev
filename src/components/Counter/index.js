@@ -19,6 +19,7 @@ const Counter = ({ className, value, setValue, iconPlus = "plus", iconMinus = "m
   return (
     <div className={cn(className, styles.counter)}>
       <button 
+        type="button"
         className={cn(styles.button, { [styles.disabled]: value <= min })} 
         onClick={handleDecrement}
         disabled={value <= min}
@@ -27,6 +28,7 @@ const Counter = ({ className, value, setValue, iconPlus = "plus", iconMinus = "m
       </button>
       <div className={styles.number}>{value}</div>
       <button 
+        type="button"
         className={cn(styles.button, { [styles.disabled]: max !== undefined && value >= max })} 
         onClick={handleIncrement}
         disabled={max !== undefined && value >= max}

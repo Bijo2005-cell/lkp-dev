@@ -4,12 +4,26 @@ import styles from "./ConfirmAndPay.module.sass";
 import CreditCard from "./CreditCard";
 import Icon from "../Icon";
 
-const ConfirmAndPay = ({ className, guests, title, buttonUrl }) => {
+const ConfirmAndPay = ({ className, guests, title, buttonUrl, amountToPay, currency = "INR" }) => {
   // keep minimal local state if needed later
+  
+  // Format amount - Razorpay amounts are in paise (smallest currency unit), so divide by 100 for INR
+  const formatAmount = (amount) => {
+    if (!amount) return null;
+    // If amount is in paise (typically > 1000 for reasonable prices), convert to rupees
+    const amountInRupees = amount > 1000 ? (amount / 100).toFixed(2) : amount.toFixed(2);
+    return `${currency} ${amountInRupees}`;
+  };
 
   return (
     <div className={cn(className, styles.confirm)}>
       <div className={cn("h2", styles.title)}>Confirm and pay</div>
+      {amountToPay && (
+        <div className={styles.amountToPay}>
+          <div className={styles.amountLabel}>Amount to be paid</div>
+          <div className={styles.amountValue}>{formatAmount(amountToPay)}</div>
+        </div>
+      )}
       <div className={styles.list}>
         <div className={styles.item}>
           <div className={styles.box}>

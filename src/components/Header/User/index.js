@@ -12,7 +12,7 @@ const User = ({ className, items }) => {
     <OutsideClickHandler onOutsideClick={() => setVisible(false)}>
       <div className={cn(styles.user, className, { [styles.active]: visible })}>
         <button className={styles.head} onClick={() => setVisible(!visible)}>
-          <img src="/images/content/avatar-2.jpg" alt="Avatar" />
+          <Icon name="user" size="24" />
         </button>
         <div className={styles.body}>
           <div className={styles.group}>

@@ -45,9 +45,9 @@ const Footer = () => {
             <Link className={styles.logo} to="/">
               <Image
                 className={styles.pic}
-                src="/images/logo-dark.svg"
-                srcDark="/images/logo-light.svg"
-                alt="Fleet"
+                src="/images/littleplanet-logo.svg"
+                srcDark="/images/littleplanet-logo.svg"
+                alt="FleetHome"
               />
             </Link>
             <div className={styles.box}>

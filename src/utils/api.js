@@ -11,11 +11,71 @@ ListingsAPI.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("jwtToken");
     if (token) {
+      // Ensure headers object exists
+      config.headers = config.headers || {};
       config.headers["Authorization"] = `Bearer ${token}`;
+      console.log("🔑 JWT token attached to request:", config.url);
+    } else {
+      console.warn("⚠️ No JWT token found in localStorage for request:", config.url);
     }
   }
   return config;
 });
+
+// ✅ Handle response errors gracefully - prevent unhandled promise rejections
+ListingsAPI.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Log error but don't show alert - let the calling code handle it
+    if (error.response) {
+      // Server responded with error status
+      const status = error.response.status;
+      const message = error.response.data?.message || error.message;
+      
+      // Check if this is a non-critical endpoint that can fail silently
+      const isNonCriticalEndpoint = error.config?.url?.includes('/orders/complete-expired');
+      
+      // Suppress error logging for non-critical endpoints (500 errors)
+      // These endpoints are handled gracefully by the calling code
+      if (status === 500 && isNonCriticalEndpoint) {
+        error.isHandled = true;
+        // Don't log as error - silently handle it
+        // The calling function (getCompleteExpiredOrders) will handle it gracefully
+        return Promise.reject(error);
+      }
+      
+      // Only log, don't throw for 400 errors (they might be expected)
+      if (status === 400) {
+        console.warn(`⚠️ API 400 Error: ${message || 'Bad Request'}`, {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.response.data
+        });
+        // For 400 errors, we can optionally return a resolved promise with null
+        // But we'll still reject so calling code can handle it, but mark it as handled
+        error.isHandled = true;
+      } else {
+        console.error(`❌ API Error ${status}: ${message}`, {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.response.data
+        });
+      }
+    } else if (error.request) {
+      // Request was made but no response received
+      console.error("❌ Network Error: No response from server", error.request);
+    } else {
+      // Something else happened
+      console.error("❌ Error:", error.message);
+    }
+    
+    // Mark error as handled to prevent browser alerts
+    error.isHandled = true;
+    
+    // Return the error so calling code can handle it
+    return Promise.reject(error);
+  }
+);
 
 // ✅ Function to call listings API
 export const getListings = async (
@@ -84,6 +144,53 @@ export const getListing = async (id) => {
   }
 };
 
+// ✅ Function to get customer orders
+export const getCustomerOrders = async (limit = 20, offset = 0) => {
+  try {
+    const response = await ListingsAPI.get("/orders/customer/my-orders", {
+      params: { limit, offset },
+    });
+    const payload = response.data;
+    console.log("✅ Customer orders fetched (raw):", payload);
+
+    // If payload is already an array - return it
+    if (Array.isArray(payload)) return payload;
+
+    // If payload is an object, try common array properties
+    if (payload && typeof payload === "object") {
+      if (Array.isArray(payload.data)) return payload.data;
+      if (Array.isArray(payload.items)) return payload.items;
+      if (Array.isArray(payload.orders)) return payload.orders;
+    }
+
+    // Fallback to empty array
+    return [];
+  } catch (error) {
+    console.error("❌ Error fetching customer orders:", error);
+    throw error;
+  }
+};
+
+// ✅ Function to get slot details by slot ID
+export const getSlotDetails = async (slotId) => {
+  try {
+    const response = await ListingsAPI.get(`/public/listings/slots/${slotId}`);
+    const payload = response.data;
+    console.log("✅ Slot details fetched (raw):", payload);
+
+    // If response is wrapped, unwrap it
+    if (payload && typeof payload === "object") {
+      if (payload.slot) return payload.slot;
+      if (payload.data && !Array.isArray(payload.data)) return payload.data;
+    }
+
+    return payload;
+  } catch (error) {
+    console.error("❌ Error fetching slot details:", error);
+    throw error;
+  }
+};
+
 // ✅ Phone Authentication API functions
 // Send OTP to phone number
 export const sendPhoneOTP = async (phone, countryCode = "+91") => {
@@ -121,11 +228,44 @@ export const verifyPhoneOTP = async (phone, otp, countryCode = "+91", firstName 
 // ✅ Get billing configuration for a listing
 export const getBillingConfiguration = async (listingId) => {
   try {
-    const response = await ListingsAPI.get(`/public/listings/${listingId}/billing-configuration`);
+    // Validate parameter
+    if (!listingId) {
+      throw new Error("listingId is required");
+    }
+    
+    // Ensure listingId is a string (URL parameter)
+    // Try to convert to number first, then string to ensure it's valid
+    const listingIdNum = Number(listingId);
+    const listingIdStr = (!isNaN(listingIdNum) && listingIdNum > 0) ? String(listingIdNum) : String(listingId);
+    
+    // Final validation
+    if (!listingIdStr || listingIdStr === "undefined" || listingIdStr === "null" || listingIdStr === "NaN") {
+      throw new Error(`Invalid listingId: ${listingId} (converted to: ${listingIdStr})`);
+    }
+    
+    const response = await ListingsAPI.get(`/public/listings/${listingIdStr}/billing-configuration`);
     console.log("✅ Billing configuration fetched:", response.data);
     return response.data;
   } catch (error) {
-    console.error("❌ Error fetching billing configuration:", error);
+    const errorDetails = {
+      listingId,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      errorMessage: error.message,
+      responseData: error.response?.data
+    };
+    
+    console.error("❌ Error fetching billing configuration:", errorDetails);
+    
+    // If it's a 400 error, log more details
+    if (error.response?.status === 400) {
+      console.error("❌ 400 Bad Request Details:", {
+        url: `/public/listings/${listingId}/billing-configuration`,
+        response: error.response?.data,
+        message: error.response?.data?.message || error.message
+      });
+    }
+    
     throw error;
   }
 };
@@ -170,11 +310,370 @@ export const getAvailability = async (listingId, startDate, endDate, slotId) => 
 // ✅ Create an order
 export const createOrder = async (orderData) => {
   try {
+    console.log("📤 Creating order with data:", JSON.stringify(orderData, null, 2));
     const response = await ListingsAPI.post("/orders", orderData);
     console.log("✅ Order created successfully:", response.data);
     return response.data;
   } catch (error) {
-    console.error("❌ Error creating order:", error.response?.data || error.message);
+    console.error("❌ Error creating order:", {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      requestData: orderData
+    });
+    
+    // Log detailed error information for 400 errors
+    if (error.response?.status === 400) {
+      console.error("❌ 400 Bad Request Details:", {
+        url: "/orders",
+        requestData: orderData,
+        errorResponse: error.response?.data,
+        errorMessage: error.response?.data?.message || error.response?.data?.error || "Bad Request"
+      });
+    }
+    
+    throw error;
+  }
+};
+
+// ✅ Get slots for a listing
+export const getListingSlots = async (listingId, startDate, endDate) => {
+  try {
+    // Validate parameters
+    if (!listingId) {
+      throw new Error("listingId is required");
+    }
+    if (!startDate || !endDate) {
+      throw new Error("startDate and endDate are required");
+    }
+    
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+      throw new Error(`Invalid date format. Expected YYYY-MM-DD, got startDate=${startDate}, endDate=${endDate}`);
+    }
+    
+    // Ensure listingId is a string (URL parameter)
+    // Try to convert to number first, then string to ensure it's valid
+    const listingIdNum = Number(listingId);
+    const listingIdStr = (!isNaN(listingIdNum) && listingIdNum > 0) ? String(listingIdNum) : String(listingId);
+    
+    // Final validation
+    if (!listingIdStr || listingIdStr === "undefined" || listingIdStr === "null" || listingIdStr === "NaN") {
+      throw new Error(`Invalid listingId: ${listingId} (converted to: ${listingIdStr})`);
+    }
+    
+    const response = await ListingsAPI.get(`/public/listings/${listingIdStr}/slots`, {
+      params: {
+        startDate: startDate, // Format: YYYY-MM-DD
+        endDate: endDate,     // Format: YYYY-MM-DD
+      },
+    });
+    
+    console.log("✅ Slots API Response:", {
+      url: `/public/listings/${listingIdStr}/slots`,
+      params: { startDate, endDate },
+      data: response.data
+    });
+    
+    return response.data;
+  } catch (error) {
+    const errorDetails = {
+      listingId,
+      startDate,
+      endDate,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      errorMessage: error.message,
+      responseData: error.response?.data,
+      responseHeaders: error.response?.headers
+    };
+    
+    console.error("❌ Error fetching slots:", errorDetails);
+    
+    // If it's a 400 error, log more details
+    if (error.response?.status === 400) {
+      console.error("❌ 400 Bad Request Details:", {
+        url: `/public/listings/${listingId}/slots`,
+        requestParams: { startDate, endDate },
+        response: error.response?.data,
+        message: error.response?.data?.message || error.message
+      });
+    }
+    
+    throw error;
+  }
+};
+
+// ✅ Get order details by ID
+export const getOrderDetails = async (orderId) => {
+  try {
+    // Validate parameter
+    if (!orderId) {
+      throw new Error("orderId is required");
+    }
+    
+    // Ensure orderId is a string (URL parameter)
+    const orderIdNum = Number(orderId);
+    const orderIdStr = (!isNaN(orderIdNum) && orderIdNum > 0) ? String(orderIdNum) : String(orderId);
+    
+    const response = await ListingsAPI.get(`/orders/${orderIdStr}`);
+    const payload = response.data;
+    console.log("✅ Order details fetched (raw):", payload);
+    
+    // Return the full response object which contains: order, addons, guestAnswers, history
+    // The response structure is:
+    // {
+    //   order: { ... },
+    //   addons: [],
+    //   guestAnswers: [],
+    //   history: []
+    // }
+    if (payload && typeof payload === "object") {
+      // Return the full payload which contains order and related data
+      return payload;
+    }
+    
+    return payload;
+  } catch (error) {
+    console.error("❌ Error fetching order details:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// ✅ Get completed and expired orders count
+export const getCompleteExpiredOrders = async () => {
+  try {
+    // The interceptor will automatically add JWT token
+    const response = await ListingsAPI.get("/orders/complete-expired");
+    const payload = response.data;
+    console.log("✅ Completed/expired orders count fetched (raw):", payload);
+
+    // Return the full response object which contains completedCount
+    if (payload && typeof payload === "object") {
+      return payload;
+    }
+
+    // Fallback to empty object
+    return { completedCount: 0 };
+  } catch (error) {
+    // This is a non-critical endpoint - handle all errors gracefully
+    // The interceptor has already suppressed error logging for 500 errors
+    
+    // For 500 errors, silently return default
+    if (error.response?.status === 500) {
+      return { completedCount: 0 };
+    }
+    
+    // For other errors, log a brief warning (not error)
+    console.warn("⚠️ Error fetching completed/expired orders count (non-blocking):", {
+      status: error.response?.status,
+      message: error.response?.data?.error || error.response?.data?.message || error.message,
+    });
+    
+    // Return default object on any error to ensure page can load
+    return { completedCount: 0 };
+  }
+};
+
+// ✅ Get completed orders with pagination
+export const getCompletedOrders = async (page = 1, limit = 20) => {
+  try {
+    // The interceptor will automatically add JWT token
+    const response = await ListingsAPI.get("/orders", {
+      params: {
+        orderStatus: "COMPLETED",
+        page,
+        limit,
+      },
+    });
+    const payload = response.data;
+    console.log("✅ Completed orders fetched (raw):", payload);
+
+    // If payload is already an array - return it
+    if (Array.isArray(payload)) return payload;
+
+    // If payload is an object, try common array properties
+    if (payload && typeof payload === "object") {
+      if (Array.isArray(payload.data)) return payload.data;
+      if (Array.isArray(payload.items)) return payload.items;
+      if (Array.isArray(payload.orders)) return payload.orders;
+    }
+
+    // Fallback to empty array
+    return [];
+  } catch (error) {
+    console.error("❌ Error fetching completed orders:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: error.config?.url,
+    });
+    
+    // Return empty array on error
+    return [];
+  }
+};
+
+// ✅ Submit a review for an order
+export const submitOrderReview = async (orderId, reviewData) => {
+  try {
+    // Validate parameters
+    if (!orderId) {
+      throw new Error("orderId is required");
+    }
+    if (!reviewData || !reviewData.rating) {
+      throw new Error("rating is required in reviewData");
+    }
+    
+    // Ensure orderId is a number
+    const orderIdNum = Number(orderId);
+    if (isNaN(orderIdNum) || orderIdNum <= 0) {
+      throw new Error("Invalid orderId");
+    }
+    
+    // Validate rating is between 1 and 5
+    const rating = Number(reviewData.rating);
+    if (isNaN(rating) || rating < 1 || rating > 5) {
+      throw new Error("Rating must be between 1 and 5");
+    }
+    
+    // Use the new /reviews endpoint with the specified request body format
+    // Include listingId and customerId if provided (backend may require them)
+    const requestBody = {
+      orderId: orderIdNum,
+      rating: rating,
+      comment: reviewData.comment || "",
+    };
+    
+    // Add optional fields if provided
+    if (reviewData.listingId) {
+      const listingIdNum = Number(reviewData.listingId);
+      if (!isNaN(listingIdNum) && listingIdNum > 0) {
+        requestBody.listingId = listingIdNum;
+      }
+    }
+    if (reviewData.customerId) {
+      const customerIdNum = Number(reviewData.customerId);
+      if (!isNaN(customerIdNum) && customerIdNum > 0) {
+        requestBody.customerId = customerIdNum;
+      }
+    }
+    
+    console.log("📤 Submitting review with request body:", requestBody);
+    
+    const response = await ListingsAPI.post(`/reviews`, requestBody);
+    
+    console.log("✅ Review submitted successfully:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error submitting review:", error.response?.data || error.message);
+    console.error("❌ Full error object:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+    });
+    throw error;
+  }
+};
+
+// ✅ Get user's reviews
+export const getMyReviews = async () => {
+  try {
+    const response = await ListingsAPI.get(`/reviews/my-reviews`);
+    console.log("✅ Fetched user reviews:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error fetching user reviews:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// ✅ Get homepage sections
+export const getHomepageSections = async () => {
+  try {
+    const response = await ListingsAPI.get("/public/homepage-sections");
+    const payload = response.data;
+    console.log("✅ Homepage sections fetched (raw):", payload);
+
+    if (Array.isArray(payload)) return payload;
+    if (payload && typeof payload === "object") {
+      if (Array.isArray(payload.data)) return payload.data;
+      if (Array.isArray(payload.sections)) return payload.sections;
+    }
+    return [];
+  } catch (error) {
+    console.error("❌ Error fetching homepage sections:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// ✅ Get listings for a specific homepage section
+export const getHomepageSectionListings = async (sectionId, limit = 12, offset = 0) => {
+  try {
+    if (!sectionId) {
+      throw new Error("sectionId is required");
+    }
+    
+    const response = await ListingsAPI.get(`/public/homepage-sections/${sectionId}/listings`, {
+      params: { limit, offset },
+    });
+    const payload = response.data;
+    console.log(`✅ Section ${sectionId} listings fetched (raw):`, payload);
+
+    return payload; // Return the full response object with section info and listings
+  } catch (error) {
+    console.error(`❌ Error fetching section ${sectionId} listings:`, error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// ✅ Get host profile data
+export const getHost = async (hostId) => {
+  try {
+    if (!hostId) {
+      throw new Error("hostId is required");
+    }
+    
+    const hostIdNum = Number(hostId);
+    const hostIdStr = (!isNaN(hostIdNum) && hostIdNum > 0) ? String(hostIdNum) : String(hostId);
+    
+    const response = await ListingsAPI.get(`/public/hosts/${hostIdStr}`);
+    const payload = response.data;
+    
+    return payload; // Returns { host, businessInterests, statistics, listings, recentReviews }
+  } catch (error) {
+    console.error(`❌ Error fetching host ${hostId}:`, error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// ✅ Cancel an order
+export const cancelOrder = async (orderId, cancelData) => {
+  try {
+    // Validate parameters
+    if (!orderId) {
+      throw new Error("orderId is required");
+    }
+    if (!cancelData || !cancelData.reason) {
+      throw new Error("reason is required in cancelData");
+    }
+    
+    // Ensure orderId is a string (URL parameter)
+    const orderIdNum = Number(orderId);
+    const orderIdStr = (!isNaN(orderIdNum) && orderIdNum > 0) ? String(orderIdNum) : String(orderId);
+    
+    const response = await ListingsAPI.post(`/orders/${orderIdStr}/cancel`, {
+      reason: cancelData.reason,
+      adminOverride: cancelData.adminOverride || false,
+    });
+    
+    console.log("✅ Order cancelled successfully:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error cancelling order:", error.response?.data || error.message);
     throw error;
   }
 };

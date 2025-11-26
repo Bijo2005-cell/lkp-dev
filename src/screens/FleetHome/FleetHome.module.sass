@@ -1,0 +1,467 @@
+@import ../../styles/helpers
+
+.section
+    padding-top: 40px
+    padding-bottom: 80px
+    +m
+        padding-top: 24px
+        padding-bottom: 80px
+
+.container
+    max-width: 1440px
+    +w
+        padding: 0 40px
+    +t
+        padding: 0 24px
+    +m
+        padding: 0 20px
+
+.searchBar
+    display: flex
+    align-items: center
+    gap: 0
+    max-width: 1000px
+    margin: 0 auto 48px
+    background: $n8
+    border-radius: 20px
+    padding: 24px
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1)
+    +dark
+        background: $n1
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3)
+    +m
+        flex-direction: column
+        gap: 16px
+        padding: 20px
+        margin-bottom: 40px
+
+.searchField
+    flex: 1
+    display: flex
+    align-items: center
+    gap: 16px
+    padding: 0 20px
+    +m
+        padding: 0
+        width: 100%
+    svg
+        fill: $n4
+        flex-shrink: 0
+        +dark
+            fill: $n5
+
+.searchFieldContent
+    flex: 1
+    display: flex
+    flex-direction: column
+    gap: 4px
+
+.searchLabel
+    +caption-2
+    font-weight: 600
+    color: $n3
+    +dark
+        color: $n5
+
+.searchInput
+    border: none
+    background: transparent
+    +body-2
+    color: $n2
+    outline: none
+    padding: 0
+    &::placeholder
+        color: $n4
+        +dark
+            color: $n5
+    +dark
+        color: $n8
+    // For date and guest picker display
+    &:not(input)
+        cursor: pointer
+        user-select: none
+
+.searchDivider
+    width: 1px
+    height: 40px
+    background: $n6
+    +dark
+        background: $n3
+    +m
+        display: none
+
+.searchButton
+    padding: 16px 40px
+    border-radius: 16px
+    background: #FF6B35
+    border: none
+    +body-bold-2
+    color: $n8
+    cursor: pointer
+    transition: all .2s ease
+    white-space: nowrap
+    +m
+        width: 100%
+    &:hover
+        background: darken(#FF6B35, 5%)
+        transform: translateY(-2px)
+    &:active
+        transform: translateY(0)
+
+.datePicker
+    position: absolute
+    top: calc(100% + 8px)
+    left: 0
+    right: 0
+    z-index: 100
+    +m
+        left: -20px
+        right: -20px
+
+.guestPicker
+    position: absolute
+    top: calc(100% + 8px)
+    left: 0
+    right: 0
+    z-index: 100
+    +m
+        left: -20px
+        right: -20px
+
+.filtersContainer
+    margin-bottom: 64px
+    +d
+        margin-bottom: 48px
+    +m
+        margin-bottom: 0
+        position: fixed
+        bottom: 0
+        left: 0
+        right: 0
+        z-index: 100
+        padding: 0
+        background: transparent
+        pointer-events: none
+
+.filtersGrid
+    display: grid
+    grid-template-columns: repeat(5, 1fr)
+    gap: 16px
+    +d
+        gap: 16px
+    +t
+        grid-template-columns: repeat(3, 1fr)
+        gap: 16px
+    +m
+        position: absolute
+        bottom: 16px
+        left: 16px
+        right: 16px
+        display: flex
+        flex-direction: row
+        align-items: center
+        justify-content: space-around
+        gap: 0
+        padding: 12px 16px
+        background: $n8
+        border-radius: 24px
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15)
+        pointer-events: all
+        +dark
+            background: $n1
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4)
+
+.filterCard
+    display: flex
+    flex-direction: column
+    align-items: center
+    gap: 10px
+    padding: 20px
+    border-radius: 16px
+    background: $n8
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08)
+    border: none
+    cursor: pointer
+    transition: all .3s ease
+    +body-2
+    color: $n3
+    position: relative
+    overflow: visible
+    +dark
+        background: $n1
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2)
+        color: $n6
+    +m
+        flex-direction: column
+        align-items: center
+        justify-content: center
+        padding: 8px 12px
+        gap: 4px
+        border-radius: 0
+        background: transparent
+        box-shadow: none
+        min-width: 0
+        flex: 1
+        -webkit-tap-highlight-color: transparent
+    svg
+        fill: $n4
+        transition: fill .3s ease
+        +dark
+            fill: $n5
+        +m
+            width: 24px
+            height: 24px
+            flex-shrink: 0
+    span
+        +m
+            +caption-2
+            font-size: 10px
+            font-weight: 500
+            text-align: center
+            line-height: 1.2
+            color: $n4
+            transition: color .2s ease
+            +dark
+                color: $n5
+    &:hover
+        transform: translateY(-4px)
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12)
+        +dark
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3)
+        +m
+            transform: none
+            box-shadow: none
+    &:active
+        +m
+            transform: scale(0.95)
+            opacity: 0.8
+
+.filterCardContent
+    display: flex
+    flex-direction: column
+    align-items: center
+    gap: 10px
+    +m
+        gap: 4px
+
+.filterCardActive
+    background: $p4
+    color: $n8
+    box-shadow: 0 8px 24px rgba($p4, 0.3)
+    +dark
+        box-shadow: 0 8px 24px rgba($p4, 0.4)
+    svg
+        fill: $n8
+    +m
+        background: transparent
+        box-shadow: none
+        color: $p4
+    &:hover
+        transform: translateY(-4px)
+        box-shadow: 0 12px 32px rgba($p4, 0.35)
+        +dark
+            box-shadow: 0 12px 32px rgba($p4, 0.45)
+        +m
+            transform: none
+            box-shadow: none
+    &:active
+        +m
+            transform: scale(0.95)
+            opacity: 0.8
+    svg
+        +m
+            fill: $p4
+    span
+        +m
+            color: $p4
+
+.comingSoonBadge
+    position: absolute
+    top: 10px
+    right: -15px
+    padding: 3px 10px
+    border-radius: 8px
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)
+    color: $n8
+    font-weight: 600
+    font-size: 8px
+    text-transform: uppercase
+    letter-spacing: 0.3px
+    z-index: 1
+    transform: rotate(45deg)
+    transform-origin: center
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)
+    white-space: nowrap
+    +m
+        top: 8px
+        right: -12px
+        padding: 2px 8px
+        font-size: 7px
+        letter-spacing: 0.2px
+
+.categorySection
+    margin-bottom: 80px
+    +d
+        margin-bottom: 64px
+    +m
+        margin-bottom: 48px
+    &:last-child
+        margin-bottom: 0
+
+.sectionHeader
+    margin-bottom: 32px
+    text-align: left
+    +m
+        margin-bottom: 24px
+
+.sectionTitle
+    margin-bottom: 8px
+    +m
+        font-size: 24px
+        line-height: 1.3
+
+.sectionSubtitle
+    +body-2
+    color: $n4
+    +dark
+        color: $n5
+    +m
+        font-size: 14px
+
+.browseWrapper
+    :global
+        .section
+            padding: 0
+            margin: 0
+
+// Destination Scroll Wrapper
+.destinationScrollWrapper
+    overflow-x: auto
+    overflow-y: hidden
+    -webkit-overflow-scrolling: touch
+    scrollbar-width: none
+    -ms-overflow-style: none
+    margin-left: -20px
+    margin-right: -20px
+    padding: 20px 20px 30px
+    position: relative
+    +m
+        margin-left: -20px
+        margin-right: -20px
+        padding: 20px 20px 20px
+    &::-webkit-scrollbar
+        display: none
+    &::-webkit-scrollbar-track
+        display: none
+    &::-webkit-scrollbar-thumb
+        display: none
+
+// Destination Grid - Circular cards (Horizontal Scroll)
+.destinationGrid
+    display: inline-flex
+    flex-direction: column
+    gap: 24px
+    width: max-content
+    +m
+        flex-direction: row
+        flex-wrap: nowrap
+        gap: 16px
+
+.destinationRow
+    display: inline-flex
+    flex-direction: row
+    gap: 24px
+    width: max-content
+    +m
+        display: none
+        &:first-child
+            display: inline-flex
+
+.destinationCard
+    flex: 0 0 auto
+    width: 144px
+    margin: 0
+    position: relative
+    z-index: 1
+    +m
+        width: 120px
+    &:hover
+        z-index: 10
+
+// Grid List - Standard 4 column grid
+.gridList
+    display: grid
+    grid-template-columns: repeat(4, 1fr)
+    gap: 32px 24px
+    +x
+        grid-template-columns: repeat(3, 1fr)
+        gap: 32px 20px
+    +d
+        grid-template-columns: repeat(3, 1fr)
+        gap: 32px 24px
+    +t
+        grid-template-columns: repeat(2, 1fr)
+        gap: 24px 16px
+    +m
+        grid-template-columns: 1fr
+        gap: 24px
+
+.gridCard
+    width: 100%
+    margin: 0
+    transition: transform .2s ease, box-shadow .2s ease
+    &:hover
+        transform: translateY(-4px)
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08)
+        +dark
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3)
+
+// Row List - Horizontal row cards
+.rowList
+    display: flex
+    flex-direction: column
+    gap: 24px
+    +m
+        gap: 20px
+
+.rowCard
+    width: 100%
+    margin: 0
+    transition: transform .2s ease, box-shadow .2s ease
+    &:hover
+        transform: translateX(4px)
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08)
+        +dark
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3)
+
+// Premium Grid - Enhanced 4 column grid with larger cards
+.premiumGrid
+    display: grid
+    grid-template-columns: repeat(4, 1fr)
+    gap: 40px 32px
+    +x
+        grid-template-columns: repeat(3, 1fr)
+        gap: 32px 24px
+    +d
+        grid-template-columns: repeat(3, 1fr)
+        gap: 32px 24px
+    +t
+        grid-template-columns: repeat(2, 1fr)
+        gap: 24px 20px
+    +m
+        grid-template-columns: 1fr
+        gap: 24px
+
+.premiumCard
+    width: 100%
+    margin: 0
+    border-width: 2px
+    transition: all .3s ease
+    &:hover
+        transform: translateY(-6px)
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12)
+        border-color: $p4
+        +dark
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4)
+            border-color: $p4
+

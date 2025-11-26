@@ -3,6 +3,29 @@ import cn from "classnames";
 import styles from "./Receipt.module.sass";
 import Icon from "../Icon";
 
+// Helper function to format image URLs (from Azure blob storage or full URLs)
+const formatImageUrl = (url) => {
+  if (!url) return null;
+  
+  // Already a full URL
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  
+  // Azure blob storage path (e.g., "leads/3/listings/6/cover-photo/image.jpg")
+  if (url.startsWith("leads/")) {
+    return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+  }
+  
+  // Relative path
+  if (url.startsWith("/")) {
+    return url;
+  }
+  
+  // Otherwise assume it's a blob storage path
+  return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+};
+
 const Receipt = ({
   className,
   items,
@@ -14,10 +37,28 @@ const Receipt = ({
   onItemClick,
   renderItem, // Custom render function for items
   avatar,
+  hostData,
 }) => {
   const [avatarError, setAvatarError] = useState(false);
   const defaultAvatar = "/images/content/avatar.jpg";
-  const avatarSrc = avatar || "/images/content/avatar.jpg";
+  
+  // Get avatar from hostData if available, otherwise use avatar prop or default
+  const getAvatarSrc = () => {
+    if (hostData?.host?.profilePhotoUrl) {
+      const formatted = formatImageUrl(hostData.host.profilePhotoUrl);
+      return formatted || defaultAvatar;
+    }
+    return avatar || defaultAvatar;
+  };
+  
+  const avatarSrc = getAvatarSrc();
+  const showPlaceholder = !hostData?.host?.profilePhotoUrl && !avatar;
+  
+  // Get rating and reviews from hostData
+  const rating = hostData?.statistics?.averageRating || 0;
+  const reviewCount = hostData?.statistics?.totalReviews || 0;
+  const ratingDisplay = rating > 0 ? rating.toFixed(1) : "0.0";
+  const reviewsText = reviewCount === 1 ? "1 review" : `${reviewCount} reviews`;
 
   return (
     <div className={cn(className, styles.receipt)}>
@@ -33,16 +74,24 @@ const Receipt = ({
           </div>
           <div className={styles.rating}>
             <Icon name="star" size="20" />
-            <div className={styles.number}>4.8</div>
-            <div className={styles.reviews}>(256 reviews)</div>
+            <div className={styles.number}>{ratingDisplay}</div>
+            <div className={styles.reviews}>
+              ({reviewCount > 0 ? reviewsText : "0 reviews"})
+            </div>
           </div>
         </div>
         <div className={styles.avatar}>
-          <img 
-            src={avatarError ? defaultAvatar : avatarSrc} 
-            alt="Avatar"
-            onError={() => setAvatarError(true)}
-          />
+          {showPlaceholder ? (
+            <div className={styles.avatarPlaceholder}>
+              <Icon name="user" size="32" />
+            </div>
+          ) : (
+            <img 
+              src={avatarError ? defaultAvatar : avatarSrc} 
+              alt={hostData?.host?.firstName || "Avatar"}
+              onError={() => setAvatarError(true)}
+            />
+          )}
           <div className={styles.check}>
             <Icon name="check" size="12" />
           </div>

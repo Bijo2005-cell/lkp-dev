@@ -30,7 +30,9 @@ import MessageCenter from "./screens/MessageCenter";
 import Wishlists from "./screens/Wishlists";
 import YourTrips from "./screens/YourTrips";
 import Bookings from "./screens/Bookings";
+import ViewDetails from "./screens/ViewDetails";
 import ListYourProperty from "./screens/ListYourProperty";
+import FleetHome from "./screens/FleetHome";
 
 function App() {
   return (
@@ -41,7 +43,7 @@ function App() {
           path="/"
           render={() => (
             <Page>
-              <Stays />
+              <FleetHome />
             </Page>
           )}
         />
@@ -236,6 +238,15 @@ function App() {
         />
         <Route
           exact
+          path="/viewdetails"
+          render={() => (
+            <Page separatorHeader>
+              <ViewDetails />
+            </Page>
+          )}
+        />
+        <Route
+          exact
           path="/your-trips"
           render={() => (
             <Page separatorHeader>
@@ -289,6 +300,15 @@ function App() {
           )}
         />
         <Route exact path="/pagelist" component={PageList} />
+        <Route
+          exact
+          path="/fleethome"
+          render={() => (
+            <Page>
+              <FleetHome />
+            </Page>
+          )}
+        />
       </Switch>
     </Router>
   );

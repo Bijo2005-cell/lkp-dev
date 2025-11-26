@@ -111,6 +111,22 @@
     text-align: center
     +hairline-2
     color: $p4
+    display: flex
+    flex-direction: column
+    align-items: center
+    &.location
+        box-shadow: inset 0 0 0 2px $n5
+        color: $n3
+        +dark
+            box-shadow: inset 0 0 0 2px $n4
+            color: $n5
+    .actual
+        display: flex
+        align-items: center
+        gap: 4px
+        svg
+            flex-shrink: 0
+            fill: currentColor
 
 .old
     margin-bottom: 6px
@@ -167,6 +183,16 @@
 
 .cost
     +caption-bold-2
+    &.locationText
+        display: flex
+        align-items: center
+        gap: 4px
+        color: $n3
+        +dark
+            color: $n5
+        svg
+            flex-shrink: 0
+            fill: currentColor
 
 .rating
     display: flex

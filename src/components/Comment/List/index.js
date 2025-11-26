@@ -1,70 +1,134 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import cn from "classnames";
 import styles from "./List.module.sass";
 import Rating from "../../Rating";
 import Dropdown from "../../Dropdown";
-import Loader from "../../Loader";
 
-const items = [
-  {
-    author: "Myrtie Runolfsson",
-    avatar: "/images/content/avatar-1.jpg",
-    rating: "5",
-    time: "about 1 hour ago",
-    content:
-      "We had the most spectacular view. Unfortunately it was very hot in the room from 2-830 pm due to no air conditioning and no shade.",
-  },
-  {
-    author: "Osbaldo Beahan",
-    avatar: "/images/content/avatar-2.jpg",
-    rating: "5",
-    time: "about 1 hour ago",
-    content:
-      "Stunning views of Queenstown. Very peaceful. Love it so much. Definitely gonna come back and visit.",
-  },
-  {
-    author: "Tobin Hackett",
-    avatar: "/images/content/avatar-3.jpg",
-    rating: "5",
-    time: "1 day ago",
-    content: "Best place I stayed in all of NZ. 🙌 🎉 😎",
-  },
-];
+// Helper to format image URL from API
+const formatImageUrl = (url) => {
+  if (!url) return "/images/content/avatar-1.jpg";
+
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  if (url.includes("/") && !url.startsWith("/")) {
+    return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+  }
+
+  if (url.startsWith("/")) {
+    return url;
+  }
+
+  return "/images/content/avatar-1.jpg";
+};
+
+// Format date to relative time
+const formatDate = (dateString) => {
+  if (!dateString) return "Recently";
+  
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? "minute" : "minutes"} ago`;
+    if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? "hour" : "hours"} ago`;
+    if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? "day" : "days"} ago`;
+    
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "Recently";
+  }
+};
 
 const dateOptions = ["Newest", "Popular"];
 
-const List = () => {
+const List = ({ reviews = [] }) => {
   const [date, setDate] = useState(dateOptions[0]);
+
+  // Transform API reviews to component format
+  const transformedReviews = useMemo(() => {
+    if (!Array.isArray(reviews) || reviews.length === 0) {
+      return [];
+    }
+    
+    return reviews.map((review) => ({
+      author: review.customerName || review.author || "Anonymous",
+      avatar: formatImageUrl(review.customerAvatar || review.avatar),
+      rating: review.rating || review.ratingScore || "5",
+      time: formatDate(review.createdAt || review.reviewDate || review.time),
+      content: review.comment || review.content || review.reviewText || "",
+    }));
+  }, [reviews]);
+
+  // Sort reviews based on selected option
+  const sortedReviews = useMemo(() => {
+    if (date === "Popular") {
+      return [...transformedReviews].sort((a, b) => {
+        const ratingA = parseFloat(a.rating) || 0;
+        const ratingB = parseFloat(b.rating) || 0;
+        return ratingB - ratingA;
+      });
+    }
+    return transformedReviews;
+  }, [transformedReviews, date]);
+
+  // Don't show dropdown and sorting if no reviews
+  if (reviews.length === 0) {
+    return (
+      <div className={styles.list}>
+        <div className={styles.head}>
+          <div className={styles.title}>No reviews yet</div>
+        </div>
+        <div className={styles.empty}>
+          <p>This host hasn't received any reviews yet.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.list}>
       <div className={styles.head}>
-        <div className={styles.title}>3 comments</div>
-        <Dropdown
-          className={styles.dropdown}
-          value={date}
-          setValue={setDate}
-          options={dateOptions}
-        />
+        <div className={styles.title}>
+          {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
+        </div>
+        {reviews.length > 1 && (
+          <Dropdown
+            className={styles.dropdown}
+            value={date}
+            setValue={setDate}
+            options={dateOptions}
+          />
+        )}
       </div>
       <div className={styles.group}>
-        {items.map((x, index) => (
+        {sortedReviews.map((review, index) => (
           <div className={styles.item} key={index}>
             <div className={styles.avatar}>
-              <img src={x.avatar} alt="Avatar" />
+              <img src={review.avatar} alt={review.author} onError={(e) => {
+                e.target.src = "/images/content/avatar-1.jpg";
+              }} />
             </div>
             <div className={styles.details}>
               <div className={styles.top}>
-                <div className={styles.author}>{x.author}</div>
+                <div className={styles.author}>{review.author}</div>
                 <Rating
                   className={styles.rating}
                   readonly
-                  initialRating={x.rating}
+                  initialRating={review.rating}
                 />
               </div>
-              <div className={styles.content}>{x.content}</div>
+              {review.content && (
+                <div className={styles.content}>{review.content}</div>
+              )}
               <div className={styles.foot}>
-                <div className={styles.time}>{x.time}</div>
+                <div className={styles.time}>{review.time}</div>
                 <div className={styles.actions}>
                   <button className={styles.action}>Like</button>
                   <button className={styles.action}>Reply</button>
@@ -73,12 +137,6 @@ const List = () => {
             </div>
           </div>
         ))}
-      </div>
-      <div className={styles.btns}>
-        <button className={cn("button-stroke button-small", styles.button)}>
-          <Loader className={styles.loader} />
-          <span>Loading comment</span>
-        </button>
       </div>
     </div>
   );

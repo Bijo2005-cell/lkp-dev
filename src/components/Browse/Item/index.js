@@ -5,10 +5,23 @@ import styles from "./Item.module.sass";
 import Icon from "../../Icon";
 
 const Item = ({ className, item }) => {
+  const handleImageError = (e) => {
+    // Silently fallback to default image if original fails to load
+    if (e.target.src !== "/images/content/card-pic-13.jpg") {
+      e.target.src = "/images/content/card-pic-13.jpg";
+      e.target.srcSet = "/images/content/card-pic-13.jpg";
+    }
+  };
+
   return (
     <Link className={cn(className, styles.item)} to={item.url}>
       <div className={styles.preview}>
-        <img srcSet={`${item.srcSet} 2x`} src={item.src} alt="Nature" />
+        <img 
+          srcSet={`${item.srcSet} 2x`} 
+          src={item.src} 
+          alt={item.title || "Nature"}
+          onError={handleImageError}
+        />
         <div
           className={cn(
             { "status-black": item.category === "black" },

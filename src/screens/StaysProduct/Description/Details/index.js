@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import cn from "classnames";
 import styles from "./Details.module.sass";
 import Icon from "../../../../components/Icon";
 import Switch from "../../../../components/Switch";
 import Counter from "../../../../components/Counter";
+import Modal from "../../../../components/Modal";
 
 const facts = [
   {
@@ -104,6 +105,8 @@ export const addOns = [
 ];
 
 const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggleAddOn, onAddOnQuantityChange }) => {
+  const [selectedAddonModal, setSelectedAddonModal] = useState(null);
+
   const displayAddOns = Array.isArray(listing?.addons) && listing.addons.length
     ? listing.addons.map((a) => {
         const addonId = a?.addon?.addonId ?? a?.addonId ?? a?.assignmentId;
@@ -115,10 +118,17 @@ const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggle
         
         const isSelected = selectedAddOns?.includes(addonId);
         
+        // Get description or use lorem ipsum placeholder
+        const loremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.";
+        const description = a?.addon?.briefDescription || 
+                           a?.addon?.description || 
+                           a?.addon?.fullDescription || 
+                           loremIpsum;
+        
         return {
           id: addonId,
           title: a?.addon?.title || "Addon",
-          description: a?.addon?.briefDescription || "",
+          description: description,
           price: pricingType === "Group" && isSelected
             ? `${currency} ${price.toFixed(2)}${quantity > 1 ? ` × ${quantity} = ${currency} ${totalPrice.toFixed(2)}` : ` = ${currency} ${totalPrice.toFixed(2)}`}`
             : `${currency} ${price.toFixed(2)}`,
@@ -133,6 +143,63 @@ const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggle
         ...a,
         pricingType: "Individual", // Default for static addons
       }));
+
+  // Helper function to get addon image URL
+  const getAddonImageUrl = (addon) => {
+    if (!addon?.originalAddon) return null;
+    
+    const addonDetails = addon.originalAddon?.addon;
+    if (!addonDetails) return null;
+    
+    // Try imageUrls array first (from API)
+    if (Array.isArray(addonDetails.imageUrls) && addonDetails.imageUrls.length > 0) {
+      let imageUrl = addonDetails.imageUrls[0];
+      // If it starts with /api/, it's already a valid relative path
+      // If it's a relative path without /api/, prepend /api
+      if (imageUrl && !imageUrl.startsWith("http")) {
+        if (imageUrl.startsWith("/api/")) {
+          return imageUrl; // Already correct
+        } else if (imageUrl.startsWith("/")) {
+          return imageUrl; // Absolute path, use as is
+        } else {
+          // Relative path, try blob storage first, then /api/
+          return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${imageUrl}`;
+        }
+      }
+      return imageUrl;
+    }
+    
+    // Fallback to other image fields
+    let imageUrl = addonDetails.imageUrl || 
+                   addonDetails.image || 
+                   addonDetails.photoUrl ||
+                   (addonDetails.images && addonDetails.images[0]?.url) ||
+                   (addonDetails.images && addonDetails.images[0]?.imageUrl);
+    
+    // Handle blob storage URLs or relative paths
+    if (imageUrl && !imageUrl.startsWith("http")) {
+      if (imageUrl.startsWith("/api/")) {
+        return imageUrl; // API path, use as is
+      } else if (imageUrl.startsWith("/")) {
+        return imageUrl; // Absolute path, use as is
+      } else {
+        // Relative path, assume blob storage
+        imageUrl = `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${imageUrl}`;
+      }
+    }
+    
+    return imageUrl;
+  };
+
+  const handleAddonCardClick = (addon, e) => {
+    // Don't open modal if clicking on switch or counter
+    if (e.target.closest(`.${styles.addOnControls}`) || 
+        e.target.closest(`.${styles.addOnSwitch}`) ||
+        e.target.closest(`.${styles.addOnCounter}`)) {
+      return;
+    }
+    setSelectedAddonModal(addon);
+  };
 
   // Only show the 'What's Included' setting (settingId = 7)
   const whatsIncludedSetting = Array.isArray(listing?.guestRequirements)
@@ -245,6 +312,7 @@ const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggle
                 className={cn(styles.addOnCard, {
                   [styles.addOnCardSelected]: isSelected,
                 })}
+                onClick={(e) => handleAddonCardClick(addOn, e)}
               >
                 <div className={styles.addOnContent}>
                   <div className={styles.addOnHeader}>
@@ -256,7 +324,6 @@ const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggle
                     </div>
                     <div className={styles.addOnPrice}>{addOn.price}</div>
                   </div>
-                  <p className={styles.addOnDescription}>{addOn.description}</p>
                 </div>
                 <div className={styles.addOnControls}>
                   {isGroupPricing && isSelected ? (
@@ -266,7 +333,7 @@ const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggle
                       setValue={(newValue) => onAddOnQuantityChange(addOn.id, newValue)}
                       iconMinus="minus"
                       iconPlus="plus"
-                      min={1}
+                      min={0}
                     />
                   ) : (
                     <div className={styles.addOnSwitch}>
@@ -293,6 +360,40 @@ const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggle
           ))}
         </div>
       </div>
+
+      {/* Addon Detail Modal */}
+      <Modal 
+        visible={selectedAddonModal !== null} 
+        onClose={() => setSelectedAddonModal(null)}
+        outerClassName={styles.addonModalOuter}
+      >
+        {selectedAddonModal && (
+          <div className={styles.addonModalContent}>
+            <div className={styles.addonModalImage}>
+              {(() => {
+                const imageUrl = getAddonImageUrl(selectedAddonModal);
+                return imageUrl ? (
+                  <img 
+                    src={imageUrl} 
+                    alt={selectedAddonModal.title}
+                    className={styles.addonModalImg}
+                  />
+                ) : (
+                  <div className={styles.addonModalPlaceholder}>
+                    <Icon name="image" size="48" />
+                    <p>No image available</p>
+                  </div>
+                );
+              })()}
+            </div>
+            <div className={styles.addonModalDescription}>
+              <div className={styles.addonModalDescText}>
+                {selectedAddonModal.description || "No description available for this addon."}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

@@ -95,6 +95,17 @@ const CreditCard = ({ className, buttonUrl, hidePaymentFields = false }) => {
         handler: function (response) {
           try {
             localStorage.setItem("razorpayPaymentSuccess", JSON.stringify(response));
+            // Save the actual paid amount before removing pendingPayment
+            // The amount sent to Razorpay is what was actually paid (after discount)
+            try {
+              const actualPaidAmount = payment.amount; // This is the amount sent to Razorpay (paid amount)
+              localStorage.setItem("actualPaidAmount", JSON.stringify({
+                amount: actualPaidAmount,
+                currency: payment.currency || "INR"
+              }));
+            } catch (e) {
+              console.error("Error saving actual paid amount:", e);
+            }
           } catch {}
           localStorage.removeItem("pendingPayment");
           history.push(buttonUrl);

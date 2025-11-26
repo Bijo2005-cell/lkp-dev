@@ -5,6 +5,16 @@ import styles from "./Card.module.sass";
 import Icon from "../Icon";
 
 const Item = ({ className, item, row, car }) => {
+  // Use default image if item.src is an Azure blob URL without SAS token
+  // SAS token URLs (with sig= and sv= query params) should work
+  const defaultImage = "/images/content/card-pic-13.jpg";
+  const hasSasToken = item.src && item.src.includes("lkpleadstoragedev.blob.core.windows.net") && 
+                      item.src.includes("sig=") && item.src.includes("sv=");
+  const imageSrc = item.src && item.src.includes("lkpleadstoragedev.blob.core.windows.net") && !hasSasToken
+    ? defaultImage 
+    : (item.src || defaultImage);
+  const imageSrcSet = imageSrc; // Use same logic for srcSet
+
   return (
     <Link
       className={cn(
@@ -16,7 +26,20 @@ const Item = ({ className, item, row, car }) => {
       to={item.url}
     >
       <div className={styles.preview}>
-        <img srcSet={`${item.srcSet} 2x`} src={item.src} alt="Nature" />
+        <img 
+          srcSet={imageSrcSet !== defaultImage ? `${imageSrcSet} 2x` : defaultImage}
+          src={imageSrc} 
+          alt={item.title || "Nature"}
+          onError={(e) => {
+            // Silently fallback to default image if original fails to load
+            // Prevent infinite loop by checking if already on fallback
+            if (!e.target.src.includes("/images/content/card-pic-13.jpg")) {
+              e.target.src = defaultImage;
+              e.target.srcSet = defaultImage;
+              e.target.onerror = null; // Prevent further error handling
+            }
+          }}
+        />
         {item.categoryText && (
           <div
             className={cn(
@@ -32,10 +55,12 @@ const Item = ({ className, item, row, car }) => {
       <div className={styles.body}>
         <div className={styles.line}>
           <div className={styles.title}>{item.title}</div>
-          <div className={styles.price}>
-            <div className={styles.old}>{item.priceOld}</div>
-            <div className={styles.actual}>{item.priceActual}</div>
-          </div>
+          {item.hasPrice && item.priceActual && (
+            <div className={styles.price}>
+              <div className={styles.old}>{item.priceOld}</div>
+              <div className={styles.actual}>{item.priceActual}</div>
+            </div>
+          )}
         </div>
         <div className={styles.options}>
           {item.options.map((x, index) => (
@@ -55,7 +80,9 @@ const Item = ({ className, item, row, car }) => {
             </div>
           )}
           <div className={styles.flex}>
-            <div className={styles.cost}>{item.cost}</div>
+            {item.hasPrice && item.cost && (
+              <div className={styles.cost}>{item.cost}</div>
+            )}
             <div className={styles.rating}>
               <Icon name="star" size="12" />
               <span className={styles.number}>{item.rating}</span>

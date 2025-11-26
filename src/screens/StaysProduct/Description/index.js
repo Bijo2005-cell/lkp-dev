@@ -12,24 +12,46 @@ import InlineDatePicker from "../../../components/InlineDatePicker";
 import TimeSlotsPicker from "../../../components/TimeSlotsPicker";
 import GuestPicker from "../../../components/GuestPicker";
 import LoginModal from "../../../components/LoginModal";
-import { getBillingConfiguration, getAvailability, createOrder } from "../../../utils/api";
+import { getBillingConfiguration, getAvailability, createOrder, getListingSlots } from "../../../utils/api";
 
 const basePrice = 833;
 const discount = 125;
 
-const Description = ({ classSection, listing }) => {
+// Helper function to format image URLs (from Azure blob storage or full URLs)
+const formatImageUrl = (url) => {
+  if (!url) return null;
+  
+  // Already a full URL
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  
+  // Azure blob storage path (e.g., "leads/3/listings/6/cover-photo/image.jpg")
+  if (url.startsWith("leads/")) {
+    return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+  }
+  
+  // Relative path - prepend base URL if needed
+  if (url.startsWith("/")) {
+    return url;
+  }
+  
+  // Otherwise assume it's a blob storage path
+  return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+};
+
+const Description = ({ classSection, listing, hostData }) => {
   const history = useHistory();
   const [selectedAddOns, setSelectedAddOns] = useState([]);
   const [addOnQuantities, setAddOnQuantities] = useState({}); // Track quantities for Group pricing addons
-  // default values
-  const defaultDate = listing?.timeSlots?.[0]?.startDate
-    ? new Date(listing.timeSlots[0].startDate)
-    : new Date();
-  const formattedDefaultDate = defaultDate.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  });
+  
+  // State declarations - must come before they're used
+  const [slotsData, setSlotsData] = useState([]); // Store slots from API
+  const [transformedTimeSlots, setTransformedTimeSlots] = useState([]); // Transformed timeSlots for components
+  const [billingConfig, setBillingConfig] = useState(null);
+  const [availabilityData, setAvailabilityData] = useState([]);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  
   // Helper function to format time from "HH:mm" to "HH:mm AM/PM"
   const formatTime = (timeString) => {
     if (!timeString) return "";
@@ -46,30 +68,34 @@ const Description = ({ classSection, listing }) => {
     return `${formatTime(startTime)} – ${formatTime(endTime)}`;
   };
 
-  const [selectedDate, setSelectedDate] = useState(moment(defaultDate));
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState(
-    listing?.timeSlots?.[0]?.slotName || null
-  );
+  // Don't pre-select date or time slot - let user choose
+  const formattedDefaultDate = "Select date";
+
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [guests, setGuests] = useState({
-    adults: 1,
-    children: 0,
-    infants: 0,
-    pets: 0,
+    guests: 1,
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimeSlots, setShowTimeSlots] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [billingConfig, setBillingConfig] = useState(null);
-  const [availabilityData, setAvailabilityData] = useState([]);
-  const [loadingAvailability, setLoadingAvailability] = useState(false);
   const dateItemRef = useRef(null);
   const timeItemRef = useRef(null);
   const guestItemRef = useRef(null);
+  const initialValuesSetRef = useRef(false);
+
+  // Helper function to get guest count (supports both old and new format)
+  const getGuestCount = (guestsObj) => {
+    if (guestsObj.guests !== undefined) {
+      return guestsObj.guests;
+    }
+    // Legacy format: adults + children
+    return (guestsObj.adults || 0) + (guestsObj.children || 0);
+  };
 
   const guestCountText = useMemo(() => {
-    // Infants don't count toward total for display (matching Airbnb style)
-    const total = guests.adults + guests.children;
+    const total = getGuestCount(guests);
     if (total === 0) return "Add guests";
     if (total === 1) return "1 guest";
     return `${total} guests`;
@@ -77,18 +103,61 @@ const Description = ({ classSection, listing }) => {
 
   // Find the selected timeSlot object to get maxSeats and for display
   const selectedTimeSlotData = useMemo(() => {
+    // First try to find in slotsData from API
+    if (slotsData && slotsData.length > 0 && selectedTimeSlot) {
+      const apiSlot = slotsData.find(
+        (slot) => slot.slot_name === selectedTimeSlot || slot.slot_id?.toString() === selectedTimeSlot
+      );
+      if (apiSlot) {
+        // Transform API slot to expected format
+        return {
+          slotId: apiSlot.slot_id,
+          slot_id: apiSlot.slot_id,
+          slotName: apiSlot.slot_name,
+          startTime: apiSlot.schedule?.start_time,
+          endTime: apiSlot.schedule?.end_time,
+          startDate: apiSlot.schedule?.start_date,
+          endDate: apiSlot.schedule?.end_date,
+          maxSeats: apiSlot.capacity?.max_seats,
+          pricePerPerson: apiSlot.pricing?.price_per_person,
+          b2bRate: apiSlot.pricing?.b2b_rate,
+        };
+      }
+    }
+    // Fallback to listing timeSlots
     if (!listing?.timeSlots || !selectedTimeSlot) return null;
     return listing.timeSlots.find(
       (slot) => slot.slotName === selectedTimeSlot || slot.slotId?.toString() === selectedTimeSlot
     );
-  }, [listing?.timeSlots, selectedTimeSlot]);
+  }, [slotsData, listing?.timeSlots, selectedTimeSlot]);
 
-  // Get availability data for selected date
+  // Filter availability data by selected slot for date picker
+  // If no slot is selected, show all availability (user can pick date first)
+  const filteredAvailabilityData = useMemo(() => {
+    if (!availabilityData.length) return [];
+    
+    // If no slot is selected, show all availability
+    if (!selectedTimeSlotData && !selectedTimeSlot) {
+      return availabilityData;
+    }
+    
+    const slotId = selectedTimeSlotData?.slotId || selectedTimeSlotData?.slot_id;
+    const slotName = selectedTimeSlotData?.slotName || selectedTimeSlot;
+    
+    // Filter availability to only show dates for the selected slot
+    return availabilityData.filter(av => 
+      slotId ? av.slot_id === slotId : av.slot_name === slotName
+    );
+  }, [availabilityData, selectedTimeSlotData, selectedTimeSlot]);
+
+  // Get availability data for selected date and slot
   const selectedDateAvailability = useMemo(() => {
-    if (!selectedDate || !availabilityData.length) return null;
+    if (!selectedDate || !filteredAvailabilityData.length) return null;
     const dateStr = selectedDate.format("YYYY-MM-DD");
-    return availabilityData.find(av => av.date === dateStr);
-  }, [selectedDate, availabilityData]);
+    
+    // Find availability for the selected date
+    return filteredAvailabilityData.find(av => av.date === dateStr);
+  }, [selectedDate, filteredAvailabilityData]);
 
   // Get the selected timeSlot object for display
   const selectedTimeSlotDisplay = useMemo(() => {
@@ -117,7 +186,7 @@ const Description = ({ classSection, listing }) => {
       icon: "calendar",
     },
     {
-      title: selectedTimeSlotDisplay,
+      title: selectedTimeSlotDisplay || "Select time",
       category: "Time slot",
       icon: "clock",
     },
@@ -167,10 +236,20 @@ const Description = ({ classSection, listing }) => {
   };
 
   const handleAddOnQuantityChange = (addOnId, newQuantity) => {
-    setAddOnQuantities((prev) => ({
-      ...prev,
-      [addOnId]: newQuantity,
-    }));
+    // If quantity reaches 0, deselect the addon
+    if (newQuantity <= 0) {
+      setSelectedAddOns((prev) => prev.filter((id) => id !== addOnId));
+      setAddOnQuantities((prev) => {
+        const newQty = { ...prev };
+        delete newQty[addOnId];
+        return newQty;
+      });
+    } else {
+      setAddOnQuantities((prev) => ({
+        ...prev,
+        [addOnId]: newQuantity,
+      }));
+    }
   };
 
   const { addOnsTotal, finalTotal, receipt } = useMemo(() => {
@@ -194,18 +273,22 @@ const Description = ({ classSection, listing }) => {
     }, 0);
     
     // Calculate base price based on guest count and price type
-    const guestCount = guests.adults + guests.children; // Infants don't count
-    // Use availability data if available, otherwise fallback to listing data
+    const guestCount = getGuestCount(guests);
+    // Use availability data if available, then selected slot, then fallback to listing data
     const pricePerPerson = selectedDateAvailability?.price_per_person
       ? parseFloat(selectedDateAvailability.price_per_person)
-      : (listing?.timeSlots?.[0]?.pricePerPerson 
-          ? parseFloat(listing.timeSlots[0].pricePerPerson) 
-          : null);
+      : (selectedTimeSlotData?.pricePerPerson
+          ? parseFloat(selectedTimeSlotData.pricePerPerson)
+          : (listing?.timeSlots?.[0]?.pricePerPerson 
+              ? parseFloat(listing.timeSlots[0].pricePerPerson) 
+              : null));
     const pricePerNight = selectedDateAvailability?.b2b_rate
       ? parseFloat(selectedDateAvailability.b2b_rate)
-      : (listing?.timeSlots?.[0]?.b2bRate
-          ? parseFloat(listing.timeSlots[0].b2bRate)
-          : 119);
+      : (selectedTimeSlotData?.b2bRate
+          ? parseFloat(selectedTimeSlotData.b2bRate)
+          : (listing?.timeSlots?.[0]?.b2bRate
+              ? parseFloat(listing.timeSlots[0].b2bRate)
+              : 119));
     const currency = listing?.currency || "INR";
     
     // Calculate nights (assuming 1 night for now, can be enhanced with date range)
@@ -325,18 +408,38 @@ const Description = ({ classSection, listing }) => {
       (selectedDateAvailability?.start_time
         ? selectedDateAvailability.start_time
         : selectedTimeSlotData?.startTime) || "";
+    const summaryEndTime =
+      (selectedDateAvailability?.end_time
+        ? selectedDateAvailability.end_time
+        : selectedTimeSlotData?.endTime) || "";
     const summarySlotId =
       selectedTimeSlotData?.slotId ||
       selectedTimeSlotData?.slot_id ||
       selectedTimeSlotData?.id ||
       null;
 
-    const guestsCount = guests.adults + guests.children;
+    const guestsCount = getGuestCount(guests);
+
+    // Get first image from listing - prefer coverPhotoUrl, then first listingMedia, then fallback
+    const getFirstListingImage = () => {
+      if (listing?.coverPhotoUrl) return listing.coverPhotoUrl;
+      if (Array.isArray(listing?.listingMedia) && listing.listingMedia.length > 0) {
+        const firstMedia = listing.listingMedia[0];
+        return firstMedia.url || 
+               (firstMedia.fileUrl?.startsWith("http") 
+                 ? firstMedia.fileUrl 
+                 : `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${firstMedia.fileUrl}`);
+      }
+      if (listing?.images?.[0]?.url) return listing.images[0].url;
+      if (listing?.coverImage) return listing.coverImage;
+      if (listing?.image) return listing.image;
+      return "";
+    };
 
     const bookingData = {
       listingId: listing?.listingId || listing?.id,
       listingTitle: listing?.title || listing?.name || listing?.listingTitle || "",
-      listingImage: listing?.images?.[0]?.url || listing?.coverImage || listing?.image || "",
+      listingImage: getFirstListingImage(),
       selectedDate: selectedDate ? selectedDate.format("YYYY-MM-DD") : null,
       selectedTimeSlot: selectedTimeSlot,
       guests: guests,
@@ -348,6 +451,7 @@ const Description = ({ classSection, listing }) => {
       bookingSummary: {
         date: selectedDate ? selectedDate.format("YYYY-MM-DD") : null,
         time: summaryBookingTime, // "HH:mm" or "HH:mm:ss" depending on source
+        endTime: summaryEndTime, // "HH:mm" format for end time
         slotId: summarySlotId,
         guestCount: guestsCount,
       },
@@ -387,9 +491,22 @@ const Description = ({ classSection, listing }) => {
     }
   };
 
+  // Validate that all required fields are selected before allowing reservation
+  const isReserveEnabled = useMemo(() => {
+    const hasDate = selectedDate !== null;
+    const hasTimeSlot = selectedTimeSlot !== null;
+    const hasGuests = guests && getGuestCount(guests) > 0;
+    return hasDate && hasTimeSlot && hasGuests;
+  }, [selectedDate, selectedTimeSlot, guests]);
+
   const handleReserveClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Prevent action if validation fails
+    if (!isReserveEnabled) {
+      return;
+    }
     
     // Always save booking data first
     saveBookingData();
@@ -449,10 +566,21 @@ const Description = ({ classSection, listing }) => {
                             0;
       
       // Get number of guests
-      const numberOfGuests = guests.adults + guests.children;
+      const numberOfGuests = getGuestCount(guests);
+      
+      // Validate available seats before proceeding
+      if (selectedDateAvailability) {
+        const availableSeats = selectedDateAvailability.available_seats;
+        const slotName = selectedDateAvailability.slot_name || selectedTimeSlotData?.slotName || selectedTimeSlot || "selected slot";
+        
+        if (availableSeats !== undefined && numberOfGuests > availableSeats) {
+          alert(`Sorry, only ${availableSeats} seat(s) available for "${slotName}" on ${bookingDate}. You requested ${numberOfGuests} seat(s).`);
+          return;
+        }
+      }
       
       // Calculate base price amount
-      const guestCount = guests.adults + guests.children;
+      const guestCount = getGuestCount(guests);
       const pricePerPerson = selectedDateAvailability?.price_per_person
         ? parseFloat(selectedDateAvailability.price_per_person)
         : (listing?.timeSlots?.[0]?.pricePerPerson 
@@ -509,7 +637,7 @@ const Description = ({ classSection, listing }) => {
       const pricePerUnit = pricePerPerson || pricePerNight || 0;
       
       // Order ID for new order (0 indicates new order, will be set by backend)
-      const orderId = 0;
+      // Note: orderId will be extracted from orderResponse after order creation
       
       // Build addons array per new API: [{ addonId, quantity }]
       const addonsArray = selectedAddOns.map((id) => {
@@ -530,6 +658,27 @@ const Description = ({ classSection, listing }) => {
       }).filter(Boolean);
       // Guest answers placeholder (extend when questions UI exists)
       const guestAnswers = [];
+      // Validate required fields before creating order
+      if (!bookingDate) {
+        alert("Please select a booking date.");
+        return;
+      }
+      
+      if (!selectedTimeSlot || !bookingSlotId || bookingSlotId === 0) {
+        alert("Please select a time slot.");
+        return;
+      }
+      
+      if (!numberOfGuests || numberOfGuests < 1) {
+        alert("Please select at least 1 guest.");
+        return;
+      }
+      
+      if (!bookingTime || bookingTime === "00:00") {
+        alert("Please select a valid time slot.");
+        return;
+      }
+      
       // Build order data - new API format
       const orderData = {
         listingId: listingId || 0,
@@ -552,11 +701,25 @@ const Description = ({ classSection, listing }) => {
       console.log("📦 Creating order:", orderData);
       
       // Create the order
+      console.log("📤 Sending order data:", JSON.stringify(orderData, null, 2));
       const orderResponse = await createOrder(orderData);
       console.log("✅ Order created:", orderResponse);
       
+      // Extract and save orderId from order response
+      const createdOrderId = orderResponse?.orderId || 
+                             orderResponse?.data?.orderId || 
+                             orderResponse?.order?.orderId || 
+                             null;
+      if (createdOrderId) {
+        localStorage.setItem("pendingOrderId", String(createdOrderId));
+        console.log("💾 Saved pending orderId:", createdOrderId);
+      }
+      
       // Save payment details for checkout (e.g., Razorpay) - handle multiple response shapes
       try {
+        // Log the full order response to debug structure
+        console.log("📋 Full order response:", JSON.stringify(orderResponse, null, 2));
+        
         const payment =
           orderResponse?.payment ||
           orderResponse?.data?.payment ||
@@ -570,7 +733,64 @@ const Description = ({ classSection, listing }) => {
           }) ||
           null;
         if (payment) {
-          localStorage.setItem("pendingPayment", JSON.stringify(payment));
+          // Get discount from multiple possible locations
+          const discount = 
+            orderResponse?.discount || 
+            orderResponse?.data?.discount || 
+            orderResponse?.order?.discount || 
+            orderResponse?.payment?.discount ||
+            payment.discount ||
+            orderResponse?.totalDiscount ||
+            orderResponse?.data?.totalDiscount ||
+            undefined;
+          
+          // Get final/paid amount from multiple possible locations
+          const finalAmount = 
+            orderResponse?.finalAmount || 
+            orderResponse?.data?.finalAmount || 
+            orderResponse?.order?.finalAmount || 
+            orderResponse?.payment?.finalAmount ||
+            payment.finalAmount ||
+            orderResponse?.paidAmount ||
+            orderResponse?.data?.paidAmount ||
+            orderResponse?.order?.paidAmount ||
+            orderResponse?.payment?.paidAmount ||
+            payment.paidAmount ||
+            undefined;
+          
+          // The Razorpay order amount is what was actually sent to Razorpay (the paid amount)
+          // This might be different from orderResponse.amount (which could be total)
+          const razorpayOrderAmount = 
+            orderResponse?.payment?.amount ||
+            orderResponse?.payment?.razorpayOrderAmount ||
+            orderResponse?.razorpayOrderAmount ||
+            orderResponse?.data?.razorpayOrderAmount ||
+            (orderResponse?.razorpayOrderId && orderResponse?.amount ? orderResponse.amount : undefined);
+          
+          // If we have a finalAmount, that's the paid amount
+          // Otherwise, if we have discount, calculate: amount - discount = paid amount
+          // Otherwise, use razorpayOrderAmount if available
+          // Otherwise, use payment.amount (but it might be total)
+          let paidAmount = finalAmount;
+          if (!paidAmount && payment.amount && discount) {
+            paidAmount = payment.amount - discount;
+          } else if (!paidAmount && razorpayOrderAmount) {
+            paidAmount = razorpayOrderAmount;
+          }
+          
+          const paymentWithDiscount = {
+            ...payment,
+            discount: discount,
+            finalAmount: finalAmount,
+            paidAmount: paidAmount,
+            // Store the original amount (which might be total) separately
+            totalAmount: payment.amount,
+            // Store Razorpay order amount if different
+            razorpayOrderAmount: razorpayOrderAmount,
+          };
+          
+          console.log("💳 Payment data to save:", paymentWithDiscount);
+          localStorage.setItem("pendingPayment", JSON.stringify(paymentWithDiscount));
         } else {
           console.warn("No payment payload found on orderResponse:", orderResponse);
         }
@@ -583,7 +803,29 @@ const Description = ({ classSection, listing }) => {
       
     } catch (error) {
       console.error("❌ Error creating order:", error);
-      alert(error.response?.data?.message || error.message || "Failed to create order. Please try again.");
+      
+      // Extract detailed error message from API response
+      let errorMessage = "Failed to create order. Please try again.";
+      
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        
+        // Try to extract meaningful error message
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (Array.isArray(errorData.errors)) {
+          // Handle validation errors array
+          errorMessage = errorData.errors.map(err => err.message || err).join(", ");
+        } else if (typeof errorData === "string") {
+          errorMessage = errorData;
+        } else if (error.response.status === 400) {
+          errorMessage = "Invalid booking data. Please check that date, time slot, and guests are selected correctly.";
+        }
+      }
+      
+      alert(errorMessage);
     }
   };
 
@@ -749,8 +991,8 @@ const Description = ({ classSection, listing }) => {
     
     // Get number of guests
     const numberOfGuests = bookingData.guests ? 
-                          (bookingData.guests.adults + bookingData.guests.children) : 
-                          (guests.adults + guests.children);
+                          getGuestCount(bookingData.guests) : 
+                          getGuestCount(guests);
     
     // Calculate base price amount
     const guestCount = numberOfGuests;
@@ -888,12 +1130,19 @@ const Description = ({ classSection, listing }) => {
     }
   };
 
+  // Track if login modal was previously open to detect when it closes
+  const prevLoginModalRef = useRef(false);
+  
   // Check for successful login after modal closes (for Google login fallback)
   useEffect(() => {
-    // Only proceed if modal was just closed AND user is now logged in AND we have saved booking
+    // Only proceed if modal was JUST closed (was open, now closed) AND user is now logged in AND we have saved booking
     // Note: Phone login handles order creation directly in handlePhoneLogin
     // This is a fallback for Google login if createOrderFromPendingBooking wasn't called
-    if (!showLoginModal && isLoggedIn()) {
+    const wasModalOpen = prevLoginModalRef.current;
+    const isModalNowClosed = !showLoginModal;
+    
+    // Only run if modal was open and is now closed (user just logged in)
+    if (wasModalOpen && isModalNowClosed && isLoggedIn()) {
       const savedBooking = localStorage.getItem("pendingBooking");
       if (savedBooking) {
         // Small delay to ensure modal is fully closed, then create order
@@ -902,11 +1151,17 @@ const Description = ({ classSection, listing }) => {
             await createOrderFromPendingBooking();
           } catch (error) {
             console.error("Error creating order after login:", error);
-            alert(error.response?.data?.message || error.message || "Failed to create order. Please try again.");
+            // Don't show alert for 400 errors - they're handled gracefully
+            if (error.response?.status !== 400) {
+              alert(error.response?.data?.message || error.message || "Failed to create order. Please try again.");
+            }
           }
         }, 100);
       }
     }
+    
+    // Update ref for next render
+    prevLoginModalRef.current = showLoginModal;
   }, [showLoginModal]);
 
   const handleOpenDateTime = (index) => {
@@ -943,100 +1198,246 @@ const Description = ({ classSection, listing }) => {
     setShowTimeSlots(false);
   };
 
-  // Get maxSeats from availability data if available, otherwise from selected timeSlot, fallback to listing maxGuests
-  const maxSeats = selectedDateAvailability?.available_seats ?? 
-                   selectedDateAvailability?.max_seats ?? 
-                   selectedTimeSlotData?.maxSeats ?? 
-                   listing?.maxGuests;
+  // Get maxSeats from available_seats for selected date/slot, fallback to timeSlot capacity, then listing maxGuests
+  // Note: available_seats is the actual available seats for the selected date and slot (can be less than max_seats)
+  const maxSeats = useMemo(() => {
+    // Priority 1: Use available_seats from selected date availability (most accurate)
+    if (selectedDateAvailability?.available_seats !== undefined && selectedDateAvailability?.available_seats > 0) {
+      return selectedDateAvailability.available_seats;
+    }
+    // Priority 2: Use max_seats from selected date availability
+    if (selectedDateAvailability?.max_seats !== undefined && selectedDateAvailability?.max_seats > 0) {
+      return selectedDateAvailability.max_seats;
+    }
+    // Priority 3: Use maxSeats from selected timeSlot capacity
+    if (selectedTimeSlotData?.maxSeats !== undefined && selectedTimeSlotData?.maxSeats > 0) {
+      return selectedTimeSlotData.maxSeats;
+    }
+    // Priority 4: Fallback to listing maxGuests
+    return listing?.maxGuests || 4;
+  }, [selectedDateAvailability, selectedTimeSlotData, listing?.maxGuests]);
+
+  // Fetch slots data when listing is available
+  useEffect(() => {
+    // Early return if listing is not yet loaded or is empty object
+    if (!listing || (typeof listing === 'object' && Object.keys(listing).length === 0)) {
+      return;
+    }
+    
+    // Try multiple possible property names for listingId
+    const listingId = listing?.listingId || listing?.listing_id || listing?.id;
+    
+    // Early return if no valid listingId found
+    if (!listingId) {
+      return;
+    }
+    
+    // Ensure listingId is a valid number or string
+    const listingIdNum = Number(listingId);
+    const validListingId = (!isNaN(listingIdNum) && listingIdNum > 0) ? listingIdNum : String(listingId);
+    
+    if (!validListingId || validListingId === "undefined" || validListingId === "null" || validListingId === "NaN" || validListingId === 0) {
+      return;
+    }
+    
+    // Reset initial values flag when listing changes
+    initialValuesSetRef.current = false;
+    
+    const fetchSlots = async () => {
+      
+      try {
+        // Calculate date range (current month + next month)
+        // Use local date to avoid timezone issues
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const startDate = new Date(year, month, 1);
+        const endDate = new Date(year, month + 2, 0);
+        
+        // Format dates as YYYY-MM-DD using local date (avoid timezone issues)
+        const formatDate = (date) => {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        };
+        
+        const startDateStr = formatDate(startDate);
+        const endDateStr = formatDate(endDate);
+        
+        if (!startDateStr || !endDateStr) {
+          console.error("❌ Invalid date range:", { startDateStr, endDateStr });
+          return;
+        }
+        
+        console.log("📅 Fetching slots:", {
+          listingId: validListingId,
+          startDate: startDateStr,
+          endDate: endDateStr
+        });
+        
+        const slotsResponse = await getListingSlots(validListingId, startDateStr, endDateStr);
+          console.log("✅ Slots data received:", slotsResponse);
+          
+          // Extract slots array from response
+          const slots = slotsResponse?.slots || [];
+          setSlotsData(slots);
+          
+          // Transform slots to match expected timeSlots format
+          const transformed = slots.map((slot) => {
+            // Convert selected_days array to day flags for compatibility
+            const selectedDays = slot.schedule?.selected_days || [];
+            const dayFlags = {
+              isMonday: selectedDays.includes('MON'),
+              isTuesday: selectedDays.includes('TUE'),
+              isWednesday: selectedDays.includes('WED'),
+              isThursday: selectedDays.includes('THU'),
+              isFriday: selectedDays.includes('FRI'),
+              isSaturday: selectedDays.includes('SAT'),
+              isSunday: selectedDays.includes('SUN'),
+            };
+            
+            return {
+              slotId: slot.slot_id,
+              slot_id: slot.slot_id,
+              slotName: slot.slot_name,
+              startTime: slot.schedule?.start_time,
+              endTime: slot.schedule?.end_time,
+              startDate: slot.schedule?.start_date,
+              endDate: slot.schedule?.end_date,
+              selected_days: selectedDays,
+              ...dayFlags,
+              maxSeats: slot.capacity?.max_seats,
+              pricePerPerson: slot.pricing?.price_per_person,
+              b2bRate: slot.pricing?.b2b_rate,
+              corporateRate: slot.pricing?.corporate_rate,
+              isActive: true, // Assume active if returned from API
+            };
+          });
+          setTransformedTimeSlots(transformed);
+          
+          // Flatten availability data from all slots
+          // The API already provides the correct available dates, so we use all of them
+          const allAvailability = [];
+          slots.forEach((slot) => {
+            if (Array.isArray(slot.availability)) {
+              slot.availability.forEach((av) => {
+                // Include all dates from the API - they're already filtered by the backend
+                allAvailability.push({
+                  date: av.date, // Format: YYYY-MM-DD
+                  booked_seats: av.booked_seats || 0,
+                  available_seats: av.available_seats || 0,
+                  is_available: av.is_available !== false,
+                  max_seats: slot.capacity?.max_seats || 0,
+                  start_time: slot.schedule?.start_time, // Format: HH:mm
+                  end_time: slot.schedule?.end_time, // Format: HH:mm
+                  price_per_person: slot.pricing?.price_per_person,
+                  b2b_rate: slot.pricing?.b2b_rate,
+                  slot_id: slot.slot_id,
+                  slot_name: slot.slot_name,
+                });
+              });
+            }
+          });
+          setAvailabilityData(allAvailability);
+          
+          // Don't pre-select date or time slot - let user choose
+          // Just mark that we've loaded the slots data
+          if (slots.length > 0 && !initialValuesSetRef.current) {
+            initialValuesSetRef.current = true;
+          }
+        } catch (error) {
+          // Handle 400 errors gracefully - they might be expected for some listings
+          if (error.response?.status === 400) {
+            console.warn("⚠️ 400 Bad Request for slots (listing might not have slots configured):", {
+              listingId: validListingId,
+              message: error.response?.data?.message || error.message,
+              response: error.response?.data
+            });
+          } else {
+            console.error("❌ Failed to fetch slots:", {
+              error: error.message,
+              response: error.response?.data,
+              status: error.response?.status,
+              listingId: validListingId
+            });
+          }
+          // Don't show error to user, just set empty arrays
+          setSlotsData([]);
+          setTransformedTimeSlots([]);
+          setAvailabilityData([]);
+        }
+    };
+
+    fetchSlots();
+  }, [listing]);
 
   // Fetch billing configuration when listing is available
   useEffect(() => {
+    // Early return if listing is not yet loaded or is empty object
+    if (!listing || (typeof listing === 'object' && Object.keys(listing).length === 0)) {
+      return;
+    }
+    
+    // Try multiple possible property names for listingId
+    const listingId = listing?.listingId || listing?.listing_id || listing?.id;
+    
+    // Early return if no valid listingId found
+    if (!listingId) {
+      return;
+    }
+    
+    // Ensure listingId is a valid number or string
+    const listingIdNum = Number(listingId);
+    const validListingId = (!isNaN(listingIdNum) && listingIdNum > 0) ? listingIdNum : String(listingId);
+    
+    if (!validListingId || validListingId === "undefined" || validListingId === "null" || validListingId === "NaN" || validListingId === 0) {
+      return;
+    }
+    
     const fetchBillingConfig = async () => {
-      const listingId = listing?.listingId || listing?.id;
-      if (listingId) {
-        try {
-          const config = await getBillingConfiguration(listingId);
-          setBillingConfig(config);
-        } catch (error) {
-          console.error("Failed to fetch billing configuration:", error);
-          // Set to null on error so we don't show taxes
-          setBillingConfig(null);
+      
+      try {
+        const config = await getBillingConfiguration(validListingId);
+        setBillingConfig(config);
+      } catch (error) {
+        // Handle 400 errors gracefully - they might be expected for some listings
+        if (error.response?.status === 400) {
+          console.warn("⚠️ 400 Bad Request for billing config (listing might not have billing config):", {
+            listingId: validListingId,
+            message: error.response?.data?.message || error.message,
+            response: error.response?.data
+          });
+        } else {
+          console.error("❌ Failed to fetch billing configuration:", {
+            error: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            listingId: validListingId
+          });
         }
+        // Set to null on error so we don't show taxes
+        setBillingConfig(null);
       }
     };
 
     fetchBillingConfig();
-  }, [listing?.listingId, listing?.id]);
+  }, [listing]);
 
-  // Fetch availability when slot is selected
-  useEffect(() => {
-    const fetchAvailability = async () => {
-      const listingId = listing?.listingId || listing?.id;
-      // Try multiple possible slotId field names
-      const slotId = selectedTimeSlotData?.slotId || 
-                     selectedTimeSlotData?.slot_id || 
-                     selectedTimeSlotData?.id;
-      
-      if (listingId && slotId) {
-        setLoadingAvailability(true);
-        try {
-          // Calculate date range (current month + next month)
-          const now = new Date();
-          const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-          
-          // Format dates as YYYY-MM-DD
-          const startDateStr = startDate.toISOString().split('T')[0];
-          const endDateStr = endDate.toISOString().split('T')[0];
-          
-          console.log("📅 Fetching availability:", {
-            listingId,
-            slotId,
-            startDate: startDateStr,
-            endDate: endDateStr
-          });
-          
-          const availability = await getAvailability(listingId, startDateStr, endDateStr, slotId);
-          console.log("✅ Availability data received:", availability);
-          setAvailabilityData(Array.isArray(availability) ? availability : []);
-        } catch (error) {
-          console.error("❌ Failed to fetch availability:", error);
-          setAvailabilityData([]);
-        } finally {
-          setLoadingAvailability(false);
-        }
-      } else {
-        console.warn("⚠️ Missing parameters for availability fetch:", { listingId, slotId, selectedTimeSlotData });
-        setAvailabilityData([]);
-      }
-    };
+  // Note: Availability is now fetched from slots API, so we don't need a separate availability fetch
+  // The old availability endpoint is kept as a fallback but disabled when slots data is available
 
-    fetchAvailability();
-  }, [listing?.listingId, listing?.id, selectedTimeSlotData?.slotId, selectedTimeSlotData?.slot_id, selectedTimeSlotData?.id, selectedTimeSlot]);
-
-  // Ensure guest count doesn't exceed maxSeats when timeSlot changes
+  // Ensure guest count doesn't exceed available seats when date/slot/availability changes
   React.useEffect(() => {
     if (maxSeats !== undefined && maxSeats > 0) {
-      const currentTotal = guests.adults + guests.children;
+      const currentTotal = getGuestCount(guests);
       if (currentTotal > maxSeats) {
-        // Adjust guests to not exceed maxSeats
-        const excess = currentTotal - maxSeats;
-        setGuests((prev) => {
-          const newGuests = { ...prev };
-          // Reduce children first, then adults if needed
-          if (newGuests.children >= excess) {
-            newGuests.children = newGuests.children - excess;
-          } else {
-            const remainingExcess = excess - newGuests.children;
-            newGuests.children = 0;
-            newGuests.adults = Math.max(1, newGuests.adults - remainingExcess);
-          }
-          return newGuests;
-        });
+        // Adjust guests to not exceed available seats
+        setGuests({ guests: Math.max(1, maxSeats) });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [maxSeats]);
+  }, [maxSeats, selectedDateAvailability]);
 
   return (
     <>
@@ -1054,15 +1455,20 @@ const Description = ({ classSection, listing }) => {
             <Receipt
               className={styles.receipt}
               items={items}
+              hostData={hostData}
               priceActual={
-                listing?.timeSlots?.[0]?.pricePerPerson
+                selectedTimeSlotData?.pricePerPerson
+                  ? `${listing?.currency || "INR"} ${selectedTimeSlotData.pricePerPerson}`
+                  : selectedTimeSlotData?.b2bRate
+                  ? `${listing?.currency || "INR"} ${selectedTimeSlotData.b2bRate}`
+                  : listing?.timeSlots?.[0]?.pricePerPerson
                   ? `${listing?.currency || "INR"} ${listing.timeSlots[0].pricePerPerson}`
                   : listing?.timeSlots?.[0]?.b2bRate
                   ? `${listing?.currency || "INR"} ${listing.timeSlots[0].b2bRate}`
                   : "$119"
               }
               time={
-                listing?.timeSlots?.[0]?.pricePerPerson
+                selectedTimeSlotData?.pricePerPerson || listing?.timeSlots?.[0]?.pricePerPerson
                   ? "person"
                   : "night"
               }
@@ -1089,9 +1495,9 @@ const Description = ({ classSection, listing }) => {
                         visible={showDatePicker}
                         onClose={() => setShowDatePicker(false)}
                         onDateSelect={handleDateSelect}
-                        selectedDate={selectedDate ? selectedDate.toDate().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : formattedDefaultDate}
-                        timeSlots={listing?.timeSlots || []}
-                        availabilityData={availabilityData}
+                        selectedDate={selectedDate ? selectedDate.toDate().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null}
+                        timeSlots={transformedTimeSlots.length > 0 ? transformedTimeSlots : (listing?.timeSlots || [])}
+                        availabilityData={filteredAvailabilityData}
                       />
                     </div>
                   );
@@ -1117,7 +1523,7 @@ const Description = ({ classSection, listing }) => {
                         onClose={() => setShowTimeSlots(false)}
                         onTimeSelect={handleTimeSelect}
                         selectedTime={selectedTimeSlot}
-                        timeSlots={listing?.timeSlots || []}
+                        timeSlots={transformedTimeSlots.length > 0 ? transformedTimeSlots : (listing?.timeSlots || [])}
                       />
                     </div>
                   );
@@ -1141,13 +1547,23 @@ const Description = ({ classSection, listing }) => {
                       <GuestPicker
                         visible={showGuestPicker}
                         onClose={() => setShowGuestPicker(false)}
-                        onGuestChange={setGuests}
-                        initialGuests={guests}
+                        onGuestChange={(guestData) => {
+                          // Convert from { adults, children, ... } to { guests }
+                          const totalGuests = (guestData.adults || 0) + (guestData.children || 0);
+                          setGuests({ guests: totalGuests });
+                        }}
+                        initialGuests={{
+                          adults: getGuestCount(guests),
+                          children: 0,
+                          infants: 0,
+                          pets: 0,
+                        }}
                         maxGuests={listing?.maxGuests || 4}
                         maxSeats={maxSeats}
                         allowPets={listing?.allowPets || false}
-                        childrenAllowed={listing?.childrenAllowed !== false}
-                        infantsAllowed={listing?.infantsAllowed !== false}
+                        childrenAllowed={false}
+                        infantsAllowed={false}
+                        adultsLabel="Guests"
                       />
                     </div>
                   );
@@ -1164,6 +1580,8 @@ const Description = ({ classSection, listing }) => {
                   type="button"
                   className={cn("button", styles.button)}
                   onClick={handleReserveClick}
+                  disabled={!isReserveEnabled}
+                  title={!isReserveEnabled ? "Please select date, time slot, and guests" : ""}
                 >
                   <span>Reserve</span>
                   <Icon name="bag" size="16" />

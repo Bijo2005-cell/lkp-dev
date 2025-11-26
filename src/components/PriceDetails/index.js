@@ -16,11 +16,21 @@ const PriceDetails = ({
   discoundCode,
   addOns,
   onRemoveAddOn,
+  amountToPay,
+  currency = "INR",
 }) => {
   const [discound, setDiscound] = useState("");
 
   const handleSubmit = (e) => {
     alert();
+  };
+
+  // Format amount - Razorpay amounts are in paise (smallest currency unit), so divide by 100 for INR
+  const formatAmount = (amount) => {
+    if (!amount) return null;
+    // If amount is in paise (typically > 1000 for reasonable prices), convert to rupees
+    const amountInRupees = amount > 1000 ? (amount / 100).toFixed(2) : amount.toFixed(2);
+    return `${currency} ${amountInRupees}`;
   };
 
   return (
@@ -49,6 +59,12 @@ const PriceDetails = ({
       </div>
       <div className={styles.body}>
         <div className={styles.stage}>Price details</div>
+        {amountToPay && (
+          <div className={styles.amountToPaySection}>
+            <div className={styles.amountToPayLabel}>Amount to be paid</div>
+            <div className={styles.amountToPayValue}>{formatAmount(amountToPay)}</div>
+          </div>
+        )}
         {discoundCode && (
           <Form
             className={styles.form}
@@ -69,33 +85,6 @@ const PriceDetails = ({
             </div>
           ))}
         </div>
-        {addOns && addOns.length > 0 && (
-          <div className={styles.addOnsSection}>
-            <div className={styles.addOnsTitle}>Add-ons</div>
-            <div className={styles.addOnsList}>
-              {addOns.map((addOn, index) => {
-                const addOnName = addOn?.title || addOn?.name || "Add-on";
-                // Use the formatted price string if available (e.g., "$15 × 2 = $30"), otherwise use priceValue
-                const addOnPriceDisplay = addOn?.price || (addOn?.priceValue ? `$${addOn.priceValue}` : "$0");
-                return (
-                  <div className={styles.addOnItem} key={index}>
-                    <div className={styles.addOnItemName}>{addOnName}</div>
-                    <div className={styles.addOnItemPrice}>{addOnPriceDisplay}</div>
-                    {onRemoveAddOn && (
-                      <button
-                        className={styles.addOnRemoveButton}
-                        onClick={() => onRemoveAddOn(index)}
-                        aria-label={`Remove ${addOnName}`}
-                      >
-                        <Icon name="close" size="16" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
       <div className={styles.note}>
         <Icon name="coin" size="12" />

@@ -8,18 +8,30 @@ import Itinerary from "../../components/Itinerary";
 import TabSection from "./TabSection";
 import CommentsProduct from "../../components/CommentsProduct";
 import Browse from "../../components/Browse";
-
-// data
 import { browse2 } from "../../mocks/browse";
 
-const gallery = [
-  "/images/content/photo-1.1.jpg",
-  "/images/content/photo-1.2.jpg",
-  "/images/content/photo-1.3.jpg",
-  "/images/content/photo-1.4.jpg",
-  "/images/content/photo-1.1.jpg",
-  "/images/content/photo-1.2.jpg",
-];
+// Helper function to format image URLs (from Azure blob storage or full URLs)
+const formatImageUrl = (url) => {
+  if (!url) return null;
+  
+  // Already a full URL
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  
+  // Azure blob storage path (e.g., "leads/3/listings/6/cover-photo/image.jpg")
+  if (url.startsWith("leads/")) {
+    return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+  }
+  
+  // Relative path - prepend base URL if needed
+  if (url.startsWith("/")) {
+    return url;
+  }
+  
+  // Otherwise assume it's a blob storage path
+  return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+};
 
 const options = [
   {
@@ -73,7 +85,8 @@ const StaysProduct = () => {
   const id = idParam ? idParam : "2"; // default to 2 as requested
 
   const [listing, setListing] = useState(null);
-  const [galleryItems, setGalleryItems] = useState(gallery);
+  const [hostData, setHostData] = useState(null);
+  const [galleryItems, setGalleryItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
 useEffect(() => {
@@ -81,7 +94,7 @@ useEffect(() => {
   const load = async () => {
     try {
       setLoading(true);
-      const { getListing } = await import("../../utils/api");
+      const { getListing, getHost } = await import("../../utils/api");
       const data = await getListing(id);
       if (!mounted) return;
 
@@ -92,18 +105,15 @@ useEffect(() => {
 
       // 1️⃣ Add cover photo (if exists)
       if (data?.coverPhotoUrl) {
-        galleryImages.push(data.coverPhotoUrl);
+        const formattedUrl = formatImageUrl(data.coverPhotoUrl);
+        if (formattedUrl) galleryImages.push(formattedUrl);
       }
 
       // 2️⃣ Add listingMedia images
       if (Array.isArray(data?.listingMedia)) {
         data.listingMedia.forEach((media) => {
           // Each media object has either 'url' or 'fileUrl'
-          const imageUrl =
-            media.url ||
-            (media.fileUrl?.startsWith("http")
-              ? media.fileUrl
-              : `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${media.fileUrl}`);
+          const imageUrl = formatImageUrl(media.url || media.fileUrl);
           if (imageUrl) galleryImages.push(imageUrl);
         });
       }
@@ -113,11 +123,7 @@ useEffect(() => {
         data.keyActivities.forEach((activity) => {
           if (Array.isArray(activity.images)) {
             activity.images.forEach((img) => {
-              const imageUrl =
-                img.url ||
-                (img.imageUrl?.startsWith("http")
-                  ? img.imageUrl
-                  : `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${img.imageUrl}`);
+              const imageUrl = formatImageUrl(img.url || img.imageUrl);
               if (imageUrl) galleryImages.push(imageUrl);
             });
           }
@@ -125,7 +131,20 @@ useEffect(() => {
       }
 
       // ✅ Final fallback if no images
-setGalleryItems(galleryImages.length ? galleryImages : []);
+      setGalleryItems(galleryImages.length ? galleryImages : []);
+
+      // ✅ Fetch host data if leadUserId is available
+      const leadUserId = data?.leadUserId || data?.host?.leadUserId;
+      if (leadUserId) {
+        try {
+          const hostResponse = await getHost(leadUserId);
+          if (!mounted) return;
+          setHostData(hostResponse || null);
+        } catch (hostErr) {
+          console.warn("⚠️ Failed to fetch host data:", hostErr);
+          // Don't block the page if host fetch fails
+        }
+      }
     } catch (e) {
       console.error("Failed to load listing", e);
       setListing(null);
@@ -152,7 +171,7 @@ setGalleryItems(galleryImages.length ? galleryImages : []);
   type="stays"
 />
 
-      <Description classSection="section" listing={listing} />
+      <Description classSection="section" listing={listing} hostData={hostData} />
       <Itinerary classSection="section" listing={listing} />
       <TabSection classSection="section" listing={listing} />
       <CommentsProduct
@@ -164,6 +183,7 @@ setGalleryItems(galleryImages.length ? galleryImages : []);
         }
         socials={socials}
         buttonText="Contact"
+        hostData={hostData}
       />
       <Browse
         classSection="section"

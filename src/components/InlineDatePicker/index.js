@@ -19,42 +19,9 @@ const buildCalendarGrid = (year, month, availabilityData = []) => {
     calendar.push(null);
   }
   
-  // If availability data is provided, only show dates from the API
-  if (availabilityData && availabilityData.length > 0) {
-    // Get all dates from availability data for this month
-    const availableDatesMap = new Map();
-    availabilityData.forEach(av => {
-      if (!av.date || av.available_seats <= 0) return;
-      const date = new Date(av.date + 'T00:00:00'); // Add time to avoid timezone issues
-      if (date.getFullYear() === year && date.getMonth() === month) {
-        const dateStr = av.date; // Use original date string
-        availableDatesMap.set(dateStr, date);
-      }
-    });
-    
-    // Add all days of the month, but only mark available dates
-    for (let d = 1; d <= daysInMonth; d++) {
-      const currentDate = new Date(year, month, d);
-      const dateStr = currentDate.toISOString().split('T')[0];
-      
-      // Check if this date is in the availability data
-      if (availableDatesMap.has(dateStr)) {
-        calendar.push(currentDate);
-      } else {
-        calendar.push(null);
-      }
-    }
-  } else {
-    // No availability data, show all dates (fallback to original behavior)
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      calendar.push(null);
-    }
-    
-    // Add all days of the month
-    for (let d = 1; d <= daysInMonth; d++) {
-      calendar.push(new Date(year, month, d));
-    }
+  // Always add all days of the month (display all dates)
+  for (let d = 1; d <= daysInMonth; d++) {
+    calendar.push(new Date(year, month, d));
   }
   
   return calendar;
@@ -137,13 +104,33 @@ const InlineDatePicker = ({
   const isDateDisabled = (date) => {
     if (!date) return true; // Disable null dates (they're not in availability data)
     
-    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    // Format date in local timezone to avoid UTC conversion issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD format in local timezone
     
     // If availability data is provided, only enable dates that are in the API response
     if (availabilityData && availabilityData.length > 0) {
-      const availability = availabilityData.find(av => av.date === dateStr);
-      // Disable if no availability data for this date or if available_seats is 0
-      return !availability || (availability.available_seats !== undefined && availability.available_seats <= 0);
+      const availability = availabilityData.find(av => {
+        // Handle both string dates and date objects in availability data
+        let avDateStr = av.date;
+        if (!avDateStr) return false;
+        
+        if (typeof avDateStr !== 'string') {
+          // If it's a date object, convert to local date string
+          const avDate = new Date(avDateStr);
+          const avYear = avDate.getFullYear();
+          const avMonth = String(avDate.getMonth() + 1).padStart(2, '0');
+          const avDay = String(avDate.getDate()).padStart(2, '0');
+          avDateStr = `${avYear}-${avMonth}-${avDay}`;
+        }
+        return avDateStr === dateStr;
+      });
+      // Disable if no availability data for this date, not available, or no seats available
+      return !availability || 
+             availability.is_available !== true || 
+             (availability.available_seats !== undefined && availability.available_seats <= 0);
     }
     
     // Fallback to timeSlots logic if no availability data
@@ -265,9 +252,27 @@ const InlineDatePicker = ({
               date.getTime() <= Math.max(startDate.getTime(), hoveredDate.getTime());
             
             // Check if date is available (from availability data)
-            const dateStr = date.toISOString().split('T')[0];
+            // Format date in local timezone to match isDateDisabled logic
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
             const isAvailable = availabilityData && availabilityData.length > 0 && 
-              availabilityData.some(av => av.date === dateStr && av.available_seats > 0) &&
+              availabilityData.some(av => {
+                // Handle both string dates and date objects in availability data
+                let avDateStr = av.date;
+                if (avDateStr && typeof avDateStr !== 'string') {
+                  // If it's a date object, convert to string
+                  avDateStr = new Date(avDateStr);
+                  const avYear = avDateStr.getFullYear();
+                  const avMonth = String(avDateStr.getMonth() + 1).padStart(2, '0');
+                  const avDay = String(avDateStr.getDate()).padStart(2, '0');
+                  avDateStr = `${avYear}-${avMonth}-${avDay}`;
+                }
+                return avDateStr === dateStr && 
+                       av.available_seats > 0 && 
+                       av.is_available === true;
+              }) &&
               !isPast && !isDisabled;
             
             return (

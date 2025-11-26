@@ -11,7 +11,10 @@ const Profile = ({
   socials,
   buttonText,
   children,
+  joinedDate,
 }) => {
+  const displayJoinedDate = joinedDate || "Mar 15, 2021";
+  
   return (
     <div className={cn(className, styles.profile)}>
       <div className={styles.head}>{children}</div>
@@ -60,7 +63,7 @@ const Profile = ({
             </a>
           ))}
         </div>
-        <div className={styles.note}>Member since Mar 15, 2021</div>
+        <div className={styles.note}>Member since {displayJoinedDate}</div>
         <button className={styles.report}>
           <Icon name="flag" size="12" />
           Report this property
