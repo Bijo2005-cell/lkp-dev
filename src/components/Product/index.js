@@ -69,7 +69,13 @@ const Product = ({
           <Actions className={styles.actions} />
         </div>
         {gallery && (
-          <Gallery className={styles.gallery} items={gallery} type={type} />
+          <Gallery 
+            className={styles.gallery} 
+            items={gallery} 
+            type={type}
+            title={title}
+            options={options}
+          />
         )}
       </div>
     </div>

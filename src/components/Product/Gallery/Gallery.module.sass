@@ -315,12 +315,51 @@
     justify-content: center
     cursor: pointer
     transition: background .2s
+    position: relative
+    overflow: hidden
     +dark
         background: $n1
     &:hover
-        background: $n3
-        +dark
-            background: $n2
+        .moreImageWrapper
+            transform: scale(1.05)
+        .moreButton
+            background: rgba(255, 255, 255, 0.95)
+    &:active
+        .moreImageWrapper
+            transform: scale(1.02)
+
+.moreImageWrapper
+    position: absolute
+    top: 0
+    left: 0
+    right: 0
+    bottom: 0
+    width: 100%
+    height: 100%
+    transition: transform .2s
+    img
+        width: 100%
+        height: 100%
+        object-fit: cover
+
+.moreButton
+    position: absolute
+    bottom: 16px
+    right: 16px
+    display: flex
+    align-items: center
+    gap: 8px
+    padding: 8px 16px
+    background: rgba(255, 255, 255, 0.9)
+    border-radius: 24px
+    z-index: 1
+    transition: background .2s
+    +body-bold-2
+    color: $n1
+    svg
+        fill: $n1
+        width: 16px
+        height: 16px
 
 .moreContent
     display: flex

@@ -69,41 +69,6 @@ const options = [
   },
 ];
 
-export const addOns = [
-  {
-    id: 1,
-    title: "Professional Photography Package",
-    description: "Professional photographer captures your adventure with high-quality photos delivered digitally",
-    price: "$45",
-    priceValue: 45,
-    isPopular: true,
-  },
-  {
-    id: 2,
-    title: "Traditional Kerala Lunch",
-    description: "Authentic Kerala-style vegetarian lunch prepared fresh by local chefs using organic ingredients",
-    price: "$15 × 2 = $30",
-    priceValue: 30,
-    isPopular: true,
-  },
-  {
-    id: 3,
-    title: "Hotel Pickup & Drop-off",
-    description: "Convenient door-to-door transportation from your hotel in comfortable air-conditioned vehicle",
-    price: "$25 (per group)",
-    priceValue: 25,
-    isPopular: false,
-  },
-  {
-    id: 4,
-    title: "Premium Binoculars Rental",
-    description: "High-quality binoculars (10x42) for enhanced wildlife viewing and bird watching throughout the tour",
-    price: "$10 × 2 = $20",
-    priceValue: 20,
-    isPopular: false,
-  },
-];
-
 const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggleAddOn, onAddOnQuantityChange }) => {
   const [selectedAddonModal, setSelectedAddonModal] = useState(null);
 
@@ -139,10 +104,36 @@ const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggle
           originalAddon: a, // Keep reference to original addon data
         };
       })
-    : addOns.map((a) => ({
-        ...a,
-        pricingType: "Individual", // Default for static addons
-      }));
+    : [];
+
+  // Helper function to format image URLs (from Azure blob storage or full URLs)
+  const formatImageUrl = (url) => {
+    if (!url) return null;
+    
+    // Already a full URL with SAS token - use directly
+    if ((url.startsWith("http://") || url.startsWith("https://")) && 
+        (url.includes("sig=") || url.includes("sv="))) {
+      return url;
+    }
+    
+    // Already a full URL without SAS token
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    
+    // Azure blob storage path (e.g., "leads/3/listings/6/cover-photo/image.jpg")
+    if (url.startsWith("leads/")) {
+      return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+    }
+    
+    // Relative path - prepend base URL if needed
+    if (url.startsWith("/")) {
+      return url;
+    }
+    
+    // Otherwise assume it's a blob storage path
+    return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+  };
 
   // Helper function to format image URLs (from Azure blob storage or full URLs)
   const formatImageUrl = (url) => {
@@ -302,10 +293,11 @@ const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggle
           </div>
         ))}
       </div>
-      <div className={styles.enhanceSection}>
-        <h4 className={styles.enhanceTitle}>Enhance Your Experience</h4>
-        <div className={styles.addOnsList}>
-          {displayAddOns.map((addOn) => {
+      {displayAddOns.length > 0 && (
+        <div className={styles.enhanceSection}>
+          <h4 className={styles.enhanceTitle}>Enhance Your Experience</h4>
+          <div className={styles.addOnsList}>
+            {displayAddOns.map((addOn) => {
             const isSelected = selectedAddOns.includes(addOn.id);
             const isGroupPricing = addOn.pricingType === "Group";
             const quantity = isGroupPricing ? (addOnQuantities?.[addOn.id] || 1) : 1;
@@ -375,8 +367,9 @@ const Details = ({ className, listing, selectedAddOns, addOnQuantities, onToggle
               </div>
             );
           })}
+          </div>
         </div>
-      </div>
+      )}
       <div className={styles.info}>{whatsIncludedSetting?.setting?.title || "What's Included"}</div>
       <div className={styles.optionsWrapper}>
         <div className={styles.options}>

@@ -5,7 +5,7 @@ import styles from "./Gallery.module.sass";
 import Icon from "../../Icon";
 import PhotoView from "../../PhotoView";
 
-const Gallery = ({ className, items, type }) => {
+const Gallery = ({ className, items, type, title, options }) => {
   const [initialSlide, setInitialSlide] = useState(0);
   const [visible, setVisible] = useState(false);
 
@@ -50,9 +50,6 @@ const Gallery = ({ className, items, type }) => {
           )}
         >
           {items.slice(0, displayImages).map((x, index) => {
-            // Web: 6th image (index 5), Mobile: 4th image (index 3)
-            const isWebButtonImage = index === 5 && displayImages >= 6; // 6th image for web
-            const isMobileButtonImage = index === 3 && displayImages >= 4; // 4th image for mobile
             return (
               <div
                 className={styles.preview}
@@ -62,36 +59,29 @@ const Gallery = ({ className, items, type }) => {
                 <div className={styles.view}>
                   <img src={x} alt="Product Details"></img>
                 </div>
-                {(isWebButtonImage || isMobileButtonImage) && (
-                  <Link
-                    to="/full-photo"
-                    className={cn(
-                      "button-white button-small",
-                      styles.button,
-                      {
-                        [styles.buttonWeb]: isWebButtonImage,
-                        [styles.buttonMobile]: isMobileButtonImage,
-                      }
-                    )}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Icon name="arrow-next" size="16" />
-                    <span>More</span>
-                  </Link>
-                )}
               </div>
             );
           })}
           {showMoreButton && (
-            <div
+            <Link
+              to={{
+                pathname: "/full-photo",
+                state: { 
+                  gallery: items,
+                  title: title || "Gallery",
+                  options: options || []
+                }
+              }}
               className={cn(styles.preview, styles.morePhotos)}
-              onClick={() => handleOpen(maxDisplayImages)}
             >
-              <div className={styles.moreContent}>
-                <Icon name="image" size="24" />
-                <span className={styles.moreText}>+{items.length - maxDisplayImages}</span>
+              <div className={styles.moreImageWrapper}>
+                <img src={items[maxDisplayImages]} alt="More photos" />
               </div>
-            </div>
+              <div className={styles.moreButton}>
+                <Icon name="arrow-next" size="16" />
+                <span>More</span>
+              </div>
+            </Link>
           )}
         </div>
       </div>

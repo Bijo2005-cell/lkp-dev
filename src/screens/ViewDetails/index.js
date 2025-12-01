@@ -112,14 +112,14 @@ const transformBookingData = (apiBooking, listingData = null) => {
     const normalizedStatus = String(orderStatus).toUpperCase().trim();
     
     // Map to display status - keep PENDING as "Pending", CONFIRMED as "Confirmed"
-    const statusMap = {
+  const statusMap = {
       PENDING: "Pending",
       CONFIRMED: "Confirmed",
-      COMPLETED: "Completed",
-      CANCELLED: "Cancelled",
+    COMPLETED: "Completed",
+    CANCELLED: "Cancelled",
       CANCELED: "Cancelled", // Handle alternative spelling
-    };
-    
+  };
+
     const mappedStatus = statusMap[normalizedStatus] || "Pending";
     
     // Log status mapping for debugging
@@ -636,12 +636,12 @@ const ViewDetails = () => {
             if (apiBookingData.timeSlotStartTime) {
               transformed.startTime = formatSlotTime(apiBookingData.timeSlotStartTime);
               console.log("✅ Set start time from order:", apiBookingData.timeSlotStartTime, "->", transformed.startTime);
-            }
+          }
             
             if (apiBookingData.timeSlotEndTime) {
               transformed.endTime = formatSlotTime(apiBookingData.timeSlotEndTime);
               console.log("✅ Set end time from order:", apiBookingData.timeSlotEndTime, "->", transformed.endTime);
-            }
+          }
           }
           
           // Verify transformation was successful
@@ -1137,7 +1137,7 @@ const ViewDetails = () => {
               {booking.originalData?.razorpayOrderId && (
                 <div className={styles.paymentMethod} style={{ marginTop: '8px', fontSize: '12px', color: '#777E90' }}>
                   <span>Order ID: {booking.originalData.razorpayOrderId}</span>
-                </div>
+              </div>
               )}
               {isPaymentFailed(booking.paymentStatus) && (
                 <div className={styles.paymentActions}>

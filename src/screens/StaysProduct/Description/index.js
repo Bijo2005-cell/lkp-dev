@@ -6,7 +6,7 @@ import axios from "axios";
 import styles from "./Description.module.sass";
 import receiptStyles from "../../../components/Receipt/Receipt.module.sass";
 import Icon from "../../../components/Icon";
-import Details, { addOns } from "./Details";
+import Details from "./Details";
 import Receipt from "../../../components/Receipt";
 import InlineDatePicker from "../../../components/InlineDatePicker";
 import TimeSlotsPicker from "../../../components/TimeSlotsPicker";
@@ -267,9 +267,8 @@ const Description = ({ classSection, listing, hostData }) => {
         return sum + (price * quantity);
       }
       
-      // Fallback to static addons
-      const addOn = addOns.find((a) => a.id === id);
-      return sum + (addOn?.priceValue || 0);
+      // No fallback - only use API addons
+      return sum;
     }, 0);
     
     // Calculate base price based on guest count and price type
@@ -341,16 +340,8 @@ const Description = ({ classSection, listing, hostData }) => {
               content: `${currency} ${addonTotal.toFixed(2)}`,
             });
           }
-        } else {
-          // Fallback to static addons
-          const addOn = addOns.find((a) => a.id === id);
-          if (addOn) {
-            receiptData.push({
-              title: addOn.title,
-              content: `${currency} ${addOn.priceValue.toFixed(2)}`,
-            });
-          }
         }
+        // No fallback - only use API addons
       });
     }
 
@@ -399,7 +390,8 @@ const Description = ({ classSection, listing, hostData }) => {
             quantity: listingAddon.addon?.pricingType === "Group" ? (addOnQuantities[id] || 1) : 1,
           };
         }
-        return addOns.find((a) => a.id === id);
+        // No fallback - return null if not found in API
+        return null;
       })
       .filter(Boolean);
 
@@ -479,9 +471,24 @@ const Description = ({ classSection, listing, hostData }) => {
       // Clear saved booking data after using it
       localStorage.removeItem("pendingBooking");
     } else {
-      // Fallback to current state if no saved data
+      // Fallback to current state if no saved data - only use API addons
       const selectedAddOnsData = selectedAddOns
-        .map((id) => addOns.find((a) => a.id === id))
+        .map((id) => {
+          const listingAddon = listing?.addons?.find(
+            (a) => (a?.addon?.addonId ?? a?.addonId ?? a?.assignmentId) === id
+          );
+          if (listingAddon) {
+            return {
+              id: listingAddon.addon?.addonId ?? listingAddon.addonId ?? listingAddon.assignmentId,
+              title: listingAddon.addon?.title,
+              price: listingAddon.addon?.price,
+              currency: listingAddon.addon?.currency,
+              pricingType: listingAddon.addon?.pricingType,
+              quantity: listingAddon.addon?.pricingType === "Group" ? (addOnQuantities[id] || 1) : 1,
+            };
+          }
+          return null;
+        })
         .filter(Boolean);
       
       history.push({

@@ -1,11 +1,13 @@
 @import ../../styles/helpers
 
 .section
-    padding-top: 40px
-    padding-bottom: 0
+    padding-top: 8px
+    padding-bottom: 16px
+    margin-bottom: 0
     +m
-        padding-top: 24px
-        padding-bottom: 0
+        padding-top: 4px
+        padding-bottom: 8px
+        margin-bottom: 0
 
 .container
     max-width: 1280px
@@ -302,18 +304,13 @@
 
 .categorySection
     // All sections have consistent spacing
-    margin-bottom: 80px
-    +d
-        margin-bottom: 64px
+    padding-top: 8px
+    padding-bottom: 8px
     +m
-        margin-bottom: 48px
-    // Ensure last section also has spacing before footer
-    &:last-child
-        margin-bottom: 80px
-        +d
-            margin-bottom: 64px
-        +m
-            margin-bottom: 48px
+        padding-top: 4px
+        padding-bottom: 4px
+    // Remove margin-bottom to use padding instead
+    margin-bottom: 0
 
 .sectionHeader
     margin-bottom: 32px
