@@ -1,64 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import { gsap } from 'gsap';
 import cn from 'classnames';
 import styles from './HeroSectionAnimation.module.sass';
 
-// Default destinations data
-const defaultDestinations = [
-  {
-    place: 'Switzerland Alps',
-    title: 'SAINT',
-    title2: 'ANTONIEN',
-    description: 'Tucked away in the Switzerland Alps, Saint Antönien offers an idyllic retreat for those seeking tranquility and adventure alike. It\'s a hidden gem for backcountry skiing in winter and boasts lush trails for hiking and mountain biking during the warmer months.',
-    image: 'https://assets.codepen.io/3685267/timed-cards-1.jpg'
-  },
-  {
-    place: 'Japan Alps',
-    title: 'NANGANO',
-    title2: 'PREFECTURE',
-    description: 'Nagano Prefecture, set within the majestic Japan Alps, is a cultural treasure trove with its historic shrines and temples, particularly the famous Zenkō-ji. The region is also a hotspot for skiing and snowboarding, offering some of the country\'s best powder.',
-    image: 'https://assets.codepen.io/3685267/timed-cards-2.jpg'
-  },
-  {
-    place: 'Sahara Desert - Morocco',
-    title: 'MARRAKECH',
-    title2: 'MEROUGA',
-    description: 'The journey from the vibrant souks and palaces of Marrakech to the tranquil, starlit sands of Merzouga showcases the diverse splendor of Morocco. Camel treks and desert camps offer an unforgettable immersion into the nomadic way of life.',
-    image: 'https://assets.codepen.io/3685267/timed-cards-3.jpg'
-  },
-  {
-    place: 'Sierra Nevada - USA',
-    title: 'YOSEMITE',
-    title2: 'NATIONAL PARK',
-    description: 'Yosemite National Park is a showcase of the American wilderness, revered for its towering granite monoliths, ancient giant sequoias, and thundering waterfalls. The park offers year-round recreational activities, from rock climbing to serene valley walks.',
-    image: 'https://assets.codepen.io/3685267/timed-cards-4.jpg'
-  },
-  {
-    place: 'Tarifa - Spain',
-    title: 'LOS LANCES',
-    title2: 'BEACH',
-    description: 'Los Lances Beach in Tarifa is a coastal paradise known for its consistent winds, making it a world-renowned spot for kitesurfing and windsurfing. The beach\'s long, sandy shores provide ample space for relaxation and sunbathing, with a vibrant atmosphere of beach bars and cafes.',
-    image: 'https://assets.codepen.io/3685267/timed-cards-5.jpg'
-  },
-  {
-    place: 'Cappadocia - Turkey',
-    title: 'Göreme',
-    title2: 'Valley',
-    description: 'Göreme Valley in Cappadocia is a historical marvel set against a unique geological backdrop, where centuries of wind and water have sculpted the landscape into whimsical formations. The valley is also famous for its open-air museums, underground cities, and the enchanting experience of hot air ballooning.',
-    image: 'https://assets.codepen.io/3685267/timed-cards-6.jpg'
-  },
-];
-
 // Constants
-const CARD_WIDTH = 50;
-const CARD_HEIGHT = 75;
-const CARD_GAP = 20;
+const CARD_WIDTH = 60;
+const CARD_HEIGHT = 60;
+const CARD_GAP = 12;
 const CONTAINER_PADDING = 20;
+// Side margins matching the details panel (title/description)
+const SIDE_MARGIN_DESKTOP = 60;
+const SIDE_MARGIN_MOBILE = 20;
+const MOBILE_BREAKPOINT = 768;
 const ANIMATION_DURATION = 3100; // 3.1 seconds
 const RESIZE_DEBOUNCE = 250;
 const EASE_TYPE = "sine.inOut";
 
-const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations }) => {
+const HeroSectionAnimation = ({ containerRef, destinations = [] }) => {
+  const history = useHistory();
   const demoRef = useRef(null);
   const detailsEvenRef = useRef(null);
   const detailsOddRef = useRef(null);
@@ -68,6 +28,7 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
   const orderRef = useRef(null);
   const detailsEvenRef_state = useRef(true);
   const isMountedRef = useRef(true);
+  const currentActiveIndexRef = useRef(0);
   
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -134,14 +95,12 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
 
     const [active, ...rest] = order;
 
-    // Calculate positions
-    const totalCardsWidth = rest.length * CARD_WIDTH + (rest.length - 1) * CARD_GAP;
-    const offsetLeft = Math.max(
-      CONTAINER_PADDING,
-      containerWidth - totalCardsWidth - CONTAINER_PADDING
-    );
-    const offsetTop = Math.max(10, containerHeight - CARD_HEIGHT - 10);
-    const finalOffsetLeft = Math.max(0, Math.min(offsetLeft, containerWidth - totalCardsWidth));
+    // Calculate positions for vertical stacking on the right side
+    // Use same side margin as details panel (title/description)
+    const sideMargin = containerWidth <= MOBILE_BREAKPOINT ? SIDE_MARGIN_MOBILE : SIDE_MARGIN_DESKTOP;
+    const totalCardsHeight = rest.length * CARD_HEIGHT + (rest.length - 1) * CARD_GAP;
+    const cardX = containerWidth - CARD_WIDTH - sideMargin;
+    const offsetTop = Math.max(10, (containerHeight - totalCardsHeight) / 2);
 
     // Set up initial state to match what step() expects BEFORE it rotates:
     // - Active card (first in order) should be full-size
@@ -166,14 +125,14 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
       zIndex: 40,
     });
 
-    // Position rest cards in stack positions
+    // Position rest cards in vertical stack on the right side
     rest.forEach((cardIndex, index) => {
-      const cardX = finalOffsetLeft + index * (CARD_WIDTH + CARD_GAP);
-      const boundedX = Math.max(0, Math.min(cardX, containerWidth - CARD_WIDTH));
+      const cardY = offsetTop + index * (CARD_HEIGHT + CARD_GAP);
+      const boundedY = Math.max(10, Math.min(cardY, containerHeight - CARD_HEIGHT - 10));
 
       gsap.set(getCard(cardIndex), {
-        x: boundedX,
-        y: offsetTop,
+        x: cardX,
+        y: boundedY,
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
         zIndex: 30,
@@ -183,9 +142,9 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
       });
 
       gsap.set(getCardContent(cardIndex), {
-        x: boundedX,
+        x: cardX,
         zIndex: 40,
-        y: offsetTop + CARD_HEIGHT - 100,
+        y: boundedY + CARD_HEIGHT - 50,
         opacity: 1,
       });
     });
@@ -196,17 +155,19 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
     
     // Update details content for active card
     const activeElement = document.querySelector(`${detailsActive} .hero-title-1`);
-    const activeElement2 = document.querySelector(`${detailsActive} .hero-title-2`);
     const activeDesc = document.querySelector(`${detailsActive} .hero-desc`);
+    const activeButton = document.querySelector(`${detailsActive} .hero-button`);
 
     if (activeElement && destinations[active]) {
       activeElement.textContent = destinations[active].title;
     }
-    if (activeElement2 && destinations[active]) {
-      activeElement2.textContent = destinations[active].title2;
-    }
     if (activeDesc && destinations[active]) {
       activeDesc.textContent = destinations[active].description;
+    }
+    if (activeButton && destinations[active]) {
+      activeButton.textContent = destinations[active].buttonText;
+      // Store current active index for button click handler
+      currentActiveIndexRef.current = active;
     }
 
     gsap.set(detailsActive, { 
@@ -214,18 +175,18 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
       zIndex: 22, 
       yPercent: -50
     });
-    gsap.set(`${detailsActive} .hero-title-1`, { y: 0 });
-    gsap.set(`${detailsActive} .hero-title-2`, { y: 0 });
-    gsap.set(`${detailsActive} .hero-desc`, { y: 0 });
+    gsap.set(`${detailsActive} .hero-title-1`, { y: 0, opacity: 1 });
+    gsap.set(`${detailsActive} .hero-desc`, { y: 0, opacity: 1 });
+    gsap.set(`${detailsActive} .hero-button`, { y: 0, opacity: 1 });
     
     gsap.set(detailsInactive, { 
       opacity: 0, 
       zIndex: 12,
       yPercent: -50
     });
-    gsap.set(`${detailsInactive} .hero-title-1`, { y: 100 });
-    gsap.set(`${detailsInactive} .hero-title-2`, { y: 100 });
-    gsap.set(`${detailsInactive} .hero-desc`, { y: 50 });
+    gsap.set(`${detailsInactive} .hero-title-1`, { y: 50, opacity: 0 });
+    gsap.set(`${detailsInactive} .hero-desc`, { y: 50, opacity: 0 });
+    gsap.set(`${detailsInactive} .hero-button`, { y: 50, opacity: 0 });
 
     // Wait ANIMATION_DURATION before first step() call, matching loop() timing
     // This ensures the first cycle has the same timing and pacing as all subsequent cycles
@@ -264,51 +225,70 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
 
       // Update details content - use global class names
       const activeElement = document.querySelector(`${detailsActive} .hero-title-1`);
-      const activeElement2 = document.querySelector(`${detailsActive} .hero-title-2`);
       const activeDesc = document.querySelector(`${detailsActive} .hero-desc`);
+      const activeButton = document.querySelector(`${detailsActive} .hero-button`);
 
       if (activeElement && destinations[newOrder[0]]) {
         activeElement.textContent = destinations[newOrder[0]].title;
       }
-      if (activeElement2 && destinations[newOrder[0]]) {
-        activeElement2.textContent = destinations[newOrder[0]].title2;
-      }
       if (activeDesc && destinations[newOrder[0]]) {
         activeDesc.textContent = destinations[newOrder[0]].description;
       }
+      if (activeButton && destinations[newOrder[0]]) {
+        activeButton.textContent = destinations[newOrder[0]].buttonText;
+        // Store button link in data attribute for click handler
+        if (destinations[newOrder[0]].buttonLink) {
+          activeButton.setAttribute('data-button-link', destinations[newOrder[0]].buttonLink);
+        } else {
+          activeButton.removeAttribute('data-button-link');
+        }
+        // Store current active index for button click handler
+        currentActiveIndexRef.current = newOrder[0];
+      }
 
       const { width: containerWidth, height: containerHeight } = getContainerDimensions();
-      const totalCardsWidth = (newOrder.length - 1) * CARD_WIDTH + (newOrder.length - 2) * CARD_GAP;
-      const offsetLeft = Math.max(
-        CONTAINER_PADDING,
-        containerWidth - totalCardsWidth - CONTAINER_PADDING
-      );
-      const offsetTop = Math.max(10, containerHeight - CARD_HEIGHT - 10);
-      const finalOffsetLeft = Math.max(0, Math.min(offsetLeft, containerWidth - totalCardsWidth));
+      // Use same side margin as details panel (title/description)
+      const sideMargin = containerWidth <= MOBILE_BREAKPOINT ? SIDE_MARGIN_MOBILE : SIDE_MARGIN_DESKTOP;
+      const totalCardsHeight = (newOrder.length - 1) * CARD_HEIGHT + (newOrder.length - 2) * CARD_GAP;
+      const cardX = containerWidth - CARD_WIDTH - sideMargin;
+      const offsetTop = Math.max(10, (containerHeight - totalCardsHeight) / 2);
 
       const [active, ...rest] = newOrder;
       const prv = rest[rest.length - 1];
 
-      // Animate details - use global class names
+      // Animate details - use global class names (all elements use identical timing)
       gsap.set(detailsActive, { zIndex: 22, yPercent: -50 });
       gsap.to(detailsActive, { opacity: 1, yPercent: -50, delay: 0.4, ease: EASE_TYPE });
       gsap.to(`${detailsActive} .hero-title-1`, {
         y: 0,
+        opacity: 1,
         delay: 0.15,
         duration: 0.7,
         ease: EASE_TYPE,
-      });
-      gsap.to(`${detailsActive} .hero-title-2`, {
-        y: 0,
-        delay: 0.15,
-        duration: 0.7,
-        ease: EASE_TYPE,
+        force3D: true,
+        immediateRender: false,
       });
       gsap.to(`${detailsActive} .hero-desc`, {
         y: 0,
-        delay: 0.3,
-        duration: 0.4,
+        opacity: 1,
+        delay: 0.15,
+        duration: 0.7,
         ease: EASE_TYPE,
+        force3D: true,
+        immediateRender: false,
+      });
+      gsap.to(`${detailsActive} .hero-button`, {
+        y: 0,
+        opacity: 1,
+        delay: 0.15,
+        duration: 0.7,
+        ease: EASE_TYPE,
+        force3D: true,
+        immediateRender: false,
+        onComplete: function() {
+          // Ensure transform is properly set to final state
+          gsap.set(this.targets(), { y: 0, clearProps: "will-change" });
+        }
       });
       gsap.set(detailsInactive, { zIndex: 12 });
 
@@ -332,12 +312,12 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
         height: containerHeight,
         borderRadius: 0,
         onComplete: () => {
-          const xNew = finalOffsetLeft + (rest.length - 1) * (CARD_WIDTH + CARD_GAP);
-          const boundedX = Math.max(0, Math.min(xNew, containerWidth - CARD_WIDTH));
+          const yNew = offsetTop + (rest.length - 1) * (CARD_HEIGHT + CARD_GAP);
+          const boundedY = Math.max(10, Math.min(yNew, containerHeight - CARD_HEIGHT - 10));
 
           gsap.set(getCard(prv), {
-            x: boundedX,
-            y: offsetTop,
+            x: cardX,
+            y: boundedY,
             width: CARD_WIDTH,
             height: CARD_HEIGHT,
             zIndex: 30,
@@ -346,16 +326,16 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
           });
 
           gsap.set(getCardContent(prv), {
-            x: boundedX,
-            y: offsetTop + CARD_HEIGHT - 100,
+            x: cardX,
+            y: boundedY + CARD_HEIGHT - 50,
             opacity: 1,
             zIndex: 40,
           });
 
           gsap.set(detailsInactive, { opacity: 0, yPercent: -50 });
-          gsap.set(`${detailsInactive} .hero-title-1`, { y: 100 });
-          gsap.set(`${detailsInactive} .hero-title-2`, { y: 100 });
-          gsap.set(`${detailsInactive} .hero-desc`, { y: 50 });
+          gsap.set(`${detailsInactive} .hero-title-1`, { y: 50, opacity: 0 });
+          gsap.set(`${detailsInactive} .hero-desc`, { y: 50, opacity: 0 });
+          gsap.set(`${detailsInactive} .hero-button`, { y: 50, opacity: 0 });
 
           isAnimatingRef.current = false;
           resolve();
@@ -364,13 +344,13 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
 
       rest.forEach((cardIndex, index) => {
         if (cardIndex !== prv) {
-          const cardX = finalOffsetLeft + index * (CARD_WIDTH + CARD_GAP);
-          const boundedX = Math.max(0, Math.min(cardX, containerWidth - CARD_WIDTH));
+          const cardY = offsetTop + index * (CARD_HEIGHT + CARD_GAP);
+          const boundedY = Math.max(10, Math.min(cardY, containerHeight - CARD_HEIGHT - 10));
 
           gsap.set(getCard(cardIndex), { zIndex: 30 });
           gsap.to(getCard(cardIndex), {
-            x: boundedX,
-            y: offsetTop,
+            x: cardX,
+            y: boundedY,
             width: CARD_WIDTH,
             height: CARD_HEIGHT,
             ease: EASE_TYPE,
@@ -378,8 +358,8 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
           });
 
           gsap.to(getCardContent(cardIndex), {
-            x: boundedX,
-            y: offsetTop + CARD_HEIGHT - 100,
+            x: cardX,
+            y: boundedY + CARD_HEIGHT - 50,
             opacity: 1,
             zIndex: 40,
             ease: EASE_TYPE,
@@ -535,9 +515,18 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
         yPercent: -50,
         x: 0
       });
-      gsap.set(`${detailsActive} .hero-title-1`, { y: 0 });
-      gsap.set(`${detailsActive} .hero-title-2`, { y: 0 });
-      gsap.set(`${detailsActive} .hero-desc`, { y: 0 });
+      gsap.set(`${detailsActive} .hero-title-1`, { y: 0, opacity: 1 });
+      gsap.set(`${detailsActive} .hero-desc`, { y: 0, opacity: 1 });
+      gsap.set(`${detailsActive} .hero-button`, { y: 0, opacity: 1 });
+      
+      // Set button link data attribute
+      const initialButton = document.querySelector(`${detailsActive} .hero-button`);
+      if (initialButton && destinations[active]) {
+        if (destinations[active].buttonLink) {
+          initialButton.setAttribute('data-button-link', destinations[active].buttonLink);
+        }
+        currentActiveIndexRef.current = active;
+      }
 
       // Hide inactive details panel
       const detailsInactive = detailsEvenRef_state.current ? "#details-odd" : "#details-even";
@@ -637,6 +626,45 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
     };
   }, [containerRef, destinations]);
 
+  // Handle button click navigation using event delegation
+  useEffect(() => {
+    const handleButtonClick = (e) => {
+      // Check if clicked element is a button or inside a button
+      const button = e.target.closest('.hero-button');
+      if (!button) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Get button link from data attribute or current active destination
+      const buttonLink = button.getAttribute('data-button-link');
+      const activeIndex = currentActiveIndexRef.current;
+      const activeDestination = destinations[activeIndex];
+      const link = buttonLink || (activeDestination && activeDestination.buttonLink);
+      
+      if (link) {
+        // Check if it's an external URL
+        if (link.startsWith('http://') || link.startsWith('https://')) {
+          window.open(link, '_blank', 'noopener,noreferrer');
+        } else {
+          // Internal route navigation
+          history.push(link);
+        }
+      }
+    };
+
+    // Use event delegation on the document or container
+    document.addEventListener('click', handleButtonClick);
+    
+    return () => {
+      document.removeEventListener('click', handleButtonClick);
+    };
+  }, [destinations, history]);
+
+  if (!destinations || destinations.length === 0) {
+    return null;
+  }
+
   return (
     <>
       <div ref={demoRef} className={styles.cardsContainer}></div>
@@ -644,33 +672,35 @@ const HeroSectionAnimation = ({ containerRef, destinations = defaultDestinations
       <div className={cn(styles.details, "details")} id="details-even" ref={detailsEvenRef}>
         <div className={styles.titleBox1}>
           <div className={cn(styles.title1, "hero-title-1")}>
-            {destinations[0]?.title || "SAINT"}
-          </div>
-        </div>
-        <div className={styles.titleBox2}>
-          <div className={cn(styles.title2, "hero-title-2")}>
-            {destinations[0]?.title2 || "ANTONIEN"}
+            {destinations[0]?.title}
           </div>
         </div>
         <div className={cn(styles.desc, "hero-desc")}>
-          {destinations[0]?.description || ""}
+          {destinations[0]?.description}
         </div>
+        <button 
+          className={cn(styles.button, "hero-button")}
+          data-button-link={destinations[0]?.buttonLink || ''}
+        >
+          {destinations[0]?.buttonText}
+        </button>
       </div>
 
       <div className={cn(styles.details, "details")} id="details-odd" ref={detailsOddRef}>
         <div className={styles.titleBox1}>
           <div className={cn(styles.title1, "hero-title-1")}>
-            {destinations[0]?.title || "SAINT"}
-          </div>
-        </div>
-        <div className={styles.titleBox2}>
-          <div className={cn(styles.title2, "hero-title-2")}>
-            {destinations[0]?.title2 || "ANTONIEN"}
+            {destinations[0]?.title}
           </div>
         </div>
         <div className={cn(styles.desc, "hero-desc")}>
-          {destinations[0]?.description || ""}
+          {destinations[0]?.description}
         </div>
+        <button 
+          className={cn(styles.button, "hero-button")}
+          data-button-link={destinations[0]?.buttonLink || ''}
+        >
+          {destinations[0]?.buttonText}
+        </button>
       </div>
     </>
   );

@@ -8,7 +8,7 @@ import Loader from "../../../components/Loader";
 
 // data
 import { browse2 } from "../../../mocks/browse";
-import { stays } from "../../../mocks/stays";
+import { experience } from "../../../mocks/experience";
 import { getListings } from "../../../utils/api";
 
 const breadcrumbs = [
@@ -17,12 +17,12 @@ const breadcrumbs = [
     url: "/",
   },
   {
-    title: "Stays",
+    title: "Experience",
     url: "/",
   },
   {
     title: "New Zealand",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "South Island",
@@ -33,7 +33,7 @@ const navigation = [
   "Entire homes",
   "Cancellation flexibility",
   "Closest beach",
-  "For long stays",
+  "For long experiences",
 ];
 
 const saleOptions = ["On sales", "On delivery", "In exchange"];
@@ -53,7 +53,7 @@ const Catalog = () => {
           title: l.title || "",
           src: l.coverPhotoUrl || "",
           srcSet: l.coverPhotoUrl || "",
-          url: `/stays-product?id=${l.listingId || l.id || 2}`,
+          url: `/experience-product?id=${l.listingId || l.id || 2}`,
           priceOld: "",
           priceActual: "",
           options: [],
@@ -86,8 +86,8 @@ const Catalog = () => {
         urlHome="/"
         breadcrumbs={breadcrumbs}
         navigation={navigation}
-        title="Places to stay"
-        sale="300+ stays"
+        title="Places to experience"
+        sale="300+ experiences"
         details="May 1 - 14, 2 guests"
         sorting={sale}
         setSorting={setSale}
@@ -111,7 +111,7 @@ const Catalog = () => {
                 <Card className={styles.card} item={x} key={index} />
               ))
             ) : (
-              stays.map((x, index) => (
+              experience.map((x, index) => (
                 <Card className={styles.card} item={x} key={index} />
               ))
             )}

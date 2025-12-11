@@ -461,7 +461,7 @@ const Description = ({ classSection, listing, hostData }) => {
       const selectedAddOnsData = bookingData.selectedAddOns || [];
       
       history.push({
-        pathname: "/stays-checkout",
+        pathname: "/experience-checkout",
         state: { 
           addOns: selectedAddOnsData,
           bookingData: bookingData,
@@ -492,7 +492,7 @@ const Description = ({ classSection, listing, hostData }) => {
         .filter(Boolean);
       
       history.push({
-        pathname: "/stays-checkout",
+        pathname: "/experience-checkout",
         state: { addOns: selectedAddOnsData },
       });
     }

@@ -5,7 +5,7 @@ import Control from "../../../components/Control";
 import Card from "../../../components/Card";
 import Loader from "../../../components/Loader";
 
-import { stays } from "../../../mocks/stays";
+import { experience } from "../../../mocks/experience";
 
 const breadcrumbs = [
   {
@@ -28,7 +28,7 @@ const Main = () => {
         />
         <h1 className={cn("h2", styles.title)}>Your trips</h1>
         <div className={styles.list}>
-          {stays.map((x, index) => (
+          {experience.map((x, index) => (
             <Card className={styles.card} item={x} key={index} />
           ))}
         </div>

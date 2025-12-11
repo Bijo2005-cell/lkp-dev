@@ -1,6 +1,6 @@
 export const wishlists = [
   {
-    title: "Stays",
+    title: "Experience",
     items: [
       {
         title: "Entire serviced classy moutain house",
@@ -12,7 +12,7 @@ export const wishlists = [
         cost: "$200 total",
         src: "/images/content/card-pic-1.jpg",
         srcSet: "/images/content/card-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -34,7 +34,7 @@ export const wishlists = [
         cost: "$100 total",
         src: "/images/content/card-pic-2.jpg",
         srcSet: "/images/content/card-pic-2@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -56,7 +56,7 @@ export const wishlists = [
         cost: "$333 total",
         src: "/images/content/card-pic-3.jpg",
         srcSet: "/images/content/card-pic-3@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -78,7 +78,7 @@ export const wishlists = [
         cost: "$230 total",
         src: "/images/content/card-pic-4.jpg",
         srcSet: "/images/content/card-pic-4@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -100,7 +100,7 @@ export const wishlists = [
         cost: "$200 total",
         src: "/images/content/card-pic-5.jpg",
         srcSet: "/images/content/card-pic-5@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -122,7 +122,7 @@ export const wishlists = [
         cost: "$300 total",
         src: "/images/content/card-pic-6.jpg",
         srcSet: "/images/content/card-pic-6@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",

@@ -3,9 +3,9 @@
 .header
     position: relative
     z-index: 1000
-    padding: 8px 0
+    padding: 12px 0
     +m
-        padding: 4px 0
+        padding: 8px 0
     &.wide
         .container
             max-width: 100%
@@ -36,7 +36,10 @@
         z-index: 15
         margin-right: auto
     img
-        width: 106px
+        width: 200px
+        height: auto
+        +m
+            width: 150px
     
 .wrapper
     display: flex

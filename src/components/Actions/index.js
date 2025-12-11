@@ -16,8 +16,8 @@ const Actions = ({ className }) => {
     if (window.history.length > 1) {
       history.goBack();
     } else {
-      // Fallback to stays-category if no history
-      history.push("/stays-category");
+      // Fallback to experience-category if no history
+      history.push("/experience-category");
     }
   };
 

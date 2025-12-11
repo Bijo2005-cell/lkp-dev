@@ -6,7 +6,7 @@ export const browse1 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-1.jpg",
     srcSet: "/images/content/browse-pic-1@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Nature house",
@@ -15,7 +15,7 @@ export const browse1 = [
     categoryText: "from $230",
     src: "/images/content/browse-pic-2.jpg",
     srcSet: "/images/content/browse-pic-2@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Nature house",
@@ -24,7 +24,7 @@ export const browse1 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-3.jpg",
     srcSet: "/images/content/browse-pic-3@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Nature house",
@@ -33,7 +33,7 @@ export const browse1 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-4.jpg",
     srcSet: "/images/content/browse-pic-4@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Nature house",
@@ -42,7 +42,7 @@ export const browse1 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-1.jpg",
     srcSet: "/images/content/browse-pic-1@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Nature house",
@@ -51,7 +51,7 @@ export const browse1 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-2.jpg",
     srcSet: "/images/content/browse-pic-2@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Nature house",
@@ -60,7 +60,7 @@ export const browse1 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-3.jpg",
     srcSet: "/images/content/browse-pic-3@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Nature house",
@@ -69,7 +69,7 @@ export const browse1 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-4.jpg",
     srcSet: "/images/content/browse-pic-4@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
 ];
 
@@ -81,7 +81,7 @@ export const browse2 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-1.jpg",
     srcSet: "/images/content/browse-pic-1@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Mountain house",
@@ -90,7 +90,7 @@ export const browse2 = [
     categoryText: "from $230",
     src: "/images/content/browse-pic-2.jpg",
     srcSet: "/images/content/browse-pic-2@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Mountain house",
@@ -99,7 +99,7 @@ export const browse2 = [
     categoryText: "5% off",
     src: "/images/content/browse-pic-5.jpg",
     srcSet: "/images/content/browse-pic-5@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Mountain house",
@@ -108,7 +108,7 @@ export const browse2 = [
     categoryText: "15% off",
     src: "/images/content/browse-pic-4.jpg",
     srcSet: "/images/content/browse-pic-4@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Mountain house",
@@ -117,7 +117,7 @@ export const browse2 = [
     categoryText: "from $140",
     src: "/images/content/browse-pic-3.jpg",
     srcSet: "/images/content/browse-pic-3@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Mountain house",
@@ -126,7 +126,7 @@ export const browse2 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-2.jpg",
     srcSet: "/images/content/browse-pic-2@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Mountain house",
@@ -135,7 +135,7 @@ export const browse2 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-3.jpg",
     srcSet: "/images/content/browse-pic-3@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Mountain house",
@@ -144,7 +144,7 @@ export const browse2 = [
     categoryText: "20% off",
     src: "/images/content/browse-pic-4.jpg",
     srcSet: "/images/content/browse-pic-4@2x.jpg",
-    url: "/stays-category",
+    url: "/experience-category",
   },
 ];
 

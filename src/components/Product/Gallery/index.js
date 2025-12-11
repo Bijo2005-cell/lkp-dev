@@ -20,9 +20,9 @@ const Gallery = ({ className, items, type, title, options }) => {
   const displayImages = Math.min(imageCount, maxDisplayImages);
   const showMoreButton = imageCount > maxDisplayImages;
 
-  // Get dynamic class based on image count for "stays" type
+  // Get dynamic class based on image count for "experience" type
   const getImageCountClass = () => {
-    if (type !== "stays") return "";
+    if (type !== "experience") return "";
     // Only apply custom classes for 1-3 images to prevent empty spaces
     // For 4-6 images, use default layout which works fine
     if (displayImages <= 3) {
@@ -38,7 +38,7 @@ const Gallery = ({ className, items, type, title, options }) => {
           className={cn(
             styles.list,
             {
-              [styles.stays]: type === "stays",
+              [styles.experience]: type === "experience",
             },
             {
               [styles.cars]: type === "cars",

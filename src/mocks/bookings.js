@@ -3,7 +3,7 @@ export const bookingsByStatus = {
     {
       id: "bk-up-001",
       title: "Aurora Ridge Eco Lodge",
-      type: "Stay",
+      type: "Experience",
       category: "Glamping retreat",
       location: "Wanaka, New Zealand",
       startDate: "Fri, 21 Nov 2025",
@@ -69,8 +69,8 @@ export const bookingsByStatus = {
     {
       id: "bk-co-002",
       title: "Skyline Loft Weekender",
-      type: "Stay",
-      category: "City boutique stay",
+      type: "Experience",
+      category: "City boutique experience",
       location: "Barcelona, Spain",
       startDate: "Fri, 12 Jul 2025",
       endDate: "Mon, 15 Jul 2025",
@@ -123,7 +123,7 @@ export const emptyStateCopy = {
   upcoming: {
     title: "You have no upcoming adventures",
     description:
-      "Ready for your next journey? Save a stay or experience and it will show up here the moment you confirm.",
+      "Ready for your next journey? Save an experience and it will show up here the moment you confirm.",
     illustration: "/images/content/card-pic-12.jpg",
     illustrationSet: "/images/content/card-pic-12@2x.jpg",
     illustrationAlt: "Traveler planning the next trip",
@@ -131,7 +131,7 @@ export const emptyStateCopy = {
   completed: {
     title: "Nothing completed yet",
     description:
-      "Once you wrap a stay or experience, you'll find receipts, highlights, and rebooking options in this tab.",
+      "Once you wrap an experience, you'll find receipts, highlights, and rebooking options in this tab.",
     illustration: "/images/content/card-pic-6.jpg",
     illustrationSet: "/images/content/card-pic-6@2x.jpg",
     illustrationAlt: "Happy traveler celebrating after a trip",

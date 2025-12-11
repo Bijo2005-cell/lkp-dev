@@ -1,14 +1,16 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import cn from "classnames";
-import styles from "./StaysProduct.module.sass";
+import styles from "./ExperienceProduct.module.sass";
 import Product from "../../components/Product";
 import Description from "./Description";
 import Itinerary from "../../components/Itinerary";
 import TabSection from "./TabSection";
 import CommentsProduct from "../../components/CommentsProduct";
 import Browse from "../../components/Browse";
+import Loader from "../../components/Loader";
 import { browse2 } from "../../mocks/browse";
+import { getListing, getHost } from "../../utils/api";
 
 // Helper function to format image URLs (from Azure blob storage or full URLs)
 const formatImageUrl = (url) => {
@@ -178,7 +180,7 @@ const socials = [
   },
 ];
 
-const StaysProduct = () => {
+const ExperienceProduct = () => {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const idParam = params.get("id");
@@ -191,66 +193,81 @@ const StaysProduct = () => {
 
 useEffect(() => {
   let mounted = true;
+  
+  // ✅ Immediately reset state when ID changes to prevent showing old data
+  setListing(null);
+  setHostData(null);
+  setGalleryItems([]);
+  setLoading(true);
+  
   const load = async () => {
     try {
-      setLoading(true);
-      const { getListing, getHost } = await import("../../utils/api");
+      // ✅ Fetch listing data first (critical path)
       const data = await getListing(id);
       if (!mounted) return;
 
-      setListing(data || null);
+      if (data) {
+        // ✅ Set listing immediately for progressive rendering
+        setListing(data);
 
-      // ✅ Build gallery dynamically from API
-      const galleryImages = [];
+        // ✅ Build gallery dynamically from API (optimized with for loops)
+        const galleryImages = [];
 
-      // 1️⃣ Add cover photo (if exists)
-      if (data?.coverPhotoUrl) {
-        const formattedUrl = formatImageUrl(data.coverPhotoUrl);
-        if (formattedUrl) galleryImages.push(formattedUrl);
-      }
-
-      // 2️⃣ Add listingMedia images
-      if (Array.isArray(data?.listingMedia)) {
-        data.listingMedia.forEach((media) => {
-          // Each media object has either 'url' or 'fileUrl'
-          const imageUrl = formatImageUrl(media.url || media.fileUrl);
-          if (imageUrl) galleryImages.push(imageUrl);
-        });
-      }
-
-      // 3️⃣ Add keyActivities images (optional, if you want them too)
-      if (Array.isArray(data?.keyActivities)) {
-        data.keyActivities.forEach((activity) => {
-          if (Array.isArray(activity.images)) {
-            activity.images.forEach((img) => {
-              const imageUrl = formatImageUrl(img.url || img.imageUrl);
-              if (imageUrl) galleryImages.push(imageUrl);
-            });
-          }
-        });
-      }
-
-      // ✅ Final fallback if no images
-      setGalleryItems(galleryImages.length ? galleryImages : []);
-
-      // ✅ Fetch host data if leadUserId is available
-      const leadUserId = data?.leadUserId || data?.host?.leadUserId;
-      if (leadUserId) {
-        try {
-          const hostResponse = await getHost(leadUserId);
-          if (!mounted) return;
-          setHostData(hostResponse || null);
-        } catch (hostErr) {
-          console.warn("⚠️ Failed to fetch host data:", hostErr);
-          // Don't block the page if host fetch fails
+        // 1️⃣ Add cover photo (if exists)
+        if (data.coverPhotoUrl) {
+          const formattedUrl = formatImageUrl(data.coverPhotoUrl);
+          if (formattedUrl) galleryImages.push(formattedUrl);
         }
+
+        // 2️⃣ Add listingMedia images
+        if (Array.isArray(data.listingMedia)) {
+          for (const media of data.listingMedia) {
+            const imageUrl = formatImageUrl(media.url || media.fileUrl);
+            if (imageUrl) galleryImages.push(imageUrl);
+          }
+        }
+
+        // 3️⃣ Add keyActivities images
+        if (Array.isArray(data.keyActivities)) {
+          for (const activity of data.keyActivities) {
+            if (Array.isArray(activity.images)) {
+              for (const img of activity.images) {
+                const imageUrl = formatImageUrl(img.url || img.imageUrl);
+                if (imageUrl) galleryImages.push(imageUrl);
+              }
+            }
+          }
+        }
+
+        setGalleryItems(galleryImages.length ? galleryImages : []);
+
+        // ✅ Fetch host data in parallel (non-blocking)
+        const leadUserId = data.leadUserId || data.host?.leadUserId;
+        if (leadUserId) {
+          // Don't await - let it load in background
+          getHost(leadUserId)
+            .then((hostResponse) => {
+              if (!mounted) return;
+              setHostData(hostResponse || null);
+            })
+            .catch((hostErr) => {
+              console.warn("⚠️ Failed to fetch host data:", hostErr);
+              // Don't block the page if host fetch fails
+            });
+        }
+        
+        // ✅ Mark loading as complete once listing is ready
+        setLoading(false);
+      } else {
+        setListing(null);
+        setGalleryItems([]);
+        setLoading(false);
       }
     } catch (e) {
       console.error("Failed to load listing", e);
       setListing(null);
       setGalleryItems([]);
-    } finally {
-      if (mounted) setLoading(false);
+      setLoading(false);
     } 
   };
 
@@ -258,7 +275,7 @@ useEffect(() => {
   return () => {
     mounted = false;
   };
-}, [id]);
+}, [id, location.search]); // ✅ Also depend on location.search to ensure effect runs on route changes
 
   // Build options dynamically from listing and host data
   const listingOptions = useMemo(() => {
@@ -296,33 +313,48 @@ useEffect(() => {
   
   const hostAvatar = getHostAvatar();
 
+  // ✅ Progressive rendering: Show content as soon as listing data is available
+  // Don't wait for host data to render the main content
+  if (loading && !listing) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+        <Loader />
+      </div>
+    );
+  }
+
   return (
     <>
-<Product
-  classSection="section-mb64"
-  title={listing?.title || "Spectacular views of Queenstown"}
-  options={listingOptions}
-  gallery={galleryItems && galleryItems.length > 0 ? galleryItems : []}
-  type="stays"
-  rating={rating}
-  reviews={reviews}
-  hostAvatar={hostAvatar}
-/>
-
-      <Description classSection="section" listing={listing} hostData={hostData} />
-      <Itinerary classSection="section" listing={listing} />
-      <TabSection classSection="section" listing={listing} />
-      <CommentsProduct
-        className={cn("section", styles.comment)}
-        parametersUser={parametersUser}
-        info={
-          listing?.description ||
-          "Described by Queenstown House & Garden magazine as having 'one of the best views we've ever seen' you will love relaxing in this newly built"
-        }
-        socials={socials}
-        buttonText="Contact"
-        hostData={hostData}
+      <Product
+        classSection="section-mb64"
+        title={listing?.title || "Spectacular views of Queenstown"}
+        options={listingOptions}
+        gallery={galleryItems && galleryItems.length > 0 ? galleryItems : []}
+        type="experience"
+        rating={rating}
+        reviews={reviews}
+        hostAvatar={hostAvatar}
       />
+
+      {listing && (
+        <>
+          <Description classSection="section" listing={listing} hostData={hostData} />
+          <Itinerary classSection="section" listing={listing} />
+          <TabSection classSection="section" listing={listing} />
+          <CommentsProduct
+            className={cn("section", styles.comment)}
+            parametersUser={parametersUser}
+            info={
+              listing?.description ||
+              "Described by Queenstown House & Garden magazine as having 'one of the best views we've ever seen' you will love relaxing in this newly built"
+            }
+            socials={socials}
+            buttonText="Contact"
+            hostData={hostData}
+          />
+        </>
+      )}
+      
       <Browse
         classSection="section"
         headSmall
@@ -334,4 +366,4 @@ useEffect(() => {
   );
 };
 
-export default StaysProduct;
+export default ExperienceProduct;

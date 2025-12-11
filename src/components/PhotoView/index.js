@@ -64,58 +64,60 @@ const PhotoView = ({ title, initialSlide, visible, items, onClose }) => {
     setCurrent(e);
   };
 
+  if (!visible || !items || items.length === 0) {
+    return null;
+  }
+
   return createPortal(
-    visible && (
-      <div className={styles.modal} ref={scrollRef}>
-        <div className={styles.outer}>
-          <OutsideClickHandler onOutsideClick={onClose}>
-            <div className={styles.container}>
-              <div className={styles.control}>
-                <Link
-                  to="/full-photo"
-                  className={cn("button-stroke button-small", styles.button)}
+    <div className={styles.modal} ref={scrollRef}>
+      <div className={styles.outer}>
+        <OutsideClickHandler onOutsideClick={onClose}>
+          <div className={styles.container}>
+            <div className={styles.control}>
+              <Link
+                to="/full-photo"
+                className={cn("button-stroke button-small", styles.button)}
+                onClick={onClose}
+              >
+                <Icon name="image" size="16" />
+                <span>Show all photos</span>
+              </Link>
+              <div className={styles.counter}>
+                {current + 1}/{items.length}
+              </div>
+              <div className={styles.btns}>
+                <Share className={styles.share} darkButton />
+                <button
+                  className={cn(
+                    "button-circle-stroke button-small",
+                    styles.button
+                  )}
                   onClick={onClose}
                 >
-                  <Icon name="image" size="16" />
-                  <span>Show all photos</span>
-                </Link>
-                <div className={styles.counter}>
-                  {current + 1}/{items.length}
-                </div>
-                <div className={styles.btns}>
-                  <Share className={styles.share} darkButton />
-                  <button
-                    className={cn(
-                      "button-circle-stroke button-small",
-                      styles.button
-                    )}
-                    onClick={onClose}
-                  >
-                    <Icon name="close" size="24" />
-                  </button>
-                </div>
+                  <Icon name="close" size="24" />
+                </button>
               </div>
-              <div className={styles.wrapper}>
-                <Slider
-                  className="photo-slider"
-                  afterChange={handleAfterChange}
-                  {...settings}
-                >
-                  {items.map((x, index) => (
-                    <div className={styles.slide} key={index}>
-                      <div className={styles.preview}>
-                        <img src={x} alt="Gallery" />
-                      </div>
-                    </div>
-                  ))}
-                </Slider>
-              </div>
-              <div className={styles.title}>{title}</div>
             </div>
-          </OutsideClickHandler>
-        </div>
+            <div className={styles.wrapper}>
+              <Slider
+                className="photo-slider"
+                afterChange={handleAfterChange}
+                {...settings}
+              >
+                {items.map((x, index) => (
+                  <div className={styles.slide} key={index}>
+                    <div className={styles.preview}>
+                      <img src={x} alt="Gallery" />
+                    </div>
+                  </div>
+                ))}
+              </Slider>
+            </div>
+            <div className={styles.title}>{title}</div>
+          </div>
+        </OutsideClickHandler>
       </div>
-    ),
+    </div>,
     document.body
   );
 };

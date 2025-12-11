@@ -6,7 +6,7 @@ import Card from "../../../components/Card";
 import Loader from "../../../components/Loader";
 
 // data
-import { stays1 } from "../../../mocks/stays";
+import { experience1 } from "../../../mocks/experience";
 
 const breadcrumbs = [
   {
@@ -14,7 +14,7 @@ const breadcrumbs = [
     url: "/",
   },
   {
-    title: "Stays",
+    title: "Experience",
     url: "/things-to-do",
   },
   {
@@ -55,7 +55,7 @@ const Catalog = () => {
       <div className={styles.body}>
         <div className={cn("container", styles.container)}>
           <div className={styles.list}>
-            {stays1.map((x, index) => (
+            {experience1.map((x, index) => (
               <Card className={styles.card} item={x} key={index} row />
             ))}
           </div>

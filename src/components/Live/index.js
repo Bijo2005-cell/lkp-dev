@@ -12,21 +12,21 @@ const items = [
     content: "6,879 properties",
     src: "/images/content/live-pic-1.png",
     srcSet: "/images/content/live-pic-1@2x.png",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "Pick up the earliest sunrise",
     content: "9,849 properties",
     src: "/images/content/live-pic-2.png",
     srcSet: "/images/content/live-pic-2@2x.png",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
-    title: "Unique stay",
+    title: "Unique experience",
     content: "12,879 properties",
     src: "/images/content/live-pic-3.png",
     srcSet: "/images/content/live-pic-3@2x.png",
-    url: "/stays-category",
+    url: "/experience-category",
   },
 ];
 

@@ -23,8 +23,7 @@
     padding-left: 16px
     pointer-events: none
 
-:global(.hero-content-title-1),
-:global(.hero-content-title-2)
+:global(.hero-content-title-1)
     font-weight: 600
     font-size: 20px
     font-family: "Oswald", sans-serif
@@ -44,37 +43,38 @@
 .titleBox1
     margin-top: 0
     height: auto
-    overflow: hidden
+    overflow: visible
+    padding-bottom: 4px
     +m
         height: auto
+        padding-bottom: 3px
 
-.titleBox2
-    margin-top: 8px
-    height: auto
-    overflow: hidden
-    +m
-        height: auto
-
-.title1,
-.title2
+.title1
     font-weight: 600
     font-size: 48px
     font-family: "Oswald", sans-serif
-    line-height: 1
+    line-height: 1.15
     color: white
+    opacity: 1
+    padding-bottom: 2px
     +m
-        font-size: 48px
+        font-size: 36px
+        line-height: 1.15
+        padding-bottom: 2px
 
 // Global classes for GSAP selectors
-:global(.hero-title-1),
-:global(.hero-title-2)
+:global(.hero-title-1)
     font-weight: 600
     font-size: 48px
     font-family: "Oswald", sans-serif
-    line-height: 1
+    line-height: 1.15
     color: white
+    opacity: 1
+    padding-bottom: 2px
     +m
-        font-size: 48px
+        font-size: 36px
+        line-height: 1.15
+        padding-bottom: 2px
 
 .desc
     margin-top: 16px
@@ -82,6 +82,7 @@
     font-size: 16px
     line-height: 1.5
     color: rgba(255, 255, 255, 0.87)
+    opacity: 1
     +m
         font-size: 14px
         max-width: 100%
@@ -92,9 +93,68 @@
     font-size: 16px
     line-height: 1.5
     color: rgba(255, 255, 255, 0.87)
+    opacity: 1
     +m
         font-size: 14px
         max-width: 100%
+
+.button
+    margin-top: 24px
+    padding: 12px 32px
+    background: rgba(255, 255, 255, 0.7)
+    backdrop-filter: blur(10px)
+    -webkit-backdrop-filter: blur(10px)
+    border-radius: 12px
+    border: 1px solid rgba(255, 255, 255, 0.3)
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1)
+    font-weight: 600
+    font-size: 16px
+    font-family: "Inter", sans-serif
+    line-height: 1.4
+    color: #1a1a1a
+    cursor: pointer
+    transition: background 0.3s ease, box-shadow 0.3s ease
+    white-space: nowrap
+    opacity: 1
+    will-change: transform, opacity
+    +m
+        padding: 10px 24px
+        font-size: 14px
+        margin-top: 20px
+    &:hover
+        background: rgba(255, 255, 255, 0.85)
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15)
+    &:active
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1)
+
+:global(.hero-button)
+    margin-top: 24px
+    padding: 12px 32px
+    background: rgba(255, 255, 255, 0.7)
+    backdrop-filter: blur(10px)
+    -webkit-backdrop-filter: blur(10px)
+    border-radius: 12px
+    border: 1px solid rgba(255, 255, 255, 0.3)
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1)
+    font-weight: 600
+    font-size: 16px
+    font-family: "Inter", sans-serif
+    line-height: 1.4
+    color: #1a1a1a
+    cursor: pointer
+    transition: background 0.3s ease, box-shadow 0.3s ease
+    white-space: nowrap
+    opacity: 1
+    will-change: transform, opacity
+    +m
+        padding: 10px 24px
+        font-size: 14px
+        margin-top: 20px
+    &:hover
+        background: rgba(255, 255, 255, 0.85)
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15)
+    &:active
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1)
 
 .cover
     position: absolute

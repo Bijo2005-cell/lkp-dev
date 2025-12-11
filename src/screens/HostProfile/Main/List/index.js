@@ -41,7 +41,7 @@ const transformListingToCard = (listing) => {
     title: listing.title || "Listing",
     src: coverPhotoUrl,
     srcSet: coverPhotoUrl,
-    url: `/stays-product?id=${listing.listingId}`,
+    url: `/experience-product?id=${listing.listingId}`,
     location: location,
     priceActual: priceDisplay, // Only show price if individualPrice exists
     hasPrice: hasPrice,
@@ -60,7 +60,7 @@ const transformListingToCard = (listing) => {
 
 const defaultLocations = [
   {
-    title: "Stays",
+    title: "Experience",
     list: [
       {
         title: "Entire serviced classy moutain house",
@@ -72,7 +72,7 @@ const defaultLocations = [
         cost: "$200 total",
         src: "/images/content/card-pic-1.jpg",
         srcSet: "/images/content/card-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -94,7 +94,7 @@ const defaultLocations = [
         cost: "$100 total",
         src: "/images/content/card-pic-2.jpg",
         srcSet: "/images/content/card-pic-2@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -116,7 +116,7 @@ const defaultLocations = [
         cost: "$333 total",
         src: "/images/content/card-pic-3.jpg",
         srcSet: "/images/content/card-pic-3@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -138,7 +138,7 @@ const defaultLocations = [
         cost: "$230 total",
         src: "/images/content/card-pic-4.jpg",
         srcSet: "/images/content/card-pic-4@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -165,7 +165,7 @@ const defaultLocations = [
         cost: "$100 total",
         src: "/images/content/card-pic-2.jpg",
         srcSet: "/images/content/card-pic-2@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -187,7 +187,7 @@ const defaultLocations = [
         cost: "$333 total",
         src: "/images/content/card-pic-3.jpg",
         srcSet: "/images/content/card-pic-3@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",
@@ -209,7 +209,7 @@ const defaultLocations = [
         cost: "$230 total",
         src: "/images/content/card-pic-4.jpg",
         srcSet: "/images/content/card-pic-4@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
         options: [
           {
             title: "Free wifi",

@@ -24,7 +24,7 @@ const Main = () => {
             <div className={cn("info", styles.info)}>
               Find and book a great experience.
             </div>
-            <Link className={cn("button", styles.button)} to="/stays-category">
+            <Link className={cn("button", styles.button)} to="/experience-category">
               Start your search
             </Link>
           </div>

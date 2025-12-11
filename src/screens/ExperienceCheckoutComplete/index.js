@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import cn from "classnames";
-import styles from "./StaysCheckoutComplete.module.sass";
+import styles from "./ExperienceCheckoutComplete.module.sass";
 import Control from "../../components/Control";
 import CheckoutSlider from "./CheckoutSlider";
 import CheckoutComplete from "../../components/CheckoutComplete";
@@ -8,18 +8,18 @@ import CheckoutComplete from "../../components/CheckoutComplete";
 const breadcrumbs = [
   {
     title: "Spectacular views of Queenstown",
-    url: "/stays-product",
+    url: "/experience-product",
   },
   {
     title: "Confirm and pay",
-    url: "/stays-checkout",
+    url: "/experience-checkout",
   },
   {
     title: "Checkout completed",
   },
 ];
 
-const StaysCheckoutComplete = () => {
+const ExperienceCheckoutComplete = () => {
   const [booking, setBooking] = useState(null);
   const [paymentSuccess, setPaymentSuccess] = useState(null);
   const [paymentData, setPaymentData] = useState(null);
@@ -366,7 +366,7 @@ const StaysCheckoutComplete = () => {
               paymentFailed={paymentFailed}
               onRetryPayment={() => {
                 // Redirect back to checkout to retry payment
-                window.location.href = "/stays-checkout";
+                window.location.href = "/experience-checkout";
               }}
             />
           </div>
@@ -376,4 +376,4 @@ const StaysCheckoutComplete = () => {
   );
 };
 
-export default StaysCheckoutComplete;
+export default ExperienceCheckoutComplete;

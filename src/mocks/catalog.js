@@ -12,7 +12,7 @@ export const catalogList = [
         rating: "5.0",
         image: "/images/content/catalog-pic-1.jpg",
         image2x: "/images/content/catalog-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -23,7 +23,7 @@ export const catalogList = [
         rating: "4.8",
         image: "/images/content/catalog-pic-2.jpg",
         image2x: "/images/content/catalog-pic-2@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -34,7 +34,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-3.jpg",
         image2x: "/images/content/catalog-pic-3@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -45,7 +45,7 @@ export const catalogList = [
         rating: "4.8",
         image: "/images/content/catalog-pic-4.jpg",
         image2x: "/images/content/catalog-pic-4@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -56,7 +56,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-5.jpg",
         image2x: "/images/content/catalog-pic-5@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -67,7 +67,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-6.jpg",
         image2x: "/images/content/catalog-pic-6@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -78,7 +78,7 @@ export const catalogList = [
         rating: "4.8",
         image: "/images/content/catalog-pic-1.jpg",
         image2x: "/images/content/catalog-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -89,7 +89,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-7.jpg",
         image2x: "/images/content/catalog-pic-7@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
     ],
   },
@@ -106,7 +106,7 @@ export const catalogList = [
         rating: "5.0",
         image: "/images/content/catalog-pic-7.jpg",
         image2x: "/images/content/catalog-pic-7@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -117,7 +117,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-6.jpg",
         image2x: "/images/content/catalog-pic-6@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -128,7 +128,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-3.jpg",
         image2x: "/images/content/catalog-pic-3@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -139,7 +139,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-4.jpg",
         image2x: "/images/content/catalog-pic-4@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -150,7 +150,7 @@ export const catalogList = [
         rating: "4.8",
         image: "/images/content/catalog-pic-5.jpg",
         image2x: "/images/content/catalog-pic-5@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -161,7 +161,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-2.jpg",
         image2x: "/images/content/catalog-pic-2@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -172,7 +172,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-1.jpg",
         image2x: "/images/content/catalog-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -183,7 +183,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-1.jpg",
         image2x: "/images/content/catalog-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
     ],
   },
@@ -200,7 +200,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-1.jpg",
         image2x: "/images/content/catalog-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -211,7 +211,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-2.jpg",
         image2x: "/images/content/catalog-pic-2@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -222,7 +222,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-4.jpg",
         image2x: "/images/content/catalog-pic-4@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -233,7 +233,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-3.jpg",
         image2x: "/images/content/catalog-pic-3@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -244,7 +244,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-1.jpg",
         image2x: "/images/content/catalog-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -255,7 +255,7 @@ export const catalogList = [
         rating: "5.0",
         image: "/images/content/catalog-pic-6.jpg",
         image2x: "/images/content/catalog-pic-6@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -266,7 +266,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-1.jpg",
         image2x: "/images/content/catalog-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -277,7 +277,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-7.jpg",
         image2x: "/images/content/catalog-pic-7@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
     ],
   },
@@ -294,7 +294,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-4.jpg",
         image2x: "/images/content/catalog-pic-4@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -305,7 +305,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-1.jpg",
         image2x: "/images/content/catalog-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -316,7 +316,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-3.jpg",
         image2x: "/images/content/catalog-pic-3@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -327,7 +327,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-7.jpg",
         image2x: "/images/content/catalog-pic-7@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -338,7 +338,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-5.jpg",
         image2x: "/images/content/catalog-pic-5@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -349,7 +349,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-6.jpg",
         image2x: "/images/content/catalog-pic-6@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -360,7 +360,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-1.jpg",
         image2x: "/images/content/catalog-pic-1@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
       {
         title: "The grand resort",
@@ -371,7 +371,7 @@ export const catalogList = [
         rating: "4.9",
         image: "/images/content/catalog-pic-2.jpg",
         image2x: "/images/content/catalog-pic-2@2x.jpg",
-        url: "/stays-product",
+        url: "/experience-product",
       },
     ],
   },

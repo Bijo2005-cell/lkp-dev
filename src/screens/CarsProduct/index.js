@@ -1,6 +1,6 @@
 import React from "react";
 import cn from "classnames";
-import styles from "./StaysProduct.module.sass";
+import styles from "./ExperienceProduct.module.sass";
 import Product from "../../components/Product";
 import Description from "./Description";
 import CommentsProduct from "../../components/CommentsProduct";
@@ -74,7 +74,7 @@ const socials = [
   },
 ];
 
-const StaysProduct = () => {
+const CarsProduct = () => {
   return (
     <>
       <Product
@@ -111,4 +111,4 @@ const StaysProduct = () => {
   );
 };
 
-export default StaysProduct;
+export default CarsProduct;

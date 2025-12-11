@@ -8,7 +8,7 @@ import Interest from "../../components/Interest";
 import Categories from "../../components/Categories";
 
 // data
-import { stays2 } from "../../mocks/stays";
+import { experience2 } from "../../mocks/experience";
 import { categories1 } from "../../mocks/categories";
 
 const breadcrumbs = [
@@ -17,7 +17,7 @@ const breadcrumbs = [
     url: "/",
   },
   {
-    title: "Stays",
+    title: "Experience",
     url: "/",
   },
   {
@@ -74,7 +74,7 @@ const socials = [
   },
 ];
 
-const StaysProduct = () => {
+const ExperienceProduct = () => {
   return (
     <>
       <Product
@@ -94,7 +94,7 @@ const StaysProduct = () => {
         socials={socials}
         buttonText="Contact"
       />
-      <Interest classSection="section" items={stays2} />
+      <Interest classSection="section" items={experience2} />
       <Categories
         classSection="section"
         title="Exploring in Queenstown"
@@ -105,4 +105,4 @@ const StaysProduct = () => {
   );
 };
 
-export default StaysProduct;
+export default ExperienceProduct;

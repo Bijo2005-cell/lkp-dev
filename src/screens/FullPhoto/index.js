@@ -12,12 +12,12 @@ const breadcrumbs = [
     url: "/",
   },
   {
-    title: "Stays",
+    title: "Experience",
     url: "/",
   },
   {
     title: "New Zealand",
-    url: "/stays-category",
+    url: "/experience-category",
   },
   {
     title: "South Island",
@@ -69,8 +69,8 @@ const FullPhoto = () => {
     if (window.history.length > 1) {
       history.goBack();
     } else {
-      // Fallback to stays-product if no history
-      history.push("/stays-product");
+      // Fallback to experience-product if no history
+      history.push("/experience-product");
     }
   };
 

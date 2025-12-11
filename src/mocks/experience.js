@@ -1,4 +1,4 @@
-export const stays = [
+export const experience = [
   {
     title: "Entire serviced classy moutain house",
     priceOld: "$356",
@@ -9,7 +9,7 @@ export const stays = [
     cost: "$200 total",
     src: "/images/content/card-pic-1.jpg",
     srcSet: "/images/content/card-pic-1@2x.jpg",
-    url: "/stays-product",
+    url: "/experience-product",
     options: [
       {
         title: "Free wifi",
@@ -31,7 +31,7 @@ export const stays = [
     cost: "$100 total",
     src: "/images/content/card-pic-2.jpg",
     srcSet: "/images/content/card-pic-2@2x.jpg",
-    url: "/stays-product",
+    url: "/experience-product",
     options: [
       {
         title: "Free wifi",
@@ -53,7 +53,7 @@ export const stays = [
     cost: "$333 total",
     src: "/images/content/card-pic-3.jpg",
     srcSet: "/images/content/card-pic-3@2x.jpg",
-    url: "/stays-product",
+    url: "/experience-product",
     options: [
       {
         title: "Free wifi",
@@ -75,7 +75,7 @@ export const stays = [
     cost: "$230 total",
     src: "/images/content/card-pic-4.jpg",
     srcSet: "/images/content/card-pic-4@2x.jpg",
-    url: "/stays-product",
+    url: "/experience-product",
     options: [
       {
         title: "Free wifi",
@@ -97,7 +97,7 @@ export const stays = [
     cost: "$200 total",
     src: "/images/content/card-pic-5.jpg",
     srcSet: "/images/content/card-pic-5@2x.jpg",
-    url: "/stays-product",
+    url: "/experience-product",
     options: [
       {
         title: "Free wifi",
@@ -119,7 +119,7 @@ export const stays = [
     cost: "$300 total",
     src: "/images/content/card-pic-6.jpg",
     srcSet: "/images/content/card-pic-6@2x.jpg",
-    url: "/stays-product",
+    url: "/experience-product",
     options: [
       {
         title: "Free wifi",
@@ -141,7 +141,7 @@ export const stays = [
     cost: "$200 total",
     src: "/images/content/card-pic-7.jpg",
     srcSet: "/images/content/card-pic-7@2x.jpg",
-    url: "/stays-product",
+    url: "/experience-product",
     options: [
       {
         title: "Free wifi",
@@ -163,7 +163,7 @@ export const stays = [
     cost: "$200 total",
     src: "/images/content/card-pic-8.jpg",
     srcSet: "/images/content/card-pic-8@2x.jpg",
-    url: "/stays-product",
+    url: "/experience-product",
     options: [
       {
         title: "Free wifi",
@@ -185,7 +185,7 @@ export const stays = [
     cost: "$123 total",
     src: "/images/content/card-pic-9.jpg",
     srcSet: "/images/content/card-pic-9@2x.jpg",
-    url: "/stays-product",
+    url: "/experience-product",
     options: [
       {
         title: "Free wifi",
@@ -199,7 +199,7 @@ export const stays = [
   },
 ];
 
-export const stays1 = [
+export const experience1 = [
   {
     title: "Premium milford sound tour ex Queenstown",
     priceOld: "$356",
@@ -452,7 +452,7 @@ export const stays1 = [
   },
 ];
 
-export const stays2 = [
+export const experience2 = [
   {
     title: "Sightseeing",
     items: [
@@ -769,3 +769,5 @@ export const stays2 = [
     ],
   },
 ];
+
+

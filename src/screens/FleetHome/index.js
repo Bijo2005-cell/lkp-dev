@@ -12,7 +12,7 @@ import HeroSection from "./HeroSection";
 const filterOptions = [
   { id: "experience", label: "Experience", icon: "star" },
   { id: "events", label: "Events", icon: "calendar" },
-  { id: "stays", label: "Stays", icon: "home" },
+  { id: "experience", label: "Experience", icon: "home" },
   { id: "food", label: "Food", icon: "burger" },
   { id: "places", label: "Places", icon: "marker" },
 ];
@@ -36,8 +36,8 @@ const FleetHome = () => {
   const dateItemRef = useRef(null);
   const guestItemRef = useRef(null);
   
-  // Determine if calendar should be shown (for Experience, Events, and Stays)
-  const showCalendar = activeFilter === "experience" || activeFilter === "events" || activeFilter === "stays";
+  // Determine if calendar should be shown (for Experience and Events)
+  const showCalendar = activeFilter === "experience" || activeFilter === "events";
   
   // Format selected date for display
   const formattedDate = selectedDate 

@@ -10,7 +10,7 @@ import { ListingsAPI } from "../utils/api";
  * @param {Object} params.filters - Filter object with priceRange, propertyTypes, amenities, ratings, categories
  * @param {number} params.limit - Number of listings per page
  * @param {number} params.offset - Offset for pagination
- * @param {string} params.businessInterest - Business interest type (EXPERIENCE, STAYS, etc.)
+ * @param {string} params.businessInterest - Business interest type (EXPERIENCE, etc.)
  */
 export const useListings = ({
   location = "",

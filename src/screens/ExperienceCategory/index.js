@@ -5,7 +5,7 @@ import Newsletter from "../../components/Newsletter";
 import Best from "../../components/Best";
 import Testimonials from "../../components/Testimonials";
 
-const StaysCategory = () => {
+const ExperienceCategory = () => {
   return (
     <>
       <Main />
@@ -21,4 +21,4 @@ const StaysCategory = () => {
   );
 };
 
-export default StaysCategory;
+export default ExperienceCategory;

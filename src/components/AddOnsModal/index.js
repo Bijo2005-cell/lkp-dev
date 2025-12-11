@@ -31,7 +31,7 @@ const mockAddOns = [
   {
     id: 4,
     name: "Late Checkout",
-    description: "Extend your stay until 2 PM at no additional charge",
+    description: "Extend your checkout until 2 PM at no additional charge",
     price: 30,
     image: "/images/content/photo-1.4.jpg",
   },
@@ -87,7 +87,7 @@ const AddOnsModal = ({ visible, onClose, basePrice = baseTotal }) => {
     setSelectedAddOns([]);
     onClose();
     history.push({
-      pathname: "/stays-checkout",
+      pathname: "/experience-checkout",
       state: { addOns: [] },
     });
   };
@@ -95,7 +95,7 @@ const AddOnsModal = ({ visible, onClose, basePrice = baseTotal }) => {
   const handleContinue = () => {
     onClose();
     history.push({
-      pathname: "/stays-checkout",
+      pathname: "/experience-checkout",
       state: { addOns: selectedAddOnsData },
     });
   };
@@ -106,7 +106,7 @@ const AddOnsModal = ({ visible, onClose, basePrice = baseTotal }) => {
         <div className={styles.content}>
           <div className={styles.left}>
             <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Customize your stay</h2>
+              <h2 className={styles.modalTitle}>Customize your experience</h2>
               <p className={styles.modalSubtitle}>Select add-ons to enhance your experience</p>
             </div>
 

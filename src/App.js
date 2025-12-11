@@ -2,10 +2,10 @@ import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 import "react-dates/lib/css/_datepicker.css";
 import "./styles/app.sass";
 import Page from "./components/Page";
-import StaysCategory from "./screens/StaysCategory";
-import StaysProduct from "./screens/StaysProduct";
-import StaysCheckout from "./screens/StaysCheckout";
-import StaysCheckoutComplete from "./screens/StaysCheckoutComplete";
+import ExperienceCategory from "./screens/ExperienceCategory";
+import ExperienceProduct from "./screens/ExperienceProduct";
+import ExperienceCheckout from "./screens/ExperienceCheckout";
+import ExperienceCheckoutComplete from "./screens/ExperienceCheckoutComplete";
 import FullPhoto from "./screens/FullPhoto";
 import Flights from "./screens/Flights";
 import FlightsCategory from "./screens/FlightsCategory";
@@ -49,37 +49,37 @@ function App() {
         />
         <Route
           exact
-          path="/stays-category"
+          path="/experience-category"
           render={() => (
             <Page notAuthorized>
-              <StaysCategory />
+              <ExperienceCategory />
             </Page>
           )}
         />
         <Route
           exact
-          path="/stays-product"
+          path="/experience-product"
           render={() => (
             <Page separatorHeader>
-              <StaysProduct />
+              <ExperienceProduct />
             </Page>
           )}
         />
         <Route
           exact
-          path="/stays-checkout"
+          path="/experience-checkout"
           render={() => (
             <Page separatorHeader>
-              <StaysCheckout />
+              <ExperienceCheckout />
             </Page>
           )}
         />
         <Route
           exact
-          path="/stays-checkout-complete"
+          path="/experience-checkout-complete"
           render={() => (
             <Page separatorHeader>
-              <StaysCheckoutComplete />
+              <ExperienceCheckoutComplete />   //experience
             </Page>
           )}
         />

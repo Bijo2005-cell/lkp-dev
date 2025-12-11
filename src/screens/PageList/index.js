@@ -8,19 +8,19 @@ const PageList = () => {
     <div className={styles.page}>
       <div className={cn("container", styles.container)}>
         <p>
-          <Link to="/">Stays</Link>
+          <Link to="/">Experience</Link>
         </p>
         <p>
-          <Link to="/stays-category">Stays Category</Link>
+          <Link to="/experience-category">Experience Category</Link>
         </p>
         <p>
-          <Link to="/stays-product">Stays Product Details</Link>
+          <Link to="/experience-product">Experience Product Details</Link>
         </p>
         <p>
-          <Link to="/stays-checkout">Stays Checkout</Link>
+          <Link to="/experience-checkout">Experience Checkout</Link>
         </p>
         <p>
-          <Link to="/stays-checkout-complete">Stays Checkout Complete</Link>
+          <Link to="/experience-checkout-complete">Experience Checkout Complete</Link>
         </p>
         <p>
           <Link to="/full-photo">Full Photo Grid</Link>

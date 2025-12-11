@@ -6,7 +6,7 @@ import Icon from "../Icon";
 
 const navigation = [
   {
-    title: "Stays",
+    title: "Experience",
     url: "/",
   },
   {

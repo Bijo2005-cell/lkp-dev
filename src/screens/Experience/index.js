@@ -1,5 +1,5 @@
 import React from "react";
-import styles from "./Stays.module.sass";
+import styles from "./Experience.module.sass";
 import Main from "./Main";
 import Adventure from "../../components/Adventure";
 import Travel from "../../components/Travel";

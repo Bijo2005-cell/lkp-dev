@@ -5,7 +5,7 @@ import styles from "./DestinationCard.module.sass";
 
 const DestinationCard = ({ className, item }) => {
   return (
-    <Link className={cn(className, styles.card)} to={item.url || "/stays-category"}>
+    <Link className={cn(className, styles.card)} to={item.url || "/experience-category"}>
       <div className={styles.imageWrapper}>
         <img
           srcSet={item.srcSet ? `${item.srcSet} 2x` : undefined}

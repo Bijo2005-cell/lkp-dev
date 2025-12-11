@@ -9,7 +9,7 @@ import Form from "../Form";
 
 const items = [
   {
-    title: "Stays",
+    title: "Experience",
     url: "/",
   },
   {

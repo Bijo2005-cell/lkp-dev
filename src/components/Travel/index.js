@@ -123,7 +123,7 @@ const Travel = () => {
                 </div>
               ))}
             </div>
-            <Link className={cn("button", styles.button)} to="/stays-category">
+            <Link className={cn("button", styles.button)} to="/experience-category">
               Start your search
             </Link>
           </div>

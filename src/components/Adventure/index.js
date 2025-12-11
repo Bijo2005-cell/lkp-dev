@@ -95,7 +95,7 @@ const Adventure = () => {
                   <div className={styles.subtitle}>{x.title}</div>
                   <Link
                     className={cn("status", styles.places)}
-                    to="/stays-category"
+                    to="/experience-category"
                   >
                     {x.places}
                   </Link>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useLocation, useHistory } from "react-router-dom";
 import cn from "classnames";
-import styles from "./StaysCheckout.module.sass";
+import styles from "./ExperienceCheckout.module.sass";
 import Control from "../../components/Control";
 import ConfirmAndPay from "../../components/ConfirmAndPay";
 import PriceDetails from "../../components/PriceDetails";
@@ -10,7 +10,7 @@ import { getOrderDetails } from "../../utils/api";
 const breadcrumbs = [
   {
     title: "Spectacular views of Queenstown",
-    url: "/stays-product",
+    url: "/experience-product",
   },
   {
     title: "Confirm and pay",
@@ -129,7 +129,7 @@ const Checkout = () => {
           if (normalizedStatus === "FAILED" || normalizedStatus === "FAILURE") {
             localStorage.setItem("paymentFailed", "true");
             localStorage.setItem("paymentFailureOrderId", String(order.orderId || pendingOrderId));
-            history.push("/stays-checkout-complete");
+            history.push("/experience-checkout-complete");
             return;
           }
         }
@@ -280,14 +280,14 @@ const Checkout = () => {
       <div className={cn("container", styles.container)}>
         <Control
           className={styles.control}
-          urlHome="/stays-product"
+          urlHome="/experience-product"
           breadcrumbs={breadcrumbs}
         />
         <div className={styles.wrapper}>
           <ConfirmAndPay
             className={styles.confirm}
             title="Your trip"
-            buttonUrl="/stays-checkout-complete"
+            buttonUrl="/experience-checkout-complete"
             guests
             amountToPay={paymentData?.amount}
             currency={paymentData?.currency || "INR"}

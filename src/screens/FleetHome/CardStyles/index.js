@@ -63,7 +63,7 @@ const transformListingToCard = (listing) => {
     title: listing.title || "Listing",
     src: coverPhotoUrl,
     srcSet: coverPhotoUrl,
-    url: `/stays-product?id=${listing.listingId}`,
+    url: `/experience-product?id=${listing.listingId}`,
     location: null, // Remove location/address from cards
     priceActual: priceDisplay, // Only show price if individualPrice exists
     hasPrice: hasPrice,
@@ -92,7 +92,7 @@ const transformListingToBrowse = (listing) => {
     title: listing.title || "Listing",
     src: coverPhotoUrl,
     srcSet: coverPhotoUrl,
-    url: `/stays-product?id=${listing.listingId}`,
+    url: `/experience-product?id=${listing.listingId}`,
     categoryText: null, // Remove location/address from carousel cards
     category: null,
     counter: listing.totalReviews || 0,
@@ -110,7 +110,7 @@ const transformListingToDestination = (listing) => {
     location: null, // Remove location/address from destination cards
     src: coverPhotoUrl,
     srcSet: coverPhotoUrl,
-    url: `/stays-product?id=${listing.listingId}`,
+    url: `/experience-product?id=${listing.listingId}`,
   };
 };
 
@@ -125,7 +125,7 @@ const transformListingToDestinationHorizontal = (listing) => {
     content: "", // Not displayed - matches other card styles
     src: coverPhotoUrl,
     srcSet: coverPhotoUrl,
-    url: `/stays-product?id=${listing.listingId}`,
+    url: `/experience-product?id=${listing.listingId}`,
     categoryText: null, // Optional category badge
     category: null,
   };
