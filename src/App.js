@@ -33,6 +33,7 @@ import ViewDetails from "./screens/ViewDetails";
 import ListYourProperty from "./screens/ListYourProperty";
 import FleetHome from "./screens/FleetHome";
 import Listings from "./pages/listings";
+import EventProduct from "./screens/EventProduct";
 
 function App() {
   return (
@@ -306,6 +307,15 @@ function App() {
           render={() => (
             <Page>
               <Listings />
+            </Page>
+          )}
+        />
+        <Route
+          exact
+          path="/event"
+          render={() => (
+            <Page separatorHeader>
+              <EventProduct />
             </Page>
           )}
         />
