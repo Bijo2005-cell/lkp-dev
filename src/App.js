@@ -37,10 +37,21 @@ import Listings from "./pages/listings";
 import EventProduct from "./screens/EventProduct";
 
 function App() {
-  const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+  // Get Google Client ID from environment variable
+  // Fallback to hardcoded value if env var is not set (for development/testing)
+  const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || 
+    "876306099009-inkldmfdu3ilqufhr6v9te3jom3u4odh.apps.googleusercontent.com";
+
+  // Log for debugging
+  if (process.env.REACT_APP_GOOGLE_CLIENT_ID) {
+    console.log("✅ Google Client ID loaded from environment variable");
+  } else {
+    console.warn("⚠️ REACT_APP_GOOGLE_CLIENT_ID not found, using fallback value");
+    console.warn("⚠️ For production, set REACT_APP_GOOGLE_CLIENT_ID in your deployment platform");
+  }
 
   return (
-    <GoogleOAuthProvider clientId={googleClientId || ""}>
+    <GoogleOAuthProvider clientId={googleClientId}>
       <Router>
         <Switch>
         <Route
