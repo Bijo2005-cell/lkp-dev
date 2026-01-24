@@ -7,14 +7,10 @@ module.exports = function (app) {
       target: 'http://62.72.12.51:6000/',
       changeOrigin: true,
       secure: false,
+      pathRewrite: (path, req) => `/api${path}`,
       logLevel: 'debug',
-      // By default, http-proxy-middleware strips the matched path segment
-      // So /api/public/homepage-sections becomes /public/homepage-sections
-      // We need to add /api back to the path
-      pathRewrite: function (path, req) {
-        // Add /api prefix back to the path
-        return '/api' + path;
-      },
+      proxyTimeout: 60000,
+      timeout: 60000,
       onProxyReq: (proxyReq, req, res) => {
         console.log('[Proxy]', req.method, req.url, '->', proxyReq.path);
       },

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import cn from "classnames";
 import moment from "moment";
 import OutsideClickHandler from "react-outside-click-handler";
@@ -10,6 +10,96 @@ import CommentsProduct from "../../components/CommentsProduct";
 import Browse from "../../components/Browse";
 import GuestPicker from "../../components/GuestPicker";
 import { browse2 } from "../../mocks/browse";
+import { useLocation } from "react-router-dom";
+import { getEventDetails } from "../../utils/api";
+
+const asNonEmptyString = (value) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const asNumber = (value) => {
+  const num = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const toIsoFromDateTimeParts = (dateValue, timeValue) => {
+  const dateStr = asNonEmptyString(dateValue);
+  const timeStr = asNonEmptyString(timeValue);
+  if (!dateStr && !timeStr) return null;
+
+  const candidates = [];
+  if (dateStr && timeStr) {
+    candidates.push(`${dateStr} ${timeStr}`);
+    candidates.push(`${dateStr}, ${timeStr}`);
+    candidates.push(`${dateStr}T${timeStr}`);
+  }
+  if (dateStr && !timeStr) candidates.push(dateStr);
+  if (timeStr && !dateStr) candidates.push(timeStr);
+
+  const formats = [
+    moment.ISO_8601,
+    "YYYY-MM-DD HH:mm",
+    "YYYY-MM-DD hh:mm A",
+    "YYYY-MM-DDTHH:mm",
+    "DD/MM/YYYY, HH:mm",
+    "DD/MM/YYYY, hh:mm a",
+    "DD/MM/YYYY HH:mm",
+    "DD/MM/YYYY hh:mm a",
+    "MM/DD/YYYY, HH:mm",
+    "MM/DD/YYYY, hh:mm a",
+    "MM/DD/YYYY HH:mm",
+    "MM/DD/YYYY hh:mm a",
+  ];
+
+  for (const c of candidates) {
+    const m = moment(c, formats, true);
+    if (m.isValid()) return m.toISOString();
+  }
+
+  const loose = moment(candidates[0]);
+  return loose.isValid() ? loose.toISOString() : null;
+};
+
+const normalizeTicketTypes = (rawTypes, fallbackCurrency) => {
+  if (!Array.isArray(rawTypes)) return [];
+  return rawTypes
+    .map((t, idx) => {
+      const name =
+        asNonEmptyString(t?.name) ||
+        asNonEmptyString(t?.ticketName) ||
+        asNonEmptyString(t?.ticket_name) ||
+        `Ticket ${idx + 1}`;
+
+      const price =
+        asNumber(t?.price) ??
+        asNumber(t?.ticketPrice) ??
+        asNumber(t?.ticket_price) ??
+        asNumber(t?.individualPrice) ??
+        asNumber(t?.amount);
+
+      const idRaw = t?.id ?? t?.ticketTypeId ?? t?.ticket_type_id ?? t?.typeId;
+      const id = asNonEmptyString(idRaw) || (idRaw !== undefined && idRaw !== null ? String(idRaw) : null) || `tt-${idx}`;
+
+      const currency = asNonEmptyString(t?.currency) || fallbackCurrency || "USD";
+
+      const applicableSlots = Array.isArray(t?.applicableSlots)
+        ? t.applicableSlots
+        : Array.isArray(t?.slots)
+          ? t.slots
+          : [];
+
+      return {
+        id,
+        name,
+        price: Number.isFinite(price) ? price : 0,
+        currency,
+        applicableSlots,
+      };
+    })
+    .filter(Boolean);
+};
 
 // Dummy event data with all required fields
 const dummyEventData = {
@@ -79,16 +169,189 @@ const dummyEventData = {
 };
 
 const EventProduct = () => {
-  const [event] = useState(dummyEventData);
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const eventIdFromQuery = searchParams.get("id");
+
+  const [event, setEvent] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0, pets: 0 });
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const guestItemRef = useRef(null);
-  const [selectedTicketType, setSelectedTicketType] = useState(event.ticketTypes?.[0]?.id || "general");
+  const [selectedTicketType, setSelectedTicketType] = useState("general");
   const [showTicketTypePicker, setShowTicketTypePicker] = useState(false);
   const ticketTypeItemRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (!eventIdFromQuery) {
+          if (!mounted) return;
+          setEvent(dummyEventData);
+          return;
+        }
+
+        const payload = await getEventDetails(eventIdFromQuery);
+
+        const derivedId = payload?.eventId ?? payload?.event_id ?? payload?.id ?? payload?._id ?? eventIdFromQuery;
+
+        const derivedCover =
+          asNonEmptyString(payload?.coverImage) ||
+          asNonEmptyString(payload?.coverImageUrl) ||
+          asNonEmptyString(payload?.coverPhotoUrl) ||
+          asNonEmptyString(payload?.imageUrl) ||
+          asNonEmptyString(payload?.bannerUrl) ||
+          asNonEmptyString(payload?.thumbnailUrl);
+
+        const rawGallery = payload?.gallery ?? payload?.images ?? payload?.photos ?? payload?.media;
+        const derivedGallery = Array.isArray(rawGallery)
+          ? rawGallery
+              .map((g) => {
+                if (typeof g === "string") return asNonEmptyString(g);
+                if (g && typeof g === "object") {
+                  return (
+                    asNonEmptyString(g?.url) ||
+                    asNonEmptyString(g?.src) ||
+                    asNonEmptyString(g?.imageUrl)
+                  );
+                }
+                return null;
+              })
+              .filter(Boolean)
+          : [];
+
+        const ticketSaleEndIso =
+          toIsoFromDateTimeParts(payload?.ticketSaleEndDate, payload?.ticketSaleEndTime) ||
+          toIsoFromDateTimeParts(payload?.ticketSaleEnd, payload?.ticketSaleEndTime) ||
+          asNonEmptyString(payload?.ticketSaleEndDateTime) ||
+          asNonEmptyString(payload?.ticketSaleEndDatetime) ||
+          asNonEmptyString(payload?.ticketSaleEndAt) ||
+          asNonEmptyString(payload?.bookingCutoffTime) ||
+          asNonEmptyString(payload?.bookingCutoff);
+
+        const rawTicketTypes = payload?.ticketTypes || payload?.tickets || payload?.ticket_types;
+        const normalizedTicketTypes = normalizeTicketTypes(rawTicketTypes, payload?.currency || dummyEventData.currency);
+
+        const inferredTicketCurrency = asNonEmptyString(payload?.currency) || dummyEventData.currency;
+        const inferredTicketPrice =
+          asNumber(payload?.ticketPrice) ??
+          asNumber(payload?.ticket_price) ??
+          asNumber(payload?.price) ??
+          asNumber(payload?.amount);
+        const inferredTicketName =
+          asNonEmptyString(payload?.ticketTypeName) ||
+          asNonEmptyString(payload?.ticketName) ||
+          asNonEmptyString(payload?.ticket_type) ||
+          asNonEmptyString(payload?.ticketType) ||
+          "General Admission";
+        const inferredTicketTypes = Number.isFinite(inferredTicketPrice)
+          ? [{ id: "default", name: inferredTicketName, price: inferredTicketPrice, currency: inferredTicketCurrency, applicableSlots: [] }]
+          : [];
+
+        const rawSlots =
+          payload?.applicableSlots ||
+          payload?.slots ||
+          normalizedTicketTypes.flatMap((t) => t.applicableSlots || []);
+        const slotNames = Array.isArray(rawSlots)
+          ? rawSlots
+              .map((s) => {
+                if (typeof s === "string") return asNonEmptyString(s);
+                if (s && typeof s === "object") {
+                  return asNonEmptyString(s?.name) || asNonEmptyString(s?.title);
+                }
+                return null;
+              })
+              .filter(Boolean)
+          : [];
+
+        const derivedArtists = slotNames.map((name, index) => ({
+          title: name,
+          description: "",
+          image: dummyEventData.gallery[index % dummyEventData.gallery.length],
+        }));
+
+        const derivedVenueSearchLocation =
+          asNonEmptyString(payload?.venueSearchLocation) ||
+          asNonEmptyString(payload?.venue) ||
+          asNonEmptyString(payload?.location) ||
+          asNonEmptyString(payload?.venueName) ||
+          asNonEmptyString(payload?.city);
+
+        const derivedFullVenueAddress =
+          asNonEmptyString(payload?.fullVenueAddress) ||
+          asNonEmptyString(payload?.address) ||
+          asNonEmptyString(payload?.venueAddress) ||
+          asNonEmptyString(payload?.fullAddress);
+
+        const derivedLatitude = asNumber(payload?.latitude) ?? asNumber(payload?.lat);
+        const derivedLongitude = asNumber(payload?.longitude) ?? asNumber(payload?.lng) ?? asNumber(payload?.lon);
+
+        const normalizedEvent = {
+          ...dummyEventData,
+          ...payload,
+          eventId: derivedId,
+          title: payload?.title || payload?.eventName || payload?.name || dummyEventData.title,
+          description: payload?.description || payload?.about || payload?.details || dummyEventData.description,
+          coverImage: derivedCover || dummyEventData.coverImage,
+          gallery: derivedGallery.length > 0 ? derivedGallery : dummyEventData.gallery,
+          startDate: payload?.startDate || payload?.start_date || dummyEventData.startDate,
+          startTime: payload?.startTime || payload?.start_time || dummyEventData.startTime,
+          endDate: payload?.endDate || payload?.end_date || dummyEventData.endDate,
+          endTime: payload?.endTime || payload?.end_time || dummyEventData.endTime,
+          eventMode: payload?.eventMode || payload?.mode || dummyEventData.eventMode,
+          venueSearchLocation: derivedVenueSearchLocation,
+          fullVenueAddress: derivedFullVenueAddress,
+          latitude: derivedLatitude,
+          longitude: derivedLongitude,
+          totalCapacity: payload?.totalCapacity ?? payload?.capacity ?? dummyEventData.totalCapacity,
+          ticketPrice: inferredTicketPrice ?? null,
+          currency: inferredTicketCurrency,
+          ticketTypes:
+            normalizedTicketTypes.length > 0
+              ? normalizedTicketTypes
+              : inferredTicketTypes,
+          bookingCutoffTime: ticketSaleEndIso || dummyEventData.bookingCutoffTime,
+          cancellationAllowed: payload?.cancellationAllowed ?? dummyEventData.cancellationAllowed,
+          cancellationCutoff: payload?.cancellationCutoff || payload?.cancellationCutoffTime || dummyEventData.cancellationCutoff,
+          refundPercentage: payload?.refundPercentage ?? dummyEventData.refundPercentage,
+          organizerName: payload?.organizerName || payload?.organizer || dummyEventData.organizerName,
+          organizerEmail: payload?.organizerEmail || dummyEventData.organizerEmail,
+          organizerPhone: payload?.organizerPhone || dummyEventData.organizerPhone,
+          termsAndPolicies: payload?.termsAndPolicies || payload?.terms || dummyEventData.termsAndPolicies,
+          artists: derivedArtists,
+          whatYoullDo: Array.isArray(payload?.whatYoullDo) ? payload.whatYoullDo : [],
+        };
+
+        if (!mounted) return;
+        setEvent(normalizedEvent);
+      } catch (e) {
+        if (!mounted) return;
+        setError(e?.message || "Failed to load event details");
+        setEvent(dummyEventData);
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [eventIdFromQuery]);
+
+  useEffect(() => {
+    if (!event) return;
+    setSelectedTicketType(event.ticketTypes?.[0]?.id || "general");
+  }, [event]);
 
   // Format date for display
   const formatDate = (dateStr) => {
@@ -116,11 +379,13 @@ const EventProduct = () => {
   // Check if booking is still open
   const isBookingOpen = () => {
     if (!event.bookingCutoffTime) return true;
-    return moment().isBefore(moment(event.bookingCutoffTime));
+    const cutoff = moment(event.bookingCutoffTime);
+    if (!cutoff.isValid()) return true;
+    return moment().isBefore(cutoff);
   };
 
   // Get all images for gallery
-  const allImages = [event.coverImage, ...(event.gallery || [])].filter(Boolean);
+  const allImages = [event?.coverImage, ...(event?.gallery || [])].filter(Boolean);
 
   const socials = [
     { title: "twitter", url: "https://twitter.com/ui8" },
@@ -136,8 +401,17 @@ const EventProduct = () => {
     );
   }
 
+  if (!event) {
+    return null;
+  }
+
   return (
     <div className={styles.eventProduct}>
+      {error && (
+        <div style={{ padding: "1rem", textAlign: "center", backgroundColor: "#fee", color: "#c33" }}>
+          <p>⚠️ {error}</p>
+        </div>
+      )}
       {/* Hero Section with Title, Actions, and Gallery */}
       <div className={cn("section-mb64", styles.hero)}>
         <div className={cn("container", styles.heroContainer)}>
@@ -215,14 +489,39 @@ const EventProduct = () => {
               </div>
             </section>
 
+            {/* Artists Section */}
+            {event.artists && event.artists.length > 0 && (
+              <section className={cn("section", styles.contentSection, styles.whatYoullDoSection)}>
+                <h2 className={styles.sectionTitle}>Artists</h2>
+                <div className={styles.whatYoullDoList}>
+                  {event.artists.map((item, index) => (
+                    <div
+                      key={index}
+                      className={cn(styles.whatYoullDoItem, {
+                        [styles.lastItem]: index === event.artists.length - 1,
+                      })}
+                    >
+                      <div className={styles.whatYoullDoImage}>
+                        <img src={item.image} alt={item.title} />
+                      </div>
+                      <div className={styles.whatYoullDoContent}>
+                        <h3 className={styles.whatYoullDoTitle}>{item.title}</h3>
+                        <p className={styles.whatYoullDoDescription}>{item.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* What You'll Do Section */}
             {event.whatYoullDo && event.whatYoullDo.length > 0 && (
               <section className={cn("section", styles.contentSection, styles.whatYoullDoSection)}>
-                <h2 className={styles.sectionTitle}>Artist</h2>
+                <h2 className={styles.sectionTitle}>What you'll do</h2>
                 <div className={styles.whatYoullDoList}>
                   {event.whatYoullDo.map((item, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className={cn(styles.whatYoullDoItem, {
                         [styles.lastItem]: index === event.whatYoullDo.length - 1,
                       })}
@@ -332,7 +631,8 @@ const EventProduct = () => {
                       <span className={styles.guestValue}>
                         {(() => {
                           const selectedType = event.ticketTypes.find(t => t.id === selectedTicketType) || event.ticketTypes[0];
-                          return `${selectedType.name} - ${event.currency} ${selectedType.price}`;
+                          const price = asNumber(selectedType?.price) ?? asNumber(event.ticketPrice) ?? 0;
+                          return `${selectedType?.name || "Ticket"} - ${event.currency} ${price.toFixed(2)}`;
                         })()}
                       </span>
                       </div>
@@ -383,9 +683,10 @@ const EventProduct = () => {
                   <span className={styles.totalPriceLabel}>Total Price</span>
                   <span className={styles.totalPriceAmount}>
                     {(() => {
-                      const selectedType = event.ticketTypes?.find(t => t.id === selectedTicketType) || { price: event.ticketPrice || 0 };
+                      const selectedType = event.ticketTypes?.find(t => t.id === selectedTicketType) || event.ticketTypes?.[0] || { price: event.ticketPrice || 0 };
                       const totalGuests = guests.adults + guests.children;
-                      const totalPrice = totalGuests * selectedType.price;
+                      const unitPrice = asNumber(selectedType?.price) ?? asNumber(event.ticketPrice) ?? 0;
+                      const totalPrice = totalGuests * unitPrice;
                       return `${event.currency} ${totalPrice.toFixed(2)}`;
                     })()}
                   </span>
@@ -404,7 +705,7 @@ const EventProduct = () => {
       </div>
 
       {/* Venue Information Section */}
-      {event.eventMode === "Offline" && (
+      {event.eventMode === "Offline" && (event.venueSearchLocation || event.fullVenueAddress || (event.latitude && event.longitude)) && (
         <section className={cn("section", styles.venueSection)}>
           <div className={cn("container", styles.venueContainer)}>
             <div className={styles.venueInner}>

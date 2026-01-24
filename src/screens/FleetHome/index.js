@@ -3,7 +3,7 @@ import cn from "classnames";
 import moment from "moment";
 import styles from "./FleetHome.module.sass";
 import Icon from "../../components/Icon";
-import { getHomepageSections, getHomepageSectionListings } from "../../utils/api";
+import { getHomepageSections, getHomepageSectionListings, getEventListings } from "../../utils/api";
 import { HomepageSectionCard } from "./CardStyles";
 import InlineDatePicker from "../../components/InlineDatePicker";
 import GuestPicker from "../../components/GuestPicker";
@@ -98,8 +98,23 @@ const FleetHome = () => {
             console.log(`✅ Section ${section.sectionId} data:`, sectionData);
             
             // Handle different response structures
-            const listings = sectionData?.listings || sectionData?.data?.listings || [];
+            let listings = sectionData?.listings || sectionData?.data?.listings || [];
             const sectionInfo = sectionData?.section || section;
+
+            // Fallback: if this is an Events section and the section listings endpoint returns empty,
+            // fetch from the dedicated public events endpoint.
+            const sectionTitle = sectionInfo?.sectionTitle || section?.sectionTitle || "";
+            const isEventsSection = typeof sectionTitle === "string" && sectionTitle.toLowerCase().includes("events");
+            if (isEventsSection && (!listings || listings.length === 0)) {
+              try {
+                const eventListings = await getEventListings(12, 0);
+                if (Array.isArray(eventListings) && eventListings.length > 0) {
+                  listings = eventListings;
+                }
+              } catch (eventErr) {
+                console.warn("⚠️ Failed to fetch event listings fallback:", eventErr);
+              }
+            }
             
             console.log(`✅ Section ${section.sectionId} has ${listings.length} listings`);
             

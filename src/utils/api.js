@@ -36,9 +36,21 @@ ListingsAPI.interceptors.request.use((config) => {
     console.log("  - Data:", config.data);
     console.log("  - Headers:", config.headers);
     
-    if (token) {
-      // Ensure headers object exists
-      config.headers = config.headers || {};
+    const url = typeof config.url === "string" ? config.url : "";
+    const isPublicEndpoint =
+      url.startsWith("/public/") ||
+      url.startsWith("/events/") ||
+      url.startsWith("/homepage/") ||
+      url.startsWith("/homepage-");
+
+    // Ensure headers object exists
+    config.headers = config.headers || {};
+
+    if (isPublicEndpoint) {
+      // Some backends treat an Authorization header on a public endpoint as a restricted request.
+      delete config.headers["Authorization"];
+      delete config.headers["authorization"];
+    } else if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
       console.log("🔑 JWT token attached to request:", config.url);
     } else {
@@ -146,6 +158,105 @@ export const getListings = async (
     return [];
   } catch (error) {
     console.error("❌ Error fetching listings:", error);
+    throw error;
+  }
+};
+
+// ✅ Get public event listings
+export const getEventListings = async (limit, offset) => {
+  try {
+    const params = {};
+    if (limit !== undefined) params.limit = limit;
+    if (offset !== undefined) params.offset = offset;
+
+    const response = await ListingsAPI.get("/public/events", {
+      params: Object.keys(params).length > 0 ? params : undefined,
+    });
+    const payload = response.data;
+    console.log("✅ Event listings fetched (raw):", payload);
+
+    if (Array.isArray(payload)) return payload;
+
+    if (payload && typeof payload === "object") {
+      if (Array.isArray(payload.data)) return payload.data;
+      if (Array.isArray(payload.items)) return payload.items;
+      if (Array.isArray(payload.listings)) return payload.listings;
+      if (Array.isArray(payload.events)) return payload.events;
+
+      if (payload.listingId || payload.listing_id || payload.id) return [payload];
+
+      const firstCandidate = Object.values(payload).find(
+        (v) =>
+          Array.isArray(v) &&
+          v.length > 0 &&
+          (v[0].listingId || v[0].listing_id || v[0].id)
+      );
+      if (Array.isArray(firstCandidate)) return firstCandidate;
+    }
+
+    return [];
+  } catch (error) {
+    console.error("❌ Error fetching event listings:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const getEventDetails = async (id) => {
+  try {
+    if (!id) {
+      throw new Error("id is required");
+    }
+
+    const idNum = Number(id);
+    const idStr = (!isNaN(idNum) && idNum > 0) ? String(idNum) : String(id);
+
+    // Use the backend public event details route (swagger: GET /events/{id}).
+    // With baseURL "/api", this becomes a call to "/api/events/{id}".
+    const endpointsToTry = [`/events/${idStr}`];
+
+    let lastError;
+    for (const endpoint of endpointsToTry) {
+      try {
+        const response = await ListingsAPI.get(endpoint);
+        const payload = response.data;
+        console.log("✅ Event details fetched (raw):", payload);
+
+        if (payload && typeof payload === "object") {
+          if (payload.event && typeof payload.event === "object") return payload.event;
+          if (payload.data && typeof payload.data === "object" && !Array.isArray(payload.data)) return payload.data;
+          if (payload.item && typeof payload.item === "object") return payload.item;
+        }
+
+        return payload;
+      } catch (e) {
+        lastError = e;
+        const status = e?.response?.status;
+        // If this endpoint is missing (404), try the next one. For auth errors (401/403), also try the next.
+        if (status === 404 || status === 401 || status === 403) {
+          continue;
+        }
+        throw e;
+      }
+    }
+
+    // Fallback: if the public details endpoints are unavailable but listings are public,
+    // fetch event listings and find the matching event by id.
+    try {
+      const list = await getEventListings(200, 0);
+      const match = Array.isArray(list)
+        ? list.find((e) => {
+            const candidateId = e?.eventId ?? e?.event_id ?? e?.id ?? e?._id;
+            return String(candidateId) === String(idStr);
+          })
+        : null;
+      if (match) return match;
+    } catch (fallbackErr) {
+      // Ignore fallback failures and throw the original error below.
+    }
+
+    throw lastError || new Error("Failed to load event details");
+  } catch (error) {
+    console.error("❌ Error fetching event details:", error.response?.data || error.message);
     throw error;
   }
 };
@@ -710,6 +821,40 @@ export const getHomepageSectionListings = async (sectionId, limit = 12, offset =
   } catch (error) {
     console.error(`❌ Error fetching section ${sectionId} listings:`, error.response?.data || error.message);
     throw error;
+  }
+};
+
+export const getRegeneratedPolicyText = async (listingId) => {
+  try {
+    if (!listingId) {
+      throw new Error("listingId is required");
+    }
+
+    const response = await ListingsAPI.get(`/listings/${listingId}/regenerate-policy-text`);
+    const payload = response.data;
+
+    if (typeof payload === "string") return payload;
+
+    if (payload && typeof payload === "object") {
+      if (typeof payload.text === "string") return payload.text;
+      if (typeof payload.policyText === "string") return payload.policyText;
+      if (typeof payload.cancellationPolicyText === "string") return payload.cancellationPolicyText;
+      if (typeof payload.data === "string") return payload.data;
+      if (payload.data && typeof payload.data === "object") {
+        if (typeof payload.data.text === "string") return payload.data.text;
+        if (typeof payload.data.policyText === "string") return payload.data.policyText;
+        if (typeof payload.data.cancellationPolicyText === "string") return payload.data.cancellationPolicyText;
+      }
+    }
+
+    return "";
+  } catch (error) {
+    console.warn("⚠️ Error fetching regenerated policy text:", {
+      message: error.message,
+      status: error.response?.status,
+      response: error.response?.data,
+    });
+    return "";
   }
 };
 

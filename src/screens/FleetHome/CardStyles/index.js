@@ -49,21 +49,64 @@ const formatImageUrl = (url) => {
   return "/images/content/card-pic-13.jpg";
 };
 
+const getEntityId = (listing) => {
+  if (!listing || typeof listing !== "object") return undefined;
+  return listing.listingId ?? listing.listing_id ?? listing.eventId ?? listing.event_id ?? listing.id ?? listing._id;
+};
+
+const getEntityImageUrl = (listing) => {
+  if (!listing || typeof listing !== "object") return undefined;
+
+  const direct =
+    listing.coverPhotoUrl ??
+    listing.coverImageUrl ??
+    listing.imageUrl ??
+    listing.bannerUrl ??
+    listing.thumbnailUrl;
+  if (typeof direct === "string" && direct.trim().length > 0) return direct;
+
+  const images = listing.images ?? listing.photos ?? listing.gallery;
+  if (Array.isArray(images) && images.length > 0) {
+    const first = images[0];
+    if (typeof first === "string" && first.trim().length > 0) return first;
+    if (first && typeof first === "object") {
+      const url = first.url ?? first.src ?? first.imageUrl;
+      if (typeof url === "string" && url.trim().length > 0) return url;
+    }
+  }
+
+  const cover = listing.coverPhoto ?? listing.coverImage;
+  if (typeof cover === "string" && cover.trim().length > 0) return cover;
+  if (cover && typeof cover === "object") {
+    const url = cover.url ?? cover.src ?? cover.imageUrl;
+    if (typeof url === "string" && url.trim().length > 0) return url;
+  }
+
+  return undefined;
+};
+
+const getEntityUrl = (listing, id) => {
+  if (!listing || typeof listing !== "object") return `/experience-product?id=${id}`;
+  const isEvent = listing.eventId !== undefined || listing.event_id !== undefined;
+  return isEvent ? `/event?id=${id}` : `/experience-product?id=${id}`;
+};
+
 // Transform API listing to Card component format
 const transformListingToCard = (listing) => {
-  const coverPhotoUrl = formatImageUrl(listing.coverPhotoUrl);
+  const id = getEntityId(listing);
+  const coverPhotoUrl = formatImageUrl(getEntityImageUrl(listing));
   
   const price = listing.individualPrice || 0;
   const hasPrice = price > 0;
   const priceDisplay = hasPrice ? `₹${price.toLocaleString("en-IN")}` : null;
 
   return {
-    id: `listing-${listing.listingId}`,
-    listingId: listing.listingId,
+    id: `listing-${id}`,
+    listingId: id,
     title: listing.title || "Listing",
     src: coverPhotoUrl,
     srcSet: coverPhotoUrl,
-    url: `/experience-product?id=${listing.listingId}`,
+    url: getEntityUrl(listing, id),
     location: null, // Remove location/address from cards
     priceActual: priceDisplay, // Only show price if individualPrice exists
     hasPrice: hasPrice,
@@ -84,15 +127,16 @@ const transformListingToCard = (listing) => {
 
 // Transform API listing to Browse component format (for carousel)
 const transformListingToBrowse = (listing) => {
-  const coverPhotoUrl = formatImageUrl(listing.coverPhotoUrl);
+  const id = getEntityId(listing);
+  const coverPhotoUrl = formatImageUrl(getEntityImageUrl(listing));
 
   return {
-    id: `listing-${listing.listingId}`,
-    listingId: listing.listingId,
+    id: `listing-${id}`,
+    listingId: id,
     title: listing.title || "Listing",
     src: coverPhotoUrl,
     srcSet: coverPhotoUrl,
-    url: `/experience-product?id=${listing.listingId}`,
+    url: getEntityUrl(listing, id),
     categoryText: null, // Remove location/address from carousel cards
     category: null,
     counter: listing.totalReviews || 0,
@@ -101,31 +145,33 @@ const transformListingToBrowse = (listing) => {
 
 // Transform API listing to DestinationCard format
 const transformListingToDestination = (listing) => {
-  const coverPhotoUrl = formatImageUrl(listing.coverPhotoUrl);
+  const id = getEntityId(listing);
+  const coverPhotoUrl = formatImageUrl(getEntityImageUrl(listing));
 
   return {
-    id: `listing-${listing.listingId}`,
-    listingId: listing.listingId,
+    id: `listing-${id}`,
+    listingId: id,
     title: listing.title || "Destination",
     location: null, // Remove location/address from destination cards
     src: coverPhotoUrl,
     srcSet: coverPhotoUrl,
-    url: `/experience-product?id=${listing.listingId}`,
+    url: getEntityUrl(listing, id),
   };
 };
 
 // Transform API listing to Destination component format (for horizontal rectangular cards)
 const transformListingToDestinationHorizontal = (listing) => {
-  const coverPhotoUrl = formatImageUrl(listing.coverPhotoUrl);
+  const id = getEntityId(listing);
+  const coverPhotoUrl = formatImageUrl(getEntityImageUrl(listing));
 
   return {
-    id: `listing-${listing.listingId}`,
-    listingId: listing.listingId,
+    id: `listing-${id}`,
+    listingId: id,
     title: listing.title || "Destination",
     content: "", // Not displayed - matches other card styles
     src: coverPhotoUrl,
     srcSet: coverPhotoUrl,
-    url: `/experience-product?id=${listing.listingId}`,
+    url: getEntityUrl(listing, id),
     categoryText: null, // Optional category badge
     category: null,
   };

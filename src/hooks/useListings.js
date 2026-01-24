@@ -91,7 +91,8 @@ export const useListings = ({
         params.categories = filters.categories.join(",");
       }
 
-      const response = await ListingsAPI.get("/public/listings", { params });
+      const endpoint = businessInterest === "EVENT" ? "/public/events" : "/public/listings";
+      const response = await ListingsAPI.get(endpoint, { params });
       
       // Normalize response to always return an array
       let listings = [];
