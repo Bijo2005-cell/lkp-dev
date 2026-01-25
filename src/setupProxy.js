@@ -1,13 +1,16 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function (app) {
-  // Event details: /api/events/* → http://62.72.12.51:8080 (must be before /api)
+  // Event details: /api/events/* → http://62.72.12.51:8080/api/events/* (must be before /api)
   app.use(
     '/api/events',
     createProxyMiddleware({
       target: 'http://62.72.12.51:8080/',
       changeOrigin: true,
       secure: false,
+      // When mounting a proxy on '/api/events', http-proxy-middleware forwards only
+      // the remaining path (e.g. '/7/public'). The backend expects '/api/events/7/public'.
+      pathRewrite: (path) => `/api/events${path}`,
       logLevel: 'debug',
       proxyTimeout: 60000,
       timeout: 60000,

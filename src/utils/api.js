@@ -214,10 +214,20 @@ export const getEventDetails = async (id) => {
     const idNum = Number(id);
     const idStr = (!isNaN(idNum) && idNum > 0) ? String(idNum) : String(id);
 
-    // Call /api/events/{id}/public (proxied to http://62.72.12.51:8080)
-    const response = await ListingsAPI.get(`/events/${idStr}/public`);
+    // Call /api/events/{id}/public (proxied in dev via setupProxy.js)
+    const response = await ListingsAPI.get(`/events/${idStr}/public`, {
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+    });
     const payload = response.data;
     console.log("✅ Event details fetched (raw):", payload);
+
+    const contentType = response?.headers?.["content-type"];
+    if (typeof contentType === "string" && contentType.toLowerCase().includes("text/html")) {
+      throw new Error("Event details API returned HTML instead of JSON");
+    }
+    if (typeof payload === "string" && /<!doctype html/i.test(payload)) {
+      throw new Error("Event details API returned HTML instead of JSON");
+    }
 
     if (payload && typeof payload === "object") {
       if (payload.event && typeof payload.event === "object") return payload.event;
@@ -476,6 +486,24 @@ export const createOrder = async (orderData) => {
       });
     }
     
+    throw error;
+  }
+};
+
+export const createEventOrder = async (orderData) => {
+  try {
+    console.log("📤 Creating event order with data:", JSON.stringify(orderData, null, 2));
+    const response = await ListingsAPI.post("/orders/event", orderData);
+    console.log("✅ Event order created successfully:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error creating event order:", {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      requestData: orderData,
+    });
     throw error;
   }
 };
