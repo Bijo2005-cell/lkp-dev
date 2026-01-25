@@ -150,6 +150,23 @@ export const getListings = async (
   }
 };
 
+export const getOrderCancelPreview = async (orderId) => {
+  try {
+    if (!orderId) {
+      throw new Error("orderId is required");
+    }
+
+    const orderIdNum = Number(orderId);
+    const orderIdStr = (!isNaN(orderIdNum) && orderIdNum > 0) ? String(orderIdNum) : String(orderId);
+
+    const response = await ListingsAPI.get(`/orders/${orderIdStr}/cancel-preview`);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error fetching cancel preview:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
 // ✅ Function to get single listing by id
 export const getListing = async (id) => {
   try {
@@ -401,7 +418,7 @@ export const createOrder = async (orderData) => {
 export const createEventOrder = async (orderData) => {
   try {
     console.log("📤 Creating event order with data:", JSON.stringify(orderData, null, 2));
-    const response = await ListingsAPI.post("/event-orders", orderData);
+    const response = await ListingsAPI.post("/orders/event", orderData);
     console.log("✅ Event order created successfully:", response.data);
     return response.data;
   } catch (error) {
@@ -543,15 +560,22 @@ export const getEventOrderDetails = async (orderId) => {
     const orderIdNum = Number(orderId);
     const orderIdStr = (!isNaN(orderIdNum) && orderIdNum > 0) ? String(orderIdNum) : String(orderId);
     
-    const response = await ListingsAPI.get(`/event-orders/${orderIdStr}`);
+    // Prefer Swagger endpoint: GET /api/orders/{orderId}/event-details
+    // Keep fallback to legacy endpoint for compatibility.
+    let response;
+    try {
+      response = await ListingsAPI.get(`/orders/${orderIdStr}/event-details`);
+    } catch (err) {
+      response = await ListingsAPI.get(`/event-orders/${orderIdStr}`);
+    }
+
     const payload = response.data;
     console.log("✅ Event order details fetched (raw):", payload);
-    
-    // Return the full response object
+
+    // Normalize common wrappers
     if (payload && typeof payload === "object") {
       return payload;
     }
-    
     return payload;
   } catch (error) {
     console.error("❌ Error fetching event order details:", error.response?.data || error.message);
@@ -570,16 +594,31 @@ export const getEventDetails = async (eventId) => {
     const eventIdNum = Number(eventId);
     const eventIdStr = (!isNaN(eventIdNum) && eventIdNum > 0) ? String(eventIdNum) : String(eventId);
     
-    const response = await ListingsAPI.get(`/events/${eventIdStr}`);
+    // Prefer Swagger "public event details" route: GET /api/events/{id}
+    // Keep fallback to legacy public suffix route for compatibility.
+    const primaryUrl = `/events/${eventIdStr}`;
+    const fallbackUrl = `/events/${eventIdStr}/public`;
+
+    let response;
+    try {
+      response = await ListingsAPI.get(primaryUrl);
+    } catch (err) {
+      response = await ListingsAPI.get(fallbackUrl);
+    }
     const payload = response.data;
     console.log("✅ Event details fetched (raw):", payload);
-    
-    // Return the event data
-    if (payload && typeof payload === "object") {
-      return payload;
+
+    // Backend may wrap the event in an envelope shape like { event: {...} }
+    // Unwrap so callers receive the actual event object.
+    const unwrapped =
+      (payload && typeof payload === "object" &&
+        (payload.event || payload.data?.event || payload.data || payload.result)) ||
+      payload;
+
+    if (unwrapped && typeof unwrapped === "object" && unwrapped.event) {
+      return unwrapped.event;
     }
-    
-    return payload;
+    return unwrapped;
   } catch (error) {
     console.error("❌ Error fetching event details:", error.response?.data || error.message);
     throw error;
@@ -855,6 +894,39 @@ export const cancelOrder = async (orderId, cancelData) => {
     return response.data;
   } catch (error) {
     console.error("❌ Error cancelling order:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// ✅ Cancel an EVENT order (some backends expose a separate event-orders cancellation flow)
+export const cancelEventOrder = async (orderId, cancelData) => {
+  try {
+    if (!orderId) {
+      throw new Error("orderId is required");
+    }
+    if (!cancelData || !cancelData.reason) {
+      throw new Error("reason is required in cancelData");
+    }
+
+    const orderIdNum = Number(orderId);
+    const orderIdStr = (!isNaN(orderIdNum) && orderIdNum > 0) ? String(orderIdNum) : String(orderId);
+
+    const body = {
+      reason: cancelData.reason,
+      adminOverride: cancelData.adminOverride || false,
+    };
+
+    try {
+      const response = await ListingsAPI.post(`/event-orders/${orderIdStr}/cancel`, body);
+      console.log("✅ Event order cancelled successfully:", response.data);
+      return response.data;
+    } catch (err) {
+      const response = await ListingsAPI.post(`/orders/${orderIdStr}/cancel`, body);
+      console.log("✅ Event order cancelled successfully (fallback /orders):", response.data);
+      return response.data;
+    }
+  } catch (error) {
+    console.error("❌ Error cancelling event order:", error.response?.data || error.message);
     throw error;
   }
 };

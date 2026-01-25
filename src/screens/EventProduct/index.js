@@ -12,6 +12,8 @@ import GuestPicker from "../../components/GuestPicker";
 import { browse2 } from "../../mocks/browse";
 import { useLocation, useHistory } from "react-router-dom";
 import { createEventOrder, getEventDetails } from "../../utils/api";
+import Modal from "../../components/Modal";
+import Login from "../../components/Login";
 
 const asNonEmptyString = (value) => {
   if (typeof value !== "string") return null;
@@ -261,6 +263,14 @@ const EventProduct = () => {
   const [showTicketTypePicker, setShowTicketTypePicker] = useState(false);
   const ticketTypeItemRef = useRef(null);
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  const hasValidJwtToken = () => {
+    if (typeof window === "undefined") return false;
+    const raw = localStorage.getItem("jwtToken");
+    const token = typeof raw === "string" ? raw.trim() : "";
+    return !!token && token !== "undefined" && token !== "null" && token !== "NaN";
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -440,7 +450,12 @@ const EventProduct = () => {
         setEvent(normalizedEvent);
       } catch (e) {
         if (!mounted) return;
-        setError(e?.message || "Failed to load event details");
+        const status = e?.response?.status;
+        if (status === 401 || status === 403) {
+          setError("Please login to view this event.");
+        } else {
+          setError(e?.message || "Failed to load event details");
+        }
         setEvent(null);
       } finally {
         if (!mounted) return;
@@ -486,6 +501,12 @@ const EventProduct = () => {
   const allImages = [event?.coverImage, ...(event?.gallery || [])].filter(Boolean);
   const selectedHeroImage = allImages[galleryIndex] || allImages[0];
   const displayCurrency = event?.currency === "USD" ? "INR" : event?.currency;
+
+  const minimumAge =
+    asNumber(event?.minimumAge) ??
+    asNumber(event?.minimum_age) ??
+    asNumber(event?.minAge) ??
+    asNumber(event?.min_age);
 
   const getCustomerDetailsForBooking = () => {
     const userInfoRaw = localStorage.getItem("userInfo");
@@ -582,6 +603,11 @@ const EventProduct = () => {
   const handleBookNow = async () => {
     if (!event) return;
     if (bookingLoading) return;
+
+    if (!hasValidJwtToken()) {
+      setShowLoginModal(true);
+      return;
+    }
 
     const customerDetails = getCustomerDetailsForBooking();
     const eventIdNum = asNumber(event?.eventId ?? event?.event_id ?? event?.id ?? eventId) ?? 0;
@@ -804,6 +830,11 @@ const EventProduct = () => {
 
     } catch (e) {
       console.error("❌ Event booking failed:", e?.response?.data || e?.message || e);
+      const status = e?.response?.status;
+      if (status === 401 || status === 403) {
+        setShowLoginModal(true);
+        return;
+      }
       const errorMessage = e?.response?.data?.message || e?.response?.data?.error || e?.message || "Booking failed. Please try again.";
       alert(errorMessage);
     } finally {
@@ -837,6 +868,9 @@ const EventProduct = () => {
 
   return (
     <div className={styles.eventProduct}>
+      <Modal visible={showLoginModal} onClose={() => setShowLoginModal(false)}>
+        <Login onClose={() => setShowLoginModal(false)} />
+      </Modal>
       {error && (
         <div style={{ padding: "1rem", textAlign: "center", backgroundColor: "#fee", color: "#c33" }}>
           <p>⚠️ {error}</p>
@@ -998,7 +1032,7 @@ const EventProduct = () => {
                 </div>
                 <div className={styles.eventDetailItem}>
                   <Icon name="user" size="18" />
-                  <span>18+</span>
+                  <span>{Number.isFinite(minimumAge) && minimumAge > 0 ? `${minimumAge}+` : "18+"}</span>
                 </div>
                 <div className={styles.eventDetailItem}>
                   <Icon name="globe" size="18" />

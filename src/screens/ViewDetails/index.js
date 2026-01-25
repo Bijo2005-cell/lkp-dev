@@ -10,24 +10,31 @@ import Rating from "../../components/Rating";
 // Helper function to format image URLs
 const formatImageUrl = (url) => {
   if (!url) return "/images/content/card-pic-13.jpg";
+  const raw = String(url).trim();
+  if (!raw) return "/images/content/card-pic-13.jpg";
   
   // If already a full URL, return as is
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    return raw;
   }
   
-  // If it's an Azure blob storage path, prepend the base URL
-  if (url.includes("/") && !url.startsWith("/")) {
-    return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+  // Relative path - return as is
+  if (raw.startsWith("/")) {
+    return raw;
   }
-  
-  // If it's a relative path, return as is
-  if (url.startsWith("/")) {
-    return url;
-  }
-  
-  // Default fallback
-  return "/images/content/card-pic-13.jpg";
+
+  // Azure blob storage path (e.g., "leads/Events/10/CoverPhoto/..." or an already-encoded "leads%2FEvents%2F...")
+  // Keep any query string intact and ensure the path is safely encoded.
+  const [pathPart, queryPart] = raw.split("?");
+  const normalizedPath = String(pathPart).replaceAll("%2F", "/");
+  const encodedPath = encodeURI(normalizedPath);
+  return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${encodedPath}${queryPart ? `?${queryPart}` : ""}`;
+};
+
+const asNonEmptyString = (value) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 };
 
 // Determine payment status mapping - handle case-insensitive matching
@@ -66,6 +73,74 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
   // Determine if this is an event order
   const isEventOrder = apiBooking?.businessInterestCode === "EVENTS" || 
                        apiBooking?.eventId != null;
+
+  const asText = (value) => {
+    if (value === null || value === undefined) return null;
+    const str = String(value).trim();
+    return str.length > 0 ? str : null;
+  };
+
+  const pickText = (...values) => {
+    for (const v of values) {
+      const t = asText(v);
+      if (t) return t;
+    }
+    return null;
+  };
+
+  const customerObj =
+    (apiBooking && typeof apiBooking === "object" &&
+      (apiBooking.customer ||
+        apiBooking.customerDetails ||
+        apiBooking.guest ||
+        apiBooking.guestDetails ||
+        apiBooking.user ||
+        apiBooking.userDetails ||
+        apiBooking.contact)) ||
+    null;
+
+  const customerName = pickText(
+    apiBooking?.customerName,
+    apiBooking?.customerFullName,
+    apiBooking?.guestName,
+    apiBooking?.userName,
+    apiBooking?.fullName,
+    apiBooking?.name,
+    [apiBooking?.firstName, apiBooking?.lastName].filter(Boolean).join(" "),
+    [apiBooking?.customerFirstName, apiBooking?.customerLastName].filter(Boolean).join(" "),
+    customerObj?.name,
+    customerObj?.fullName,
+    [customerObj?.firstName, customerObj?.lastName].filter(Boolean).join(" "),
+    customerObj?.customerName,
+    customerObj?.guestName
+  );
+
+  const customerPhone = pickText(
+    apiBooking?.customerPhone,
+    apiBooking?.phoneNumber,
+    apiBooking?.phone,
+    apiBooking?.mobile,
+    apiBooking?.mobileNumber,
+    apiBooking?.contactNumber,
+    apiBooking?.customerMobile,
+    customerObj?.phone,
+    customerObj?.phoneNumber,
+    customerObj?.mobile,
+    customerObj?.mobileNumber,
+    customerObj?.contactNumber
+  );
+
+  const customerEmail = pickText(
+    apiBooking?.customerEmail,
+    apiBooking?.email,
+    apiBooking?.emailId,
+    apiBooking?.emailAddress,
+    apiBooking?.mailId,
+    customerObj?.email,
+    customerObj?.emailId,
+    customerObj?.emailAddress,
+    customerObj?.mailId
+  );
   // Format date from "2025-11-19" to "Fri, 21 Nov 2025" format
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -293,14 +368,25 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
   let coverPhotoUrl;
   
   if (isEventOrder && eventData) {
-    // For events, check event-specific cover image fields
-    coverPhotoUrl = eventData?.eventCoverImageUrl ||
-                    eventData?.coverImageUrl ||
-                    eventData?.coverPhotoUrl ||
-                    eventData?.bannerImageUrl ||
-                    apiBooking?.eventDetails?.eventCoverImageUrl ||
-                    apiBooking?.coverPhotoUrl ||
-                    "/images/content/card-pic-13.jpg";
+    // Align with EventProduct: prefer canonical cover fields from /events/{id}
+    // (some embedded event-details payloads contain non-canonical image fields).
+    coverPhotoUrl =
+      asNonEmptyString(eventData?.coverImage) ||
+      asNonEmptyString(eventData?.coverImageUrl) ||
+      asNonEmptyString(eventData?.coverPhotoUrl) ||
+      asNonEmptyString(eventData?.imageUrl) ||
+      asNonEmptyString(eventData?.bannerUrl) ||
+      asNonEmptyString(eventData?.thumbnailUrl) ||
+      // Fallback: other event APIs may use these keys
+      asNonEmptyString(eventData?.eventCoverImageUrl) ||
+      asNonEmptyString(eventData?.eventCoverPhotoUrl) ||
+      asNonEmptyString(eventData?.eventCoverUrl) ||
+      asNonEmptyString(eventData?.bannerImageUrl) ||
+      asNonEmptyString(eventData?.coverPhoto) ||
+      asNonEmptyString(eventData?.coverImage) ||
+      asNonEmptyString(apiBooking?.eventDetails?.eventCoverImageUrl) ||
+      asNonEmptyString(apiBooking?.coverPhotoUrl) ||
+      "/images/content/card-pic-13.jpg";
   } else {
     coverPhotoUrl = listingData?.coverPhotoUrl || 
                     apiBooking?.listingCoverPhoto ||
@@ -362,9 +448,9 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
       alt: title,
     },
     guest: {
-      name: apiBooking.customerName || "Guest",
-      phone: apiBooking.customerPhone || "",
-      email: apiBooking.customerEmail || "",
+      name: customerName || "Guest",
+      phone: customerPhone || "",
+      email: customerEmail || "",
     },
     pricing: pricing,
     paymentMethod: apiBooking.paymentMethod || apiBooking.payment_method || null,
@@ -580,9 +666,71 @@ const ViewDetails = () => {
                              apiBookingData?.businessInterestCode === "EVENTS" || 
                              apiBookingData?.eventId != null;
 
-        // Fetch event details if it's an event order and has eventId
+        // For event orders, prefer using event info embedded in the event-details API response
+        // so the page can render without additional calls.
         let eventData = null;
-        if (isEventOrder && apiBookingData.eventId) {
+        if (isEventOrder) {
+          const embeddedEvent =
+            orderResponse?.event ||
+            orderResponse?.eventDetails ||
+            orderResponse?.data?.event ||
+            orderResponse?.data?.eventDetails ||
+            apiBookingData?.event ||
+            apiBookingData?.eventDetails ||
+            null;
+
+          if (embeddedEvent && typeof embeddedEvent === "object") {
+            eventData = embeddedEvent;
+            console.log("✅ Using embedded event details from event-details API response:", eventData);
+          }
+        }
+
+        // If embedded event is missing key fields (title/image), enrich using public event API
+        // (GET /api/events/{id} via getEventDetails)
+        if (isEventOrder) {
+          const hasTitle = !!(eventData?.title || eventData?.eventTitle || apiBookingData?.eventTitle);
+          const hasImage = !!(
+            eventData?.coverImage ||
+            eventData?.coverImageUrl ||
+            eventData?.bannerUrl ||
+            eventData?.bannerImageUrl ||
+            eventData?.eventCoverImageUrl ||
+            eventData?.eventCoverPhotoUrl
+          );
+          const eventIdForDetails = apiBookingData?.eventId || eventData?.eventId || eventData?.id;
+
+          // Always enrich from /events/{id} when possible to ensure the cover image/title match
+          // what the event API considers the canonical values.
+          if (eventIdForDetails) {
+            try {
+              if (!hasTitle || !hasImage) {
+                console.log(`📦 Enriching event details for eventId: ${eventIdForDetails}`);
+              } else {
+                console.log(`📦 Refreshing event details for eventId: ${eventIdForDetails} (override image/title if different)`);
+              }
+              const enriched = await getEventDetails(eventIdForDetails);
+              const embedded = eventData || {};
+              eventData = {
+                ...embedded,
+                ...enriched,
+                // Ensure enriched image fields win even if embedded already had a different image
+                eventCoverImageUrl: enriched?.eventCoverImageUrl ?? embedded?.eventCoverImageUrl,
+                eventCoverPhotoUrl: enriched?.eventCoverPhotoUrl ?? embedded?.eventCoverPhotoUrl,
+                coverImageUrl: enriched?.coverImageUrl ?? embedded?.coverImageUrl,
+                coverPhotoUrl: enriched?.coverPhotoUrl ?? embedded?.coverPhotoUrl,
+                bannerImageUrl: enriched?.bannerImageUrl ?? embedded?.bannerImageUrl,
+                title: enriched?.title ?? embedded?.title,
+                eventTitle: enriched?.eventTitle ?? embedded?.eventTitle,
+              };
+              console.log("✅ Event details enriched from /events/{id}:", eventData);
+            } catch (eventError) {
+              console.warn(`⚠️ Failed to enrich event details for eventId ${eventIdForDetails}:`, eventError.message);
+            }
+          }
+        }
+
+        // Fallback: Fetch event details by eventId if not embedded
+        if (isEventOrder && !eventData && apiBookingData.eventId) {
           try {
             console.log(`📦 Fetching event details for eventId: ${apiBookingData.eventId}`);
             eventData = await getEventDetails(apiBookingData.eventId);
@@ -656,7 +804,12 @@ const ViewDetails = () => {
         // Transform the booking data
         let transformed;
         try {
-          transformed = transformBookingData(apiBookingData, listingData, eventData);
+          const mergedApiBookingData =
+            orderResponse && typeof orderResponse === "object" && orderResponse.order
+              ? { ...orderResponse, ...orderResponse.order }
+              : apiBookingData;
+
+          transformed = transformBookingData(mergedApiBookingData, listingData, eventData);
         console.log("✅ Transformed booking data:", transformed);
         console.log("✅ Original API booking data paymentMethod:", apiBookingData.paymentMethod);
         console.log("✅ Transformed paymentMethod:", transformed.paymentMethod);
@@ -935,8 +1088,15 @@ const ViewDetails = () => {
         <div className={styles.banner}>
           <img
             src={booking.bannerImage.src}
-            srcSet={`${booking.bannerImage.srcSet} 2x`}
             alt={booking.bannerImage.alt}
+            onLoad={() => {
+              console.log("✅ Banner image loaded:", booking.bannerImage.src);
+            }}
+            onError={(e) => {
+              console.warn("⚠️ Banner image failed to load:", booking.bannerImage.src);
+              e.currentTarget.src = "/images/content/card-pic-13.jpg";
+              e.currentTarget.removeAttribute("srcset");
+            }}
           />
         </div>
 
