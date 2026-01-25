@@ -514,19 +514,24 @@ const EventProduct = () => {
 
     const quantity = Math.max(1, (guests?.adults || 0) + (guests?.children || 0));
     const pricePerTicket = asNumber(selectedType?.price) ?? asNumber(event.ticketPrice) ?? 0;
+    const bookingDate = moment(event?.startDate).isValid()
+      ? moment(event.startDate).format("YYYY-MM-DD")
+      : moment().format("YYYY-MM-DD");
 
     const payload = {
       eventId: eventIdNum,
       eventSlotId: eventSlotIdNum,
+      bookingDate,
+      numberOfGuests: quantity,
       customerDetails,
       tickets: [
         {
           ticketTypeId: getTicketTypeIdForBooking(selectedType),
+          ticketTypeName: selectedType?.name || selectedType?.ticketTypeName || "",
           quantity,
           pricePerTicket: Number(pricePerTicket.toFixed(2)),
         },
       ],
-      appliedDiscountCode: null,
       notes: null,
     };
 
