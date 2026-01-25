@@ -263,10 +263,11 @@ export const getListing = async (id) => {
 };
 
 // ✅ Function to get customer orders
-export const getCustomerOrders = async (limit = 20, offset = 0) => {
+// Calls /orders?page=1&limit=20 endpoint
+export const getCustomerOrders = async (limit = 20, page = 1) => {
   try {
-    const response = await ListingsAPI.get("/orders/customer/my-orders", {
-      params: { limit, offset },
+    const response = await ListingsAPI.get("/orders", {
+      params: { page, limit },
     });
     const payload = response.data;
     console.log("✅ Customer orders fetched (raw):", payload);
@@ -276,9 +277,9 @@ export const getCustomerOrders = async (limit = 20, offset = 0) => {
 
     // If payload is an object, try common array properties
     if (payload && typeof payload === "object") {
+      if (Array.isArray(payload.orders)) return payload.orders;
       if (Array.isArray(payload.data)) return payload.data;
       if (Array.isArray(payload.items)) return payload.items;
-      if (Array.isArray(payload.orders)) return payload.orders;
     }
 
     // Fallback to empty array
