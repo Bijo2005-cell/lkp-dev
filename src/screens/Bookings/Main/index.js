@@ -193,6 +193,16 @@ const transformBookingData = (apiBooking, listingData = null) => {
     } else if (apiBooking?.listing?.city && apiBooking?.listing?.state) {
       location = `${apiBooking.listing.city}, ${apiBooking.listing.state}`;
     }
+    // Check event details for location
+    else if (apiBooking?.eventDetails?.venueFullAddress) {
+      location = apiBooking.eventDetails.venueFullAddress;
+    } else if (apiBooking?.eventDetails?.venueName) {
+      location = apiBooking.eventDetails.venueName;
+    } else if (apiBooking?.eventDetails?.venueDistrict && apiBooking?.eventDetails?.venueState) {
+      location = `${apiBooking.eventDetails.venueDistrict}, ${apiBooking.eventDetails.venueState}`;
+    } else if (apiBooking?.eventDetails?.venueDistrict) {
+      location = apiBooking.eventDetails.venueDistrict;
+    }
   }
   
   // Get cover photo - for EVENTS prefer event images, for others prefer listing data
