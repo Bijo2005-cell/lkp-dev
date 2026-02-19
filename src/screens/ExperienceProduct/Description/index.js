@@ -12,10 +12,11 @@ import InlineDatePicker from "../../../components/InlineDatePicker";
 import TimeSlotsPicker from "../../../components/TimeSlotsPicker";
 import GuestPicker from "../../../components/GuestPicker";
 import LoginModal from "../../../components/LoginModal";
-import { getBillingConfiguration, createOrder, getListingSlots, loginWithGoogle } from "../../../utils/api";
+import { getBillingConfiguration, createOrder, getListingSlots, loginWithGoogle, getStayRoomAvailability } from "../../../utils/api";
 
 const Description = ({ classSection, listing, hostData }) => {
   const history = useHistory();
+  const isStay = Boolean(listing?.stayId || listing?.stay_id || listing?.propertyType === "STAY");
   const [selectedAddOns, setSelectedAddOns] = useState([]);
   const [addOnQuantities, setAddOnQuantities] = useState({}); // Track quantities for Group pricing addons
 
@@ -37,6 +38,32 @@ const Description = ({ classSection, listing, hostData }) => {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
+  const handleCheckStayAvailability = async () => {
+    try {
+      if (!isStay) return;
+      const stayId = listing?.stayId || listing?.stay_id || listing?.id;
+      if (!stayId) return;
+      if (!selectedDate || !selectedEndDate) return;
+
+      setStayAvailabilityLoading(true);
+
+      const checkInDate = selectedDate.format("YYYY-MM-DD");
+      const checkOutDate = selectedEndDate.format("YYYY-MM-DD");
+
+      const res = await getStayRoomAvailability(stayId, checkInDate, checkOutDate);
+      console.log("✅ Stay room availability (raw):", res);
+
+      setStayAvailabilityResult(res);
+      setStayAvailabilityChecked(true);
+    } catch (err) {
+      console.error("❌ Stay room availability failed:", err?.response?.data || err?.message || err);
+      setStayAvailabilityResult(null);
+      setStayAvailabilityChecked(false);
+    } finally {
+      setStayAvailabilityLoading(false);
+    }
+  };
+
   // Helper function to format time range with cleaner display
   const formatTimeRange = (startTime, endTime) => {
     if (!startTime || !endTime) return "";
@@ -47,7 +74,13 @@ const Description = ({ classSection, listing, hostData }) => {
   const formattedDefaultDate = "Select date";
 
   const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedEndDate, setSelectedEndDate] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [stayActiveDateField, setStayActiveDateField] = useState("checkin");
+  const [stayAvailabilityChecked, setStayAvailabilityChecked] = useState(false);
+  const [stayAvailabilityLoading, setStayAvailabilityLoading] = useState(false);
+  const [stayAvailabilityResult, setStayAvailabilityResult] = useState(null);
+  const [staySelectedRoomType, setStaySelectedRoomType] = useState("");
   const [guests, setGuests] = useState({
     adults: 1,
     children: 0,
@@ -57,11 +90,85 @@ const Description = ({ classSection, listing, hostData }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimeSlots, setShowTimeSlots] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
+  const [showRoomTypePicker, setShowRoomTypePicker] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const dateItemRef = useRef(null);
   const timeItemRef = useRef(null);
   const guestItemRef = useRef(null);
+  const checkoutItemRef = useRef(null);
+  const roomTypeItemRef = useRef(null);
   const initialValuesSetRef = useRef(false);
+
+  useEffect(() => {
+    if (!showRoomTypePicker) return;
+    const handleDocMouseDown = (e) => {
+      const el = roomTypeItemRef.current;
+      if (!el) return;
+      if (el.contains(e.target)) return;
+      setShowRoomTypePicker(false);
+    };
+    document.addEventListener("mousedown", handleDocMouseDown);
+    return () => document.removeEventListener("mousedown", handleDocMouseDown);
+  }, [showRoomTypePicker]);
+
+  useEffect(() => {
+    if (!isStay) return;
+    setStayAvailabilityChecked(false);
+    setStayAvailabilityResult(null);
+    setStaySelectedRoomType("");
+    setShowRoomTypePicker(false);
+  }, [isStay, selectedDate, selectedEndDate]);
+
+  const stayRoomTypeOptions = useMemo(() => {
+    if (!stayAvailabilityResult) return [];
+    const payload = stayAvailabilityResult;
+
+    const candidates =
+      (Array.isArray(payload) && payload) ||
+      (Array.isArray(payload.roomTypes) && payload.roomTypes) ||
+      (Array.isArray(payload.rooms) && payload.rooms) ||
+      (Array.isArray(payload.data) && payload.data) ||
+      (Array.isArray(payload.data?.roomTypes) && payload.data.roomTypes) ||
+      [];
+
+    return candidates
+      .map((x) => {
+        if (typeof x === "string") {
+          return { value: x, label: x, raw: x };
+        }
+        const id =
+          x?.roomId ??
+          x?.room_id ??
+          x?.roomTypeId ??
+          x?.room_type_id ??
+          x?.id ??
+          x?.code ??
+          x?.name ??
+          x?.title;
+
+        const labelBase =
+          x?.roomName ??
+          x?.room_name ??
+          x?.roomTypeName ??
+          x?.room_type_name ??
+          x?.name ??
+          x?.title ??
+          String(id ?? "Room");
+
+        const availableRooms =
+          x?.availableRooms ?? x?.available_rooms ?? x?.availability ?? x?.available ?? null;
+        const label =
+          typeof availableRooms === "number" ? `${labelBase} (${availableRooms} available)` : String(labelBase);
+        if (!id) return null;
+
+        if (typeof availableRooms === "number" && availableRooms <= 0) {
+          return null;
+        }
+
+        return { value: String(id), label: String(label), raw: x };
+      })
+      .filter(Boolean);
+  }, [stayAvailabilityResult]);
 
   // Helper function to get guest count (supports both old and new format)
   const getGuestCount = (guestsObj) => {
@@ -123,6 +230,22 @@ const Description = ({ classSection, listing, hostData }) => {
   };
 
   const validateBookingDateTime = () => {
+    if (isStay) {
+      if (!selectedDate) {
+        return { valid: false, error: "Please select a check-in date" };
+      }
+      if (!selectedEndDate) {
+        return { valid: false, error: "Please select a check-out date" };
+      }
+      if (isPastDate(selectedDate)) {
+        return { valid: false, error: "Cannot book for a past date. Please select a future date." };
+      }
+      if (selectedEndDate.isBefore(selectedDate, 'day')) {
+        return { valid: false, error: "Check-out date cannot be before check-in date" };
+      }
+      return { valid: true };
+    }
+
     if (!selectedDate) {
       return { valid: false, error: "Please select a booking date" };
     }
@@ -229,12 +352,33 @@ const Description = ({ classSection, listing, hostData }) => {
 
   // Get availability data for selected date and slot
   const selectedDateAvailability = useMemo(() => {
-    if (!selectedDate || !filteredAvailabilityData.length) return null;
+    if (!selectedDate) return null;
     const dateStr = selectedDate.format("YYYY-MM-DD");
 
-    // Find availability for the selected date
-    return filteredAvailabilityData.find(av => av.date === dateStr);
-  }, [selectedDate, filteredAvailabilityData]);
+    // 1. Try to find explicit availability from the array (updated by bookings)
+    const explicitAv = filteredAvailabilityData.find(av => av.date === dateStr);
+    if (explicitAv) return explicitAv;
+
+    // 2. Fallback: If no booking record exists for this date, construct a default based on slot/listing max
+    if (selectedTimeSlotData || selectedTimeSlot) {
+      const slotMax = selectedTimeSlotData?.maxSeats || listing?.maxGuests || 0;
+      return {
+        date: dateStr,
+        booked_seats: 0,
+        available_seats: slotMax,
+        max_seats: slotMax,
+        is_available: true,
+        slot_id: selectedTimeSlotData?.slotId || selectedTimeSlotData?.slot_id,
+        slot_name: selectedTimeSlotData?.slotName || selectedTimeSlot,
+        start_time: selectedTimeSlotData?.startTime,
+        end_time: selectedTimeSlotData?.endTime,
+        price_per_person: selectedTimeSlotData?.pricePerPerson,
+        b2b_rate: selectedTimeSlotData?.b2bRate,
+      };
+    }
+
+    return null;
+  }, [selectedDate, filteredAvailabilityData, selectedTimeSlotData, selectedTimeSlot, listing?.maxGuests]);
 
   // Get the selected timeSlot object for display
   const selectedTimeSlotDisplay = useMemo(() => {
@@ -257,23 +401,49 @@ const Description = ({ classSection, listing, hostData }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTimeSlotData, selectedTimeSlot, selectedDateAvailability]);
 
-  const items = [
-    {
-      title: selectedDate ? selectedDate.format("MMM DD, YYYY") : formattedDefaultDate,
-      category: "Select date",
-      icon: "calendar",
-    },
-    {
-      title: selectedTimeSlotDisplay || "Select time",
-      category: "Time slot",
-      icon: "clock",
-    },
-    {
-      title: guestCountText,
-      category: "Guest",
-      icon: "user",
-    },
-  ];
+  const items = isStay
+    ? [
+      {
+        title: selectedDate ? selectedDate.format("MMM DD, YYYY") : formattedDefaultDate,
+        category: "Check-in",
+        icon: "calendar",
+      },
+      {
+        title: selectedEndDate ? selectedEndDate.format("MMM DD, YYYY") : formattedDefaultDate,
+        category: "Check-out",
+        icon: "calendar",
+      },
+      {
+        title: guestCountText,
+        category: "Guest",
+        icon: "user",
+      },
+      {
+        title:
+          staySelectedRoomType
+            ? (stayRoomTypeOptions.find((o) => o.value === staySelectedRoomType)?.label || "Room")
+            : "Select room",
+        category: "Room type",
+        icon: "home",
+      },
+    ]
+    : [
+      {
+        title: selectedDate ? selectedDate.format("MMM DD, YYYY") : formattedDefaultDate,
+        category: "Select date",
+        icon: "calendar",
+      },
+      {
+        title: selectedTimeSlotDisplay || "Select time",
+        category: "Time slot",
+        icon: "clock",
+      },
+      {
+        title: guestCountText,
+        category: "Guest",
+        icon: "user",
+      },
+    ];
 
   // Check if user is logged in
   const isLoggedIn = () => {
@@ -581,13 +751,26 @@ const Description = ({ classSection, listing, hostData }) => {
   const isReserveEnabled = useMemo(() => {
     const hasDate = selectedDate !== null;
     const hasTimeSlot = selectedTimeSlot !== null;
-    const hasGuests = guests && getGuestCount(guests) > 0;
-    return hasDate && hasTimeSlot && hasGuests;
-  }, [selectedDate, selectedTimeSlot, guests]);
+    const hasCheckout = selectedEndDate !== null;
+    const guestCount = getGuestCount(guests);
+    const hasGuests = guestCount > 0;
+
+    // Check if requested guests exceed available capacity
+    // Use selectedDateAvailability (which now always has a value if a date/slot is picked)
+    const hasCapacity = selectedDateAvailability
+      ? (selectedDateAvailability.available_seats !== undefined ? guestCount <= selectedDateAvailability.available_seats : true)
+      : true;
+
+    return isStay ? (hasDate && hasCheckout && hasGuests) : (hasDate && hasTimeSlot && hasGuests && hasCapacity);
+  }, [selectedDate, selectedEndDate, selectedTimeSlot, guests, isStay, selectedDateAvailability]);
 
   const handleReserveClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (isStay) {
+      return;
+    }
 
     // Prevent action if validation fails
     if (!isReserveEnabled) {
@@ -894,7 +1077,7 @@ const Description = ({ classSection, listing, hostData }) => {
 
           console.log("💳 Payment data to save:", paymentWithDiscount);
           localStorage.setItem("pendingPayment", JSON.stringify(paymentWithDiscount));
-          
+
           // Cache Razorpay key for use by other booking types (e.g., events)
           if (paymentWithDiscount.razorpayKeyId) {
             localStorage.setItem("lastRazorpayKeyId", paymentWithDiscount.razorpayKeyId);
@@ -1235,7 +1418,7 @@ const Description = ({ classSection, listing, hostData }) => {
         null;
       if (payment) {
         localStorage.setItem("pendingPayment", JSON.stringify(payment));
-        
+
         // Cache Razorpay key for use by other booking types (e.g., events)
         if (payment.razorpayKeyId) {
           localStorage.setItem("lastRazorpayKeyId", payment.razorpayKeyId);
@@ -1302,8 +1485,11 @@ const Description = ({ classSection, listing, hostData }) => {
   }, [showLoginModal]);
 
   const handleOpenDateTime = (index) => {
-    // Show date picker when clicking date item (index 0)
-    if (index === 0) {
+    // Show date picker when clicking date item (index 0) or check-out (index 1 for stays)
+    if (index === 0 || (isStay && index === 1)) {
+      if (isStay) {
+        setStayActiveDateField(index === 1 ? "checkout" : "checkin");
+      }
       setShowDatePicker(true);
       setShowTimeSlots(false);
       setShowGuestPicker(false);
@@ -1323,10 +1509,25 @@ const Description = ({ classSection, listing, hostData }) => {
   };
 
   const handleDateSelect = (startDateText, endDateText) => {
-    if (startDateText) {
-      setSelectedDate(moment(new Date(startDateText)));
+    if (isStay) {
+      if (startDateText) {
+        const next = moment(new Date(startDateText));
+        if (stayActiveDateField === "checkout") {
+          setSelectedEndDate(next);
+        } else {
+          setSelectedDate(next);
+        }
+      }
+    } else {
+      if (startDateText) {
+        setSelectedDate(moment(new Date(startDateText)));
+      }
+      if (endDateText) {
+        setSelectedEndDate(moment(new Date(endDateText)));
+      } else {
+        setSelectedEndDate(null);
+      }
     }
-    // Handle end date if provided (for date range)
     setShowDatePicker(false);
   };
 
@@ -1339,11 +1540,12 @@ const Description = ({ classSection, listing, hostData }) => {
   // Note: available_seats is the actual available seats for the selected date and slot (can be less than max_seats)
   const maxSeats = useMemo(() => {
     // Priority 1: Use available_seats from selected date availability (most accurate)
-    if (selectedDateAvailability?.available_seats !== undefined && selectedDateAvailability?.available_seats > 0) {
+    // We include 0 because if it's 0, it means the slot is full
+    if (selectedDateAvailability?.available_seats !== undefined) {
       return selectedDateAvailability.available_seats;
     }
-    // Priority 2: Use max_seats from selected date availability
-    if (selectedDateAvailability?.max_seats !== undefined && selectedDateAvailability?.max_seats > 0) {
+    // Priority 2: Use max_seats from selected date availability as fallback
+    if (selectedDateAvailability?.max_seats !== undefined) {
       return selectedDateAvailability.max_seats;
     }
     // Priority 3: Use maxSeats from selected timeSlot capacity
@@ -1354,8 +1556,21 @@ const Description = ({ classSection, listing, hostData }) => {
     return listing?.maxGuests || undefined;
   }, [selectedDateAvailability, selectedTimeSlotData, listing?.maxGuests]);
 
+  const isFullyBooked = useMemo(() => {
+    if (isStay) return false;
+    // Only check if date and slot are selected
+    if (!selectedDate || !selectedTimeSlot || !selectedDateAvailability) return false;
+    return selectedDateAvailability.available_seats === 0;
+  }, [isStay, selectedDate, selectedTimeSlot, selectedDateAvailability]);
+
   // Fetch slots data when listing is available
   useEffect(() => {
+    if (isStay) {
+      setSlotsData([]);
+      setTransformedTimeSlots([]);
+      setAvailabilityData([]);
+      return;
+    }
     // Early return if listing is not yet loaded or is empty object
     if (!listing || (typeof listing === 'object' && Object.keys(listing).length === 0)) {
       return;
@@ -1507,10 +1722,14 @@ const Description = ({ classSection, listing, hostData }) => {
     };
 
     fetchSlots();
-  }, [listing]);
+  }, [listing, isStay]);
 
   // Fetch billing configuration when listing is available
   useEffect(() => {
+    if (isStay) {
+      setBillingConfig(null);
+      return;
+    }
     // Early return if listing is not yet loaded or is empty object
     if (!listing || (typeof listing === 'object' && Object.keys(listing).length === 0)) {
       return;
@@ -1559,7 +1778,7 @@ const Description = ({ classSection, listing, hostData }) => {
     };
 
     fetchBillingConfig();
-  }, [listing]);
+  }, [listing, isStay]);
 
   // Note: Availability is now fetched from slots API, so we don't need a separate availability fetch
   // The old availability endpoint is kept as a fallback but disabled when slots data is available
@@ -1647,7 +1866,7 @@ const Description = ({ classSection, listing, hostData }) => {
                         </div>
                       </div>
                       <InlineDatePicker
-                        visible={showDatePicker}
+                        visible={isStay ? (showDatePicker && stayActiveDateField === "checkin") : showDatePicker}
                         onClose={() => setShowDatePicker(false)}
                         onDateSelect={handleDateSelect}
                         selectedDate={selectedDate ? selectedDate.toDate().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null}
@@ -1658,6 +1877,35 @@ const Description = ({ classSection, listing, hostData }) => {
                   );
                 }
                 if (index === 1) {
+                  if (isStay) {
+                    const stayPickerSelected =
+                      stayActiveDateField === "checkout" ? selectedEndDate : selectedDate;
+                    return (
+                      <div ref={checkoutItemRef} style={{ position: 'relative' }}>
+                        <div
+                          className={receiptStyles.item}
+                          onClick={() => handleOpenDateTime(1)}
+                          role="button"
+                        >
+                          <div className={receiptStyles.icon}>
+                            <Icon name={item.icon} size="24" />
+                          </div>
+                          <div className={receiptStyles.box}>
+                            <div className={receiptStyles.category}>{item.category}</div>
+                            <div className={receiptStyles.subtitle}>{item.title}</div>
+                          </div>
+                        </div>
+                        <InlineDatePicker
+                          visible={showDatePicker && stayActiveDateField === "checkout"}
+                          onClose={() => setShowDatePicker(false)}
+                          onDateSelect={handleDateSelect}
+                          selectedDate={stayPickerSelected ? stayPickerSelected.toDate().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null}
+                          timeSlots={transformedTimeSlots.length > 0 ? transformedTimeSlots : (listing?.timeSlots || [])}
+                          availabilityData={filteredAvailabilityData}
+                        />
+                      </div>
+                    );
+                  }
                   return (
                     <div ref={timeItemRef} style={{ position: 'relative' }}>
                       <div
@@ -1684,6 +1932,24 @@ const Description = ({ classSection, listing, hostData }) => {
                   );
                 }
                 if (index === 2) {
+                  if (isStay && !stayAvailabilityChecked) {
+                    return (
+                      <div ref={guestItemRef} style={{ position: 'relative' }}>
+                        <div
+                          className={cn(receiptStyles.item, receiptStyles.guestCentered)}
+                          role="button"
+                        >
+                          <div className={receiptStyles.icon}>
+                            <Icon name={item.icon} size="24" />
+                          </div>
+                          <div className={receiptStyles.box}>
+                            <div className={receiptStyles.category}>{item.category}</div>
+                            <div className={receiptStyles.subtitle}>{item.title}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div ref={guestItemRef} style={{ position: 'relative' }}>
                       <div
@@ -1716,6 +1982,111 @@ const Description = ({ classSection, listing, hostData }) => {
                     </div>
                   );
                 }
+                if (index === 3) {
+                  const selectedRoomLabel =
+                    staySelectedRoomType
+                      ? (stayRoomTypeOptions.find((o) => o.value === staySelectedRoomType)?.label || "Room")
+                      : "Select room";
+
+                  return (
+                    <div ref={roomTypeItemRef} style={{ position: 'relative' }}>
+                      <div className={receiptStyles.item}>
+                        <div className={receiptStyles.icon}>
+                          <Icon name={item.icon} size="24" />
+                        </div>
+                        <div className={receiptStyles.box}>
+                          <div className={receiptStyles.category}>{item.category}</div>
+                          <div className={receiptStyles.subtitle}>
+                            <div
+                              role="button"
+                              onClick={() => {
+                                if (!isStay || !stayAvailabilityChecked || stayRoomTypeOptions.length === 0) return;
+                                setShowRoomTypePicker((v) => !v);
+                              }}
+                              style={{
+                                width: "100%",
+                                background: "transparent",
+                                color: "inherit",
+                                border: "none",
+                                outline: "none",
+                                cursor:
+                                  !isStay || !stayAvailabilityChecked || stayRoomTypeOptions.length === 0
+                                    ? "not-allowed"
+                                    : "pointer",
+                              }}
+                            >
+                              {selectedRoomLabel}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {showRoomTypePicker && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: 0,
+                            right: 0,
+                            top: "100%",
+                            marginTop: 6,
+                            background: "#141416",
+                            borderRadius: 10,
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            overflow: "hidden",
+                            zIndex: 50,
+                          }}
+                        >
+                          <div
+                            role="button"
+                            onClick={() => {
+                              setStaySelectedRoomType("");
+                              setShowRoomTypePicker(false);
+                            }}
+                            style={{
+                              padding: "10px 12px",
+                              color: "#FFFFFF",
+                              background: "#141416",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "#141416";
+                            }}
+                          >
+                            Select room
+                          </div>
+                          {stayRoomTypeOptions.map((opt) => (
+                            <div
+                              key={opt.value}
+                              role="button"
+                              onClick={() => {
+                                setStaySelectedRoomType(opt.value);
+                                setShowRoomTypePicker(false);
+                              }}
+                              style={{
+                                padding: "10px 12px",
+                                color: "#FFFFFF",
+                                background: "#141416",
+                                cursor: "pointer",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "#141416";
+                              }}
+                            >
+                              {opt.label}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
                 return null;
               }}
             >
@@ -1724,17 +2095,40 @@ const Description = ({ classSection, listing, hostData }) => {
                   <span>Save</span>
                   <Icon name="plus" size="16" />
                 </button>
-                <button
-                  type="button"
-                  className={cn("button", styles.button)}
-                  onClick={handleReserveClick}
-                  disabled={!isReserveEnabled}
-                  title={!isReserveEnabled ? "Please select date, time slot, and guests" : ""}
-                >
-                  <span>Reserve</span>
-                  <Icon name="bag" size="16" />
-                </button>
+                {isStay ? (
+                  <button
+                    type="button"
+                    className={cn("button", styles.button)}
+                    onClick={handleCheckStayAvailability}
+                    disabled={!selectedDate || !selectedEndDate || stayAvailabilityLoading}
+                    title={!selectedDate || !selectedEndDate ? "Please select check-in and check-out dates" : ""}
+                  >
+                    <span>{stayAvailabilityLoading ? "Checking..." : "Check availability"}</span>
+                    <Icon name="bag" size="16" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={cn("button", styles.button)}
+                    onClick={handleReserveClick}
+                    disabled={!isReserveEnabled}
+                    title={!isReserveEnabled ? "Please select date, time slot, and guests" : ""}
+                  >
+                    <span>{isFullyBooked ? "Fully Booked" : "Reserve"}</span>
+                    <Icon name="bag" size="16" />
+                  </button>
+                )}
               </div>
+              {isFullyBooked && (
+                <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
+                  This slot is fully booked. Please select another date or time.
+                </div>
+              )}
+              {!isFullyBooked && selectedDate && selectedTimeSlot && selectedDateAvailability && getGuestCount(guests) > (selectedDateAvailability.available_seats ?? 999) && (
+                <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
+                  Only {selectedDateAvailability.available_seats} seat(s) available for this slot.
+                </div>
+              )}
               <div className={styles.table}>
                 {receipt.map((x, index) => (
                   <div className={styles.line} key={index}>
