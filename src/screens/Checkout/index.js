@@ -187,39 +187,66 @@ const Checkout = () => {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  // Build booking items (date, time, guests) for summary
+  // Build booking items for summary
   const items = useMemo(() => {
+    // Detect stay: explicit flag OR check-in/check-out dates present
+    const isStay = bookingData?.isStay || !!(bookingData?.checkInDate || bookingData?.checkOutDate);
+
+    if (isStay) {
+      const stayItems = [
+        {
+          title: bookingData?.checkInDate || bookingData?.bookingSummary?.date || bookingData?.selectedDate || "Select date",
+          category: "Check-in",
+          icon: "calendar",
+        },
+        {
+          title: bookingData?.checkOutDate || "Select date",
+          category: "Check-out",
+          icon: "calendar",
+        },
+      ];
+      if (bookingData?.roomType) {
+        stayItems.push({
+          title: bookingData.roomType,
+          category: "Room type",
+          icon: "home",
+        });
+      }
+      if (bookingData?.mealPlan) {
+        stayItems.push({
+          title: bookingData.mealPlan,
+          category: "Meal plan",
+          icon: "lightning",
+        });
+      }
+      return stayItems;
+    }
+
+    // ── Experience / event bookings: date, time slot, guests ──
     const dateTitle =
       bookingData?.bookingSummary?.date ||
       bookingData?.selectedDate ||
       "Select date";
 
-    // Format time slot with start and end time if available
     let timeTitle = "Select time";
     if (bookingData?.bookingSummary?.time) {
       const startTime = bookingData.bookingSummary.time;
       const endTime = bookingData?.bookingSummary?.endTime;
-
-      // If we have both start and end time, format as range
       if (startTime && endTime) {
         timeTitle = `${formatTime(startTime)} – ${formatTime(endTime)}`;
       } else if (startTime) {
-        // Only start time available, check if it's already formatted
-        if (startTime.includes("–") || startTime.includes("-")) {
-          timeTitle = startTime;
-        } else {
-          timeTitle = formatTime(startTime);
-        }
+        timeTitle = startTime.includes("–") || startTime.includes("-")
+          ? startTime
+          : formatTime(startTime);
       }
     }
 
-    // Get guest count
     const guestsCount =
       bookingData?.bookingSummary?.guestCount ||
       bookingData?.guests?.guests ||
       (bookingData?.guests?.adults || 0) + (bookingData?.guests?.children || 0);
     const guestsTitle = guestsCount > 0
-      ? `${guestsCount} ${guestsCount === 1 ? 'guest' : 'guests'}`
+      ? `${guestsCount} ${guestsCount === 1 ? "guest" : "guests"}`
       : "Add guests";
 
     return [
@@ -240,6 +267,7 @@ const Checkout = () => {
       },
     ];
   }, [bookingData]);
+
 
   // Build price table from receipt if provided
   const { table } = useMemo(() => {
@@ -268,7 +296,9 @@ const Checkout = () => {
     };
   }, [bookingData, selectedAddOns]);
 
+  const isStayBooking = !!(bookingData?.isStay || bookingData?.checkInDate || bookingData?.checkOutDate);
   const listingTitle = bookingData?.listingTitle || "Your trip";
+  const tripTitle = isStayBooking ? "Your stay" : "Your trip";
 
   // Get first image
   const getListingImage = () => {
@@ -299,15 +329,20 @@ const Checkout = () => {
         <div className={styles.wrapper}>
           <ConfirmAndPay
             className={styles.confirm}
-            title="Your trip"
+            title={tripTitle}
             buttonUrl="/checkout-complete"
-            guests
+            guests={!(bookingData?.isStay || bookingData?.checkInDate || bookingData?.checkOutDate)}
             amountToPay={paymentData?.amount}
             currency={paymentData?.currency || "INR"}
             dateValue={items[0]?.title}
             guestValue={items[2]?.title}
             onEditDate={() => setShowDatePicker(true)}
             onEditGuests={() => setShowGuestPicker(true)}
+            isStay={!!(bookingData?.isStay || bookingData?.checkInDate || bookingData?.checkOutDate)}
+            checkInDate={bookingData?.checkInDate}
+            checkOutDate={bookingData?.checkOutDate}
+            roomType={bookingData?.roomType}
+            mealPlan={bookingData?.mealPlan}
             datePicker={(
               <InlineDatePicker
                 visible={showDatePicker}
@@ -329,7 +364,7 @@ const Checkout = () => {
           <PriceDetails
             className={styles.price}
             image={listingImage}
-            title={listingTitle}
+            title={tripTitle}
             items={items}
             table={table}
             amountToPay={paymentData?.amount}

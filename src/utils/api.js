@@ -171,7 +171,11 @@ export const getOrderCancelPreview = async (orderId) => {
 // ✅ Create a stay order
 export const createStayOrder = async (orderData) => {
   try {
+    console.log("📤 Creating stay order:", JSON.stringify(orderData, null, 2));
+    // Use ListingsAPI (relative /api path) — the proxy forwards to http://69.62.77.33:8080
+    // This avoids direct browser-to-server calls that trigger CORS errors
     const response = await ListingsAPI.post("/orders/stay", orderData);
+    console.log("✅ Stay order created successfully:", response.data);
     return response.data;
   } catch (error) {
     console.error("❌ Error creating stay order:", error.response?.data || error.message);

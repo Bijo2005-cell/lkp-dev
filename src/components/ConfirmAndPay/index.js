@@ -4,13 +4,28 @@ import styles from "./ConfirmAndPay.module.sass";
 import CreditCard from "./CreditCard";
 import Icon from "../Icon";
 
-const ConfirmAndPay = ({ className, guests, title, buttonUrl, amountToPay, currency = "INR", dateValue, guestValue, onEditDate, onEditGuests, datePicker, guestPicker }) => {
-  // keep minimal local state if needed later
-
-  // Format amount - Razorpay amounts are in paise (smallest currency unit), so divide by 100 for INR
+const ConfirmAndPay = ({
+  className,
+  guests,
+  title,
+  buttonUrl,
+  amountToPay,
+  currency = "INR",
+  dateValue,
+  guestValue,
+  onEditDate,
+  onEditGuests,
+  datePicker,
+  guestPicker,
+  // Stay-specific props
+  isStay,
+  checkInDate,
+  checkOutDate,
+  roomType,
+  mealPlan,
+}) => {
   const formatAmount = (amount) => {
     if (!amount) return null;
-    // If amount is in paise (typically > 1000 for reasonable prices), convert to rupees
     const amountInRupees = amount > 1000 ? (amount / 100).toFixed(2) : amount.toFixed(2);
     return `${currency} ${amountInRupees}`;
   };
@@ -29,25 +44,56 @@ const ConfirmAndPay = ({ className, guests, title, buttonUrl, amountToPay, curre
           <div className={styles.box}>
             <div className={styles.category}>{title}</div>
             <div className={styles.group}>
-              <div className={styles.option}>
-                <div className={styles.info}>Dates</div>
-                <input className={styles.input} type="text" />
-                <div className={styles.value}>{dateValue || "Select date"}</div>
-                <button className={styles.edit} onClick={onEditDate}>
-                  <Icon name="edit" size="24" />
-                </button>
-                {datePicker}
-              </div>
-              {guests && (
-                <div className={styles.option}>
-                  <div className={styles.info}>Guests</div>
-                  <input className={styles.input} type="text" />
-                  <div className={styles.value}>{guestValue || "Add guests"}</div>
-                  <button className={styles.edit} onClick={onEditGuests}>
-                    <Icon name="edit" size="24" />
-                  </button>
-                  {guestPicker}
-                </div>
+              {isStay ? (
+                <>
+                  {/* Check-in */}
+                  <div className={styles.option}>
+                    <div className={styles.info}>Check-in</div>
+                    <div className={styles.value}>{checkInDate || "Select date"}</div>
+                  </div>
+                  {/* Check-out */}
+                  <div className={styles.option}>
+                    <div className={styles.info}>Check-out</div>
+                    <div className={styles.value}>{checkOutDate || "Select date"}</div>
+                  </div>
+                  {/* Room type */}
+                  {roomType && (
+                    <div className={styles.option}>
+                      <div className={styles.info}>Room type</div>
+                      <div className={styles.value}>{roomType}</div>
+                    </div>
+                  )}
+                  {/* Meal plan */}
+                  {mealPlan && (
+                    <div className={styles.option}>
+                      <div className={styles.info}>Meal plan</div>
+                      <div className={styles.value}>{mealPlan}</div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className={styles.option}>
+                    <div className={styles.info}>Dates</div>
+                    <input className={styles.input} type="text" />
+                    <div className={styles.value}>{dateValue || "Select date"}</div>
+                    <button className={styles.edit} onClick={onEditDate}>
+                      <Icon name="edit" size="24" />
+                    </button>
+                    {datePicker}
+                  </div>
+                  {guests && (
+                    <div className={styles.option}>
+                      <div className={styles.info}>Guests</div>
+                      <input className={styles.input} type="text" />
+                      <div className={styles.value}>{guestValue || "Add guests"}</div>
+                      <button className={styles.edit} onClick={onEditGuests}>
+                        <Icon name="edit" size="24" />
+                      </button>
+                      {guestPicker}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -61,3 +107,4 @@ const ConfirmAndPay = ({ className, guests, title, buttonUrl, amountToPay, curre
 };
 
 export default ConfirmAndPay;
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useHistory } from "react-router-dom";
 import cn from "classnames";
 import moment from "moment";
 import styles from "./StayProduct.module.sass";
@@ -171,9 +171,18 @@ const BookingSidebar = ({
   const checkInInputRef = useRef(null);
   const checkOutInputRef = useRef(null);
 
-  const isRoomBased = stay?.rooms?.length > 0 || stay?.roomTypes?.length > 0;
+  const isPropertyBased = stay?.bookingScope === "Property-Based" || stay?.bookingScope === "Property Based";
+  const isRoomBased = !isPropertyBased && (stay?.rooms?.length > 0 || stay?.roomTypes?.length > 0);
 
-  const basePrice = parseFloat(stay?.fullPropertyB2cPrice || stay?.startingPrice || stay?.pricePerNight || stay?.price || 0);
+  const basePrice = parseFloat(
+    (isPropertyBased ? stay?.fullPropertyB2cPrice : null) ||
+    stay?.b2cPrice ||
+    stay?.fullPropertyB2cPrice ||
+    stay?.startingPrice ||
+    stay?.pricePerNight ||
+    stay?.price ||
+    0
+  );
   const discountedBasePrice = discountPercentage > 0
     ? basePrice * (1 - discountPercentage / 100)
     : basePrice;
@@ -181,8 +190,8 @@ const BookingSidebar = ({
   const extraAdults = Math.max(0, (guests?.adults || 0) - (stay?.maxAdults || 0));
   const extraChildren = Math.max(0, (guests?.children || 0) - (stay?.maxChildren || 0));
 
-  const extraAdultPrice = parseFloat(stay?.extraAdultPrice || 0);
-  const extraChildPrice = parseFloat(stay?.extraChildPrice || 0);
+  const extraAdultPrice = parseFloat(stay?.fullPropertyExtraAdultPrice || stay?.extraAdultPrice || 0);
+  const extraChildPrice = parseFloat(stay?.fullPropertyExtraChildPrice || stay?.extraChildPrice || 0);
 
   const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
 
@@ -800,6 +809,7 @@ const PoliciesTab = ({ stay }) => {
 // Main StayProduct Component
 const StayProduct = () => {
   const location = useLocation();
+  const history = useHistory();
   const params = new URLSearchParams(location.search);
   const stayId = params.get("id");
 
@@ -897,30 +907,163 @@ const StayProduct = () => {
 
   const handleBooking = async (bookingInfo) => {
     if (!stayId || !checkInDate || !checkOutDate) {
-      alert("Please select dates and guests first.");
+      alert("Please select check-in and check-out dates first.");
       return;
     }
 
-    const { pricePerNight, totalNights } = bookingInfo;
+    // Room-based stays require a selected room
+    if (isRoomBased && !selectedRoom) {
+      alert("Please select a room before booking.");
+      return;
+    }
 
-    const bookingData = {
-      stayId: stayId,
-      checkInDate,
-      checkOutDate,
-      adults: guests.adults,
-      children: guests.children,
-      totalPrice: pricePerNight * totalNights,
-      roomId: selectedRoom?.id || selectedRoom?.roomId || null,
-      currency: stay?.currency || "INR",
-      paymentMethod: "Reception", // Default for now
-    };
+    let bookingPayload;
+
+    if (isRoomBased && selectedRoom) {
+      // Room-based stay: include rooms array with roomId, roomsBooked, mealPlanCode
+      const getMealPlanCode = (room) => {
+        if (Number(room.bbPrice) > 0) return "BB";
+        if (Number(room.cpPrice) > 0) return "CP";
+        if (Number(room.mapPrice) > 0) return "MAP";
+        if (Number(room.apPrice) > 0) return "AP";
+        if (Number(room.epPrice) > 0) return "EP";
+        return "EP";
+      };
+
+      const mealPlanCode = selectedRoom.selectedMealPlan || getMealPlanCode(selectedRoom);
+
+      // Calculate B2C price for the selected room based on meal plan, as the room's base b2cPrice could be null in the API
+      let basePrice = 0;
+      let extraAdultPrice = parseFloat(selectedRoom.extraAdultPrice || stay?.extraAdultPrice || 0);
+      let extraChildPrice = parseFloat(selectedRoom.extraChildPrice || stay?.extraChildPrice || 0);
+
+      if (selectedRoom.mealPlanPricing && selectedRoom.mealPlanPricing[mealPlanCode]) {
+        const mp = selectedRoom.mealPlanPricing[mealPlanCode];
+        basePrice = parseFloat(mp.b2cPrice || mp.b2bPrice || mp.price || 0);
+        if (mp.extraAdultPrice) extraAdultPrice = parseFloat(mp.extraAdultPrice);
+        if (mp.extraChildPrice) extraChildPrice = parseFloat(mp.extraChildPrice);
+      } else {
+        if (mealPlanCode === "BB" && Number(selectedRoom.bbPrice) > 0) basePrice = parseFloat(selectedRoom.bbPrice);
+        else if (mealPlanCode === "CP" && Number(selectedRoom.cpPrice) > 0) basePrice = parseFloat(selectedRoom.cpPrice);
+        else if (mealPlanCode === "MAP" && Number(selectedRoom.mapPrice) > 0) basePrice = parseFloat(selectedRoom.mapPrice);
+        else if (mealPlanCode === "AP" && Number(selectedRoom.apPrice) > 0) basePrice = parseFloat(selectedRoom.apPrice);
+        else if (mealPlanCode === "EP" && Number(selectedRoom.epPrice) > 0) basePrice = parseFloat(selectedRoom.epPrice);
+        else basePrice = parseFloat(selectedRoom.b2cPrice || selectedRoom.price || selectedRoom.b2bPrice || 0);
+      }
+
+      const maxAdults = selectedRoom.maxAdults || stay?.maxAdults || 0;
+      const maxChildren = selectedRoom.maxChildren || stay?.maxChildren || 0;
+
+      const extraAdults = Math.max(0, (guests?.adults || 0) - maxAdults);
+      const extraChildren = Math.max(0, (guests?.children || 0) - maxChildren);
+
+      const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
+      const amountPerNight = basePrice + totalExtraPrice;
+      const nightsCount = checkInDate && checkOutDate ? Math.max(1, moment(checkOutDate).diff(moment(checkInDate), "days")) : 1;
+      const calculatedAmount = amountPerNight * nightsCount;
+
+      bookingPayload = {
+        stayId: Number(stayId),
+        checkInDate,
+        checkOutDate,
+        numberOfGuests: (guests.adults || 1) + (guests.children || 0),
+        amount: calculatedAmount, // Pass the calculated B2C amount to the backend for Razorpay order generation
+        paymentMethod: "razorpay", // Explicitly request Razorpay
+        rooms: [
+          {
+            roomId: selectedRoom.roomId || selectedRoom.id,
+            roomsBooked: 1,
+            mealPlanCode: mealPlanCode,
+          },
+        ],
+      };
+    } else {
+      // Property-based stay: no rooms array needed
+      const propertyBasePrice = parseFloat(stay?.fullPropertyB2cPrice || stay?.b2cPrice || stay?.startingPrice || stay?.pricePerNight || stay?.price || 0);
+      const extraAdultPrice = parseFloat(stay?.fullPropertyExtraAdultPrice || stay?.extraAdultPrice || 0);
+      const extraChildPrice = parseFloat(stay?.fullPropertyExtraChildPrice || stay?.extraChildPrice || 0);
+
+      const extraAdults = Math.max(0, (guests?.adults || 0) - (stay?.maxAdults || 0));
+      const extraChildren = Math.max(0, (guests?.children || 0) - (stay?.maxChildren || 0));
+
+      const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
+      const amountPerNight = propertyBasePrice + totalExtraPrice;
+      const nightsCount = checkInDate && checkOutDate ? Math.max(1, moment(checkOutDate).diff(moment(checkInDate), "days")) : 1;
+      const calculatedAmountProperty = amountPerNight * nightsCount;
+
+      bookingPayload = {
+        stayId: Number(stayId),
+        checkInDate,
+        checkOutDate,
+        numberOfGuests: (guests.adults || 1) + (guests.children || 0),
+        amount: calculatedAmountProperty,
+        paymentMethod: "razorpay",
+      };
+    }
+
+    console.log("📤 Stay booking payload:", bookingPayload);
 
     setAvailabilityLoading(true);
     try {
-      const response = await createStayOrder(bookingData);
-      console.log("Booking result:", response);
-      alert("Your booking has been placed successfully!");
-      // Optional: reset state or redirect
+      const response = await createStayOrder(bookingPayload);
+      console.log("✅ Stay order created:", response);
+
+      // Save Razorpay payment data (even if order ID is missing, so Razorpay can still trigger)
+      const paymentResponse = response?.payment || response?.data?.payment || response?.order?.payment || response;
+      const rzpOrderId = paymentResponse?.razorpayOrderId || response?.razorpayOrderId || response?.order?.razorpayOrderId;
+      const rzpKeyId = paymentResponse?.razorpayKeyId || response?.razorpayKeyId || response?.order?.razorpayKeyId || "rzp_test_RaBjdu0Ed3p1gN";
+
+      // Calculate amount in paise for Razorpay
+      const amountInPaise = paymentResponse?.amount ? paymentResponse.amount : Math.round((bookingPayload.amount || 0) * 100);
+      const currency = paymentResponse?.currency || response?.currency || response?.order?.currency || "INR";
+
+      localStorage.setItem("pendingPayment", JSON.stringify({
+        paymentMethod: "razorpay",
+        razorpayOrderId: rzpOrderId,
+        razorpayKeyId: rzpKeyId,
+        amount: amountInPaise,
+        currency: currency,
+      }));
+
+      // Save booking summary for the checkout page display
+      const getMealLabel = (code) => ({
+        EP: "EP (Room Only)", CP: "CP (Breakfast)", BB: "BB (Bed & Breakfast)",
+        MAP: "MAP (Half Board)", AP: "AP (Full Board)"
+      }[code] || code);
+
+      const roomLabel = selectedRoom
+        ? (selectedRoom.roomName || selectedRoom.name || selectedRoom.roomTypeName || `Room ${selectedRoom.roomId || selectedRoom.id}`)
+        : null;
+
+      const mealCode = isRoomBased && selectedRoom
+        ? (selectedRoom.selectedMealPlan || (Number(selectedRoom.bbPrice) > 0 ? "BB" : Number(selectedRoom.cpPrice) > 0 ? "CP" : Number(selectedRoom.mapPrice) > 0 ? "MAP" : "EP"))
+        : null;
+
+      // Get cover image
+      const coverImg = stay?.coverImageUrl || stay?.coverPhotoUrl ||
+        (Array.isArray(stay?.listingMedia) && stay.listingMedia[0]
+          ? (stay.listingMedia[0].url || stay.listingMedia[0].blobName)
+          : null) || "";
+
+      const stayBookingData = {
+        listingTitle: stay?.propertyName || stay?.title || stay?.name || "Stay",
+        listingImage: coverImg,
+        isStay: true,
+        checkInDate: checkInDate ? new Date(checkInDate).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null,
+        checkOutDate: checkOutDate ? new Date(checkOutDate).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null,
+        roomType: roomLabel,
+        mealPlan: mealCode ? getMealLabel(mealCode) : null,
+        guests: guests,
+        receipt: response?.totalAmount ? [
+          { title: "Stay total", content: `${response.currency || "INR"} ${Number(response.totalAmount).toFixed(2)}` },
+          { title: "Total", content: `${response.currency || "INR"} ${Number(response.totalAmount).toFixed(2)}` },
+        ] : [],
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem("pendingBooking", JSON.stringify(stayBookingData));
+
+      // Navigate to checkout page where Razorpay button lives
+      history.push("/checkout");
     } catch (err) {
       console.error("Booking error:", err);
       alert(err.response?.data?.message || "Something went wrong while booking. Please try again.");
@@ -970,7 +1113,8 @@ const StayProduct = () => {
     return [...new Set(images.filter(img => img && typeof img === 'string'))];
   }, [stay]);
 
-  const isRoomBased = stay?.rooms?.length > 0 || stay?.roomTypes?.length > 0;
+  const isPropertyBased = stay?.bookingScope === "Property-Based" || stay?.bookingScope === "Property Based";
+  const isRoomBased = !isPropertyBased && (stay?.rooms?.length > 0 || stay?.roomTypes?.length > 0);
 
   if (loading) {
     return (

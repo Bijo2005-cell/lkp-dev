@@ -18,6 +18,7 @@ import { getBillingConfiguration, createOrder, getListingSlots, loginWithGoogle,
 const Description = ({ classSection, listing, hostData }) => {
   const history = useHistory();
   const isStay = Boolean(listing?.stayId || listing?.stay_id || listing?.propertyType === "STAY");
+  const isPropertyBased = isStay && (listing?.stay?.bookingScope === "Property-Based" || listing?.stay?.bookingScope === "Property Based" || listing?.bookingScope === "Property-Based" || listing?.bookingScope === "Property Based");
   const isFood = Boolean(listing?.menuName || listing?.cuisineType || listing?.foodId || listing?.menuId);
   const isPlace = Boolean(listing?.placeName || listing?.placeType || listing?.placeId);
   const [selectedAddOns, setSelectedAddOns] = useState([]);
@@ -43,7 +44,7 @@ const Description = ({ classSection, listing, hostData }) => {
 
   const handleCheckStayAvailability = async () => {
     try {
-      if (!isStay) return;
+      if (!isStay || isPropertyBased) return;
       const stayId = listing?.stayId || listing?.stay_id || listing?.id;
       if (!stayId) return;
       if (!selectedDate || !selectedEndDate) return;
@@ -79,7 +80,7 @@ const Description = ({ classSection, listing, hostData }) => {
       e.stopPropagation();
     }
 
-    if (!isStay || !stayAvailabilityChecked) return;
+    if (!isStay || (!isPropertyBased && !stayAvailabilityChecked)) return;
 
     // Save booking data first
     saveBookingData();
@@ -122,51 +123,103 @@ const Description = ({ classSection, listing, hostData }) => {
         }
       }
 
-      const orderData = {
-        stayId: Number(stayId) || 0,
-        checkInDate,
-        checkOutDate,
-        numberOfGuests: guestCount,
-        customerName: userInfo.name || userInfo.firstName || "Guest",
-        customerEmail: userInfo.email || "",
-        customerPhone: userInfo.phone || userInfo.phoneNumber || "",
-        specialRequests: "", // Default empty string
-        rooms: [
-          {
-            roomId: selectedRoomId,
-            roomsBooked: 1, // Defaulting to 1 room
-            adults: guests.adults || 0,
-            children: guests.children || 0,
-            mealPlanCode: mealPlanCode,
-            extraBeds: 0
-          }
-        ],
-        // Maintaining customerId, addons and paymentMethod for full order metadata
-        customerId: customerId,
-        addons: selectedAddOns.map(id => {
-          const addOn = listing?.addons?.find(a => (a.addon?.addonId ?? a.addonId) === id);
-          return {
-            addonId: id,
-            quantity: addOn?.addon?.pricingType === "Group" ? (addOnQuantities[id] || 1) : 1
-          };
-        }),
-        paymentMethod: "razorpay"
-      };
+      let calculatedAmount = 0;
+      if (selectedRoomObject && staySelectedRoomType) {
+        let basePrice = 0;
+        let extraAdultPrice = parseFloat(selectedRoomObject.extraAdultPrice || listing?.stay?.extraAdultPrice || 0);
+        let extraChildPrice = parseFloat(selectedRoomObject.extraChildPrice || listing?.stay?.extraChildPrice || 0);
+
+        if (selectedRoomObject.mealPlanPricing && selectedRoomObject.mealPlanPricing[mealPlanCode]) {
+          const mp = selectedRoomObject.mealPlanPricing[mealPlanCode];
+          basePrice = parseFloat(mp.b2cPrice || mp.b2bPrice || mp.price || 0);
+          if (mp.extraAdultPrice) extraAdultPrice = parseFloat(mp.extraAdultPrice);
+          if (mp.extraChildPrice) extraChildPrice = parseFloat(mp.extraChildPrice);
+        } else {
+          if (mealPlanCode === "BB" && Number(selectedRoomObject.bbPrice) > 0) basePrice = parseFloat(selectedRoomObject.bbPrice);
+          else if (mealPlanCode === "CP" && Number(selectedRoomObject.cpPrice) > 0) basePrice = parseFloat(selectedRoomObject.cpPrice);
+          else if (mealPlanCode === "MAP" && Number(selectedRoomObject.mapPrice) > 0) basePrice = parseFloat(selectedRoomObject.mapPrice);
+          else if (mealPlanCode === "AP" && Number(selectedRoomObject.apPrice) > 0) basePrice = parseFloat(selectedRoomObject.apPrice);
+          else if (mealPlanCode === "EP" && Number(selectedRoomObject.epPrice) > 0) basePrice = parseFloat(selectedRoomObject.epPrice);
+          else basePrice = parseFloat(selectedRoomObject.b2cPrice || selectedRoomObject.price || selectedRoomObject.b2bPrice || 0);
+        }
+
+        const maxAdults = selectedRoomObject.maxAdults || listing?.stay?.maxAdults || 0;
+        const maxChildren = selectedRoomObject.maxChildren || listing?.stay?.maxChildren || 0;
+
+        const extraAdults = Math.max(0, (guests?.adults || 0) - maxAdults);
+        const extraChildren = Math.max(0, (guests?.children || 0) - maxChildren);
+
+        const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
+        const amountPerNight = basePrice + totalExtraPrice;
+        const nightsCount = checkInDate && checkOutDate ? Math.max(1, moment(checkOutDate).diff(moment(checkInDate), "days")) : 1;
+        calculatedAmount = amountPerNight * nightsCount;
+      }
+
+      let orderData;
+
+      if (staySelectedRoomType && selectedRoomId) {
+        // Room-based stay: include rooms array
+        orderData = {
+          stayId: Number(stayId) || 0,
+          checkInDate,
+          checkOutDate,
+          numberOfGuests: guestCount,
+          amount: calculatedAmount, // Pass calculated B2C amount
+          paymentMethod: "razorpay", // Explicitly request Razorpay
+          rooms: [
+            {
+              roomId: selectedRoomId,
+              roomsBooked: 1,
+              mealPlanCode: mealPlanCode,
+            },
+          ],
+        };
+      } else {
+        // Property-based stay: send minimal body but calculate B2C amount properly
+        const propertyBasePrice = parseFloat(listing?.stay?.fullPropertyB2cPrice || listing?.stay?.b2cPrice || listing?.stay?.startingPrice || listing?.stay?.pricePerNight || listing?.stay?.price || 0);
+        const extraAdultPrice = parseFloat(listing?.stay?.fullPropertyExtraAdultPrice || listing?.stay?.extraAdultPrice || 0);
+        const extraChildPrice = parseFloat(listing?.stay?.fullPropertyExtraChildPrice || listing?.stay?.extraChildPrice || 0);
+
+        const maxAdults = listing?.stay?.maxAdults || 0;
+        const maxChildren = listing?.stay?.maxChildren || 0;
+
+        const extraAdults = Math.max(0, (guests?.adults || 0) - maxAdults);
+        const extraChildren = Math.max(0, (guests?.children || 0) - maxChildren);
+
+        const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
+        const amountPerNight = propertyBasePrice + totalExtraPrice;
+        const nightsCount = checkInDate && checkOutDate ? Math.max(1, moment(checkOutDate).diff(moment(checkInDate), "days")) : 1;
+        calculatedAmount = amountPerNight * nightsCount;
+
+        orderData = {
+          stayId: Number(stayId) || 0,
+          checkInDate,
+          checkOutDate,
+          numberOfGuests: guestCount,
+          amount: calculatedAmount,
+          paymentMethod: "razorpay",
+        };
+      }
 
       console.log("📦 Creating stay order (updated schema):", orderData);
       const res = await createStayOrder(orderData);
       console.log("✅ Stay order created:", res);
 
       // Handle payment and redirect
-      if (res?.razorpayOrderId) {
-        localStorage.setItem("pendingPayment", JSON.stringify({
-          paymentMethod: "razorpay",
-          razorpayOrderId: res.razorpayOrderId,
-          razorpayKeyId: res.razorpayKeyId,
-          amount: res.amount,
-          currency: res.currency || "INR",
-        }));
-      }
+      const paymentResponse = res?.payment || res?.data?.payment || res?.order?.payment || res;
+      const rzpOrderId = paymentResponse?.razorpayOrderId || res?.razorpayOrderId || res?.order?.razorpayOrderId;
+      const rzpKeyId = paymentResponse?.razorpayKeyId || res?.razorpayKeyId || res?.order?.razorpayKeyId || "rzp_test_RaBjdu0Ed3p1gN";
+
+      const amountInPaise = paymentResponse?.amount ? paymentResponse.amount : Math.round(calculatedAmount * 100);
+      const currency = paymentResponse?.currency || res?.currency || res?.order?.currency || "INR";
+
+      localStorage.setItem("pendingPayment", JSON.stringify({
+        paymentMethod: "razorpay",
+        razorpayOrderId: rzpOrderId,
+        razorpayKeyId: rzpKeyId,
+        amount: amountInPaise,
+        currency: currency,
+      }));
 
       history.push("/checkout");
     } catch (err) {
@@ -549,32 +602,36 @@ const Description = ({ classSection, listing, hostData }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTimeSlotData, selectedTimeSlot, selectedDateAvailability]);
 
+  const stayItems = [
+    {
+      title: selectedDate ? selectedDate.format("MMM DD, YYYY") : formattedDefaultDate,
+      category: "Check-in",
+      icon: "calendar",
+    },
+    {
+      title: selectedEndDate ? selectedEndDate.format("MMM DD, YYYY") : formattedDefaultDate,
+      category: "Check-out",
+      icon: "calendar",
+    },
+    {
+      title: guestCountText,
+      category: "Guest",
+      icon: "user",
+    },
+  ];
+
+  if (!isPropertyBased) {
+    stayItems.push({
+      title: staySelectedRoomType
+        ? (stayRoomTypeOptions.find((o) => o.value === staySelectedRoomType)?.label || "Room")
+        : "Select room",
+      category: "Room type",
+      icon: "home",
+    });
+  }
+
   const items = isStay
-    ? [
-      {
-        title: selectedDate ? selectedDate.format("MMM DD, YYYY") : formattedDefaultDate,
-        category: "Check-in",
-        icon: "calendar",
-      },
-      {
-        title: selectedEndDate ? selectedEndDate.format("MMM DD, YYYY") : formattedDefaultDate,
-        category: "Check-out",
-        icon: "calendar",
-      },
-      {
-        title: guestCountText,
-        category: "Guest",
-        icon: "user",
-      },
-      {
-        title:
-          staySelectedRoomType
-            ? (stayRoomTypeOptions.find((o) => o.value === staySelectedRoomType)?.label || "Room")
-            : "Select room",
-        category: "Room type",
-        icon: "home",
-      },
-    ]
+    ? stayItems
     : [
       {
         title: selectedDate ? selectedDate.format("MMM DD, YYYY") : formattedDefaultDate,
@@ -745,11 +802,13 @@ const Description = ({ classSection, listing, hostData }) => {
       ? parseFloat(selectedDateAvailability.b2b_rate)
       : (selectedTimeSlotData?.b2bRate
         ? parseFloat(selectedTimeSlotData.b2bRate)
-        : isStay && lowestRoomPrice
-          ? lowestRoomPrice
-          : (listing?.timeSlots?.[0]?.b2bRate
-            ? parseFloat(listing.timeSlots[0].b2bRate)
-            : 119));
+        : isStay && isPropertyBased && (listing?.stay?.fullPropertyB2cPrice || listing?.stay?.b2cPrice)
+          ? parseFloat(listing?.stay?.fullPropertyB2cPrice || listing?.stay?.b2cPrice)
+          : isStay && lowestRoomPrice
+            ? lowestRoomPrice
+            : (listing?.timeSlots?.[0]?.b2bRate
+              ? parseFloat(listing.timeSlots[0].b2bRate)
+              : 119));
     const currency = listing?.currency || "INR";
 
     // Calculate nights (assuming 1 night for now, can be enhanced with date range)
@@ -900,6 +959,29 @@ const Description = ({ classSection, listing, hostData }) => {
       return "";
     };
 
+    // Derive stay-specific summary fields
+    const selectedRoomLabel = staySelectedRoomType
+      ? (stayRoomTypeOptions.find((o) => o.value === staySelectedRoomType)?.label || staySelectedRoomType)
+      : "";
+
+    // Derive mealPlanCode for the selected room (same logic as handleBookStay)
+    const selectedRoomId = Number(staySelectedRoomType) || 0;
+    const stayRooms = listing?.rooms || listing?.roomTypes || listing?.room_types || listing?.stay?.rooms || [];
+    const selectedRoomObj = stayRooms.find(r =>
+      (r.roomId ?? r.room_id ?? r.roomTypeId ?? r.id) === selectedRoomId
+    );
+    let stayMealPlanCode = "EP";
+    if (selectedRoomObj) {
+      if (selectedRoomObj.mealPlanPricing && typeof selectedRoomObj.mealPlanPricing === "object") {
+        const plans = Object.keys(selectedRoomObj.mealPlanPricing);
+        if (plans.length > 0) stayMealPlanCode = plans[0];
+      } else if (selectedRoomObj.cpPrice) stayMealPlanCode = "CP";
+      else if (selectedRoomObj.mapPrice) stayMealPlanCode = "MAP";
+      else if (selectedRoomObj.apPrice) stayMealPlanCode = "AP";
+    }
+
+    const mealPlanLabels = { EP: "EP (Room Only)", CP: "CP (Breakfast)", BB: "BB (Bed & Breakfast)", MAP: "MAP (Half Board)", AP: "AP (Full Board)" };
+
     const bookingData = {
       listingId: listing?.listingId || listing?.id,
       listingTitle: listing?.title || listing?.name || listing?.listingTitle || "",
@@ -914,11 +996,17 @@ const Description = ({ classSection, listing, hostData }) => {
       // extra fields to help checkout display
       bookingSummary: {
         date: selectedDate ? selectedDate.format("YYYY-MM-DD") : null,
-        time: summaryBookingTime, // "HH:mm" or "HH:mm:ss" depending on source
-        endTime: summaryEndTime, // "HH:mm" format for end time
+        time: summaryBookingTime,
+        endTime: summaryEndTime,
         slotId: summarySlotId,
         guestCount: guestsCount,
       },
+      // Stay-specific fields for "Your trip" section
+      isStay,
+      checkInDate: isStay && selectedDate ? selectedDate.format("MMM DD, YYYY") : null,
+      checkOutDate: isStay && selectedEndDate ? selectedEndDate.format("MMM DD, YYYY") : null,
+      roomType: selectedRoomLabel || null,
+      mealPlan: staySelectedRoomType ? (mealPlanLabels[stayMealPlanCode] || stayMealPlanCode) : null,
       timestamp: new Date().toISOString(),
     };
 
@@ -2057,6 +2145,29 @@ const Description = ({ classSection, listing, hostData }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxSeats, selectedDateAvailability, guests]);
 
+  const displayPrice = React.useMemo(() => {
+    let price = 0;
+    if (isPropertyBased) {
+      price = parseFloat(listing?.stay?.fullPropertyB2cPrice || listing?.stay?.b2cPrice || listing?.stay?.startingPrice || listing?.stay?.pricePerNight || listing?.stay?.price || 0);
+    } else if (isStay) {
+      price = parseFloat(listing?.stay?.fullPropertyB2cPrice || listing?.stay?.b2cPrice || listing?.b2cPrice || 0);
+    } else {
+      price = parseFloat(listing?.b2cPrice || listing?.price || 0);
+      // Fallback: Check slots data for pricing if experience level price is missing
+      if (!price && slotsData && slotsData.length > 0) {
+        // Prioritize first slot's price_per_person, fallback to b2b_rate
+        const firstSlotPrice = slotsData[0]?.pricing?.price_per_person || slotsData[0]?.pricing?.b2b_rate;
+        if (firstSlotPrice) {
+          price = parseFloat(firstSlotPrice);
+        }
+      }
+    }
+    const currency = listing?.stay?.currency || listing?.currency || "INR";
+    return price > 0 ? `${currency} ${price.toFixed(2)}` : "";
+  }, [listing, isStay, isPropertyBased, slotsData]);
+
+  const displayTime = isStay ? "night" : "person";
+
   return (
     <>
       <div className={cn(classSection, styles.section)}>
@@ -2075,8 +2186,8 @@ const Description = ({ classSection, listing, hostData }) => {
                 className={styles.receipt}
                 items={items}
                 hostData={hostData}
-                priceActual={priceInfo?.priceActual || "$119"}
-                time={priceInfo?.time || "night"}
+                priceActual={displayPrice || "$119"}
+                time={displayTime}
                 avatar={listing?.hostAvatar || listing?.avatar}
                 onItemClick={handleOpenDateTime}
                 renderItem={(item, index) => {
@@ -2222,7 +2333,7 @@ const Description = ({ classSection, listing, hostData }) => {
                       </div>
                     );
                   }
-                  if (index === 3) {
+                  if (index === 3 && !isPropertyBased) {
                     const dropdownOptions = stayRoomTypeOptions.length > 0
                       ? ["Select room", ...stayRoomTypeOptions.map((o) => o.label)]
                       : ["Select room"];
@@ -2269,14 +2380,14 @@ const Description = ({ classSection, listing, hostData }) => {
                     <button
                       type="button"
                       className={cn("button", styles.button)}
-                      onClick={stayAvailabilityChecked ? handleBookStay : handleCheckStayAvailability}
+                      onClick={(isPropertyBased || stayAvailabilityChecked) ? handleBookStay : handleCheckStayAvailability}
                       disabled={!selectedDate || !selectedEndDate || stayAvailabilityLoading}
                       title={!selectedDate || !selectedEndDate ? "Please select check-in and check-out dates" : ""}
                     >
                       <span>
                         {stayAvailabilityLoading
-                          ? (stayAvailabilityChecked ? "Processing..." : "Checking...")
-                          : (stayAvailabilityChecked ? "Book now" : "Check availability")
+                          ? ((isPropertyBased || stayAvailabilityChecked) ? "Processing..." : "Checking...")
+                          : ((isPropertyBased || stayAvailabilityChecked) ? "Book now" : "Check availability")
                         }
                       </span>
                       <Icon name="bag" size="16" />
