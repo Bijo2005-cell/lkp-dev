@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import styles from "./CheckoutComplete.module.sass";
 import Icon from "../Icon";
 
-const CheckoutComplete = ({ className, title, parameters, options, items, paymentFailed = false, onRetryPayment }) => {
+const CheckoutComplete = ({ className, title, parameters, options, items, paymentFailed = false, onRetryPayment, isStay, hostName, avatarUrl, rating, reviews }) => {
   return (
     <div className={cn(className, styles.complete)}>
       <div className={styles.head}>
@@ -19,7 +19,7 @@ const CheckoutComplete = ({ className, title, parameters, options, items, paymen
           <>
             <div className={cn("h2", styles.title)}>Congratulation!</div>
             <div className={styles.info}>
-              You trip has been booked!{" "}
+              {isStay ? "Your stay has been booked!" : "Your trip has been booked!"}{" "}
               <span role="img" aria-label="firework">
                 🎉
               </span>
@@ -27,20 +27,24 @@ const CheckoutComplete = ({ className, title, parameters, options, items, paymen
           </>
         )}
         <div className={styles.subtitle}>{title}</div>
-        <div className={styles.author}>
-          <div className={styles.text}>Hosted by</div>
-          <div className={styles.avatar}>
-            <img src="/images/content/avatar.jpg" alt="Avatar" />
+        {hostName && (
+          <div className={styles.author}>
+            <div className={styles.text}>Hosted by</div>
+            <div className={styles.avatar}>
+              <img src={avatarUrl || "/images/content/avatar.jpg"} alt="Avatar" />
+            </div>
+            <div className={styles.man}>{hostName}</div>
           </div>
-          <div className={styles.man}>Zoe Towne</div>
-        </div>
+        )}
       </div>
       <div className={styles.line}>
-        <div className={styles.rating}>
-          <Icon name="star" size="20" />
-          <div className={styles.number}>4.8</div>
-          <div className={styles.reviews}>(256 reviews)</div>
-        </div>
+        {rating && (
+          <div className={styles.rating}>
+            <Icon name="star" size="20" />
+            <div className={styles.number}>{rating}</div>
+            {reviews && <div className={styles.reviews}>({reviews} reviews)</div>}
+          </div>
+        )}
         {parameters && (
           <div className={styles.parameters}>
             {parameters.map((x, index) => (
@@ -100,8 +104,8 @@ const CheckoutComplete = ({ className, title, parameters, options, items, paymen
             <Link className={cn("button-stroke", styles.button)} to="/bookings">
               Your trips
             </Link>
-            <Link className={cn("button", styles.button)} to="/things-to-do">
-              Explore things to do
+            <Link className={cn("button", styles.button)} to={isStay ? "/stays" : "/things-to-do"}>
+              Explore {isStay ? "places to stay" : "things to do"}
             </Link>
           </>
         )}

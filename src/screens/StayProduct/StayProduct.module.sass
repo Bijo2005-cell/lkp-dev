@@ -622,6 +622,36 @@
     border-color: $n4
     box-shadow: none
 
+.startingFromRow
+  display: flex
+  align-items: baseline
+  gap: 6px
+  margin-bottom: 12px
+  flex-wrap: wrap
+
+.startingFromLabel
+  font-size: 14px
+  font-weight: 600
+  color: $n4
+  text-transform: uppercase
+  letter-spacing: 0.5px
+  +dark
+    color: $n5
+
+.startingFromPrice
+  font-size: 22px
+  font-weight: 700
+  color: $n2
+  +dark
+    color: $n8
+
+.startingFromSuffix
+  font-size: 14px
+  color: $n4
+  font-weight: 500
+  +dark
+    color: $n5
+
 .priceRow
   position: relative
   display: flex
@@ -793,6 +823,112 @@
   &:hover
     border-color: #3b82f6
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05)
+  &:focus
+    outline: none
+    border-color: #3b82f6
+
+.guestSelectorOpen
+  border-color: #3b82f6
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05)
+
+.guestValueRow
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 8px
+
+.guestIconGroup
+  display: flex
+  align-items: center
+  gap: 6px
+
+.guestChevron
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  transition: transform 0.2s
+  svg
+    width: 14px
+    height: 14px
+    fill: $n4
+    +dark
+      fill: $n5
+
+.guestChevronOpen
+  transform: rotate(180deg)
+
+.roomTypeField
+  margin-bottom: 16px
+
+.roomTypeSelector
+  padding: 14px 16px
+  background: white
+  border: 1px solid #E5E7EB
+  border-radius: 12px
+  cursor: pointer
+  transition: all 0.2s
+  +dark
+    background: $n3
+    border-color: $n4
+  &:hover
+    border-color: #3b82f6
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05)
+  &:focus
+    outline: none
+    border-color: #3b82f6
+
+.roomTypeSelectorOpen
+  border-color: #3b82f6
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05)
+
+.roomTypeSelectorDisabled
+  opacity: 0.85
+  cursor: not-allowed
+  pointer-events: auto
+
+.roomTypeDropdown
+  margin-top: 8px
+  padding: 8px 0
+  border: 1px solid $n6
+  border-radius: 8px
+  background: white
+  max-height: 240px
+  overflow-y: auto
+  +dark
+    border-color: $n4
+    background: $n2
+
+.roomTypeOption
+  display: flex
+  justify-content: space-between
+  align-items: center
+  padding: 12px 16px
+  cursor: pointer
+  transition: background 0.15s
+  +dark
+    &:hover
+      background: $n3
+  &:hover
+    background: #F9FAFB
+
+.roomTypeOptionSelected
+  background: #EFF6FF
+  +dark
+    background: rgba(59, 130, 246, 0.2)
+
+.roomTypeOptionName
+  font-size: 14px
+  font-weight: 600
+  color: $n2
+  +dark
+    color: $n8
+
+.roomTypeOptionPrice
+  font-size: 13px
+  font-weight: 600
+  color: $n4
+  +dark
+    color: $n5
 
 .guestLabel
   font-size: 11px
@@ -802,27 +938,12 @@
   letter-spacing: 0.05em
   margin-bottom: 2px
 
-.guestValueRow
-  display: flex
-  align-items: center
-  justify-content: space-between
-  gap: 8px
-
 .guestValue
   font-size: 14px
   font-weight: 600
   color: #111827
   +dark
     color: $n8
-
-.guestIcon
-  display: flex
-  align-items: center
-  justify-content: center
-  svg
-    width: 14px
-    height: 14px
-    fill: #9CA3AF
 
 .guestPicker
   margin-top: 8px
@@ -1234,6 +1355,78 @@
   color: #4B5563
   +dark
     color: $n5
+
+// Room capacity message banner
+.roomCapacityMsg
+  display: flex
+  align-items: flex-start
+  gap: 8px
+  padding: 10px 12px
+  border-radius: 10px
+  font-size: 12px
+  font-weight: 500
+  line-height: 1.5
+  margin-bottom: 12px
+  svg
+    flex-shrink: 0
+    margin-top: 1px
+
+.roomCapacityInfo
+  background: #EFF6FF
+  color: #1D4ED8
+  border: 1px solid #BFDBFE
+  +dark
+    background: rgba(29, 78, 216, 0.15)
+    color: #93C5FD
+    border-color: rgba(147, 197, 253, 0.3)
+  svg
+    fill: #1D4ED8
+    +dark
+      fill: #93C5FD
+
+.roomCapacityWarn
+  background: #FFFBEB
+  color: #92400E
+  border: 1px solid #FDE68A
+  +dark
+    background: rgba(146, 64, 14, 0.15)
+    color: #FCD34D
+    border-color: rgba(252, 211, 77, 0.3)
+  svg
+    fill: #92400E
+    +dark
+      fill: #FCD34D
+
+// Total breakdown below CTA
+.totalBreakdown
+  margin-top: 12px
+  border-top: 1px solid #F3F4F6
+  padding-top: 12px
+  display: flex
+  flex-direction: column
+  gap: 6px
+  +dark
+    border-color: $n4
+
+.totalRow
+  display: flex
+  justify-content: space-between
+  align-items: center
+  font-size: 13px
+  color: #6B7280
+  +dark
+    color: $n5
+
+.totalRowFinal
+  font-size: 15px
+  font-weight: 700
+  color: #111827
+  padding-top: 8px
+  border-top: 1px solid #F3F4F6
+  margin-top: 2px
+  +dark
+    color: $n8
+    border-color: $n4
 
 // Animations
 @keyframes fadeIn

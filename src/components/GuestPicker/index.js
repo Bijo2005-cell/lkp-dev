@@ -30,37 +30,40 @@ const GuestPicker = ({
 
   // Keep state in sync with initialGuests prop and enforce maxAllowed
   React.useEffect(() => {
-    setGuests(prev => {
-      const target = { ...initialGuests };
-      const total = target.adults + target.children;
+    const target = { ...initialGuests };
+    const total = target.adults + target.children;
+    let changed = false;
 
-      // If parent state exceeds maxAllowed, clamp it
-      if (maxAllowed !== undefined && total > maxAllowed) {
-        // Simple clamping: reduce children first, then adults
-        if (target.children > 0) {
-          const overage = total - maxAllowed;
-          target.children = Math.max(0, target.children - overage);
-          const newTotal = target.adults + target.children;
-          if (newTotal > maxAllowed) {
-            target.adults = Math.max(0, maxAllowed);
-          }
-        } else {
+    // If parent state exceeds maxAllowed, clamp it
+    if (maxAllowed !== undefined && total > maxAllowed) {
+      if (target.children > 0) {
+        const overage = total - maxAllowed;
+        target.children = Math.max(0, target.children - overage);
+        const newTotal = target.adults + target.children;
+        if (newTotal > maxAllowed) {
           target.adults = Math.max(0, maxAllowed);
         }
-
-        // Notify parent if we had to clamp
-        onGuestChange?.(target);
+      } else {
+        target.adults = Math.max(0, maxAllowed);
       }
+      changed = true;
+    }
 
-      // Also ensure infants don't exceed adults
-      if (target.infants > target.adults) {
-        target.infants = target.adults;
-        onGuestChange?.(target);
-      }
+    // Also ensure infants don't exceed adults
+    if (target.infants > target.adults) {
+      target.infants = target.adults;
+      changed = true;
+    }
 
-      return target;
-    });
+    setGuests(target);
+
+    // Notify parent AFTER setting local state, not inside the updater
+    if (changed) {
+      onGuestChange?.(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialGuests, maxAllowed]);
+
 
   const totalGuests = useMemo(() => {
     // Infants don't count toward maximum (matching Airbnb style)

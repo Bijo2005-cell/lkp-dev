@@ -55,7 +55,7 @@ const CreditCard = ({ className, buttonUrl, hidePaymentFields = false }) => {
       history.push(buttonUrl);
       return;
     }
-    
+
     // Check if razorpayKeyId exists
     if (!payment.razorpayKeyId) {
       console.error("❌ Missing razorpayKeyId in payment data");
@@ -106,9 +106,8 @@ const CreditCard = ({ className, buttonUrl, hidePaymentFields = false }) => {
           try {
             localStorage.setItem("razorpayPaymentSuccess", JSON.stringify(response));
             // Save the actual paid amount before removing pendingPayment
-            // The amount sent to Razorpay is what was actually paid (after discount)
+            const actualPaidAmount = payment.amount;
             try {
-              const actualPaidAmount = payment.amount; // This is the amount sent to Razorpay (paid amount)
               localStorage.setItem("actualPaidAmount", JSON.stringify({
                 amount: actualPaidAmount,
                 currency: payment.currency || "INR"
@@ -116,10 +115,21 @@ const CreditCard = ({ className, buttonUrl, hidePaymentFields = false }) => {
             } catch (e) {
               console.error("Error saving actual paid amount:", e);
             }
-          } catch {}
+            // Copy current pendingBooking → checkoutBooking so that
+            // checkout-complete always reads the LATEST booking (not stale experience data)
+            try {
+              const currentBooking = localStorage.getItem("pendingBooking");
+              if (currentBooking) {
+                localStorage.setItem("checkoutBooking", currentBooking);
+              }
+            } catch (e) {
+              console.error("Error copying pendingBooking to checkoutBooking:", e);
+            }
+          } catch { }
           localStorage.removeItem("pendingPayment");
           history.push(buttonUrl);
         },
+
         modal: {
           ondismiss: function () {
             // Leave user on the page; do not navigate
