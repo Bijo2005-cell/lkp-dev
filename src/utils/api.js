@@ -206,8 +206,9 @@ export const getListing = async (id) => {
 // Function to get customer orders
 export const getCustomerOrders = async (limit = 20, page = 1) => {
   try {
-    const response = await ListingsAPI.get("/orders", {
-      params: { page, limit },
+    const offset = (page - 1) * limit;
+    const response = await ListingsAPI.get("/orders/customer/my-orders", {
+      params: { limit, offset },
     });
     const payload = response.data;
     console.log("✅ Customer orders fetched (raw):", payload);

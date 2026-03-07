@@ -84,7 +84,8 @@ const CheckoutComplete = () => {
   ];
 
   const gallery = useMemo(() => {
-    const img = booking?.listingImage || "/images/content/slider-pic-1.jpg";
+    // Prefer room-specific image, then listing image, then fallback
+    const img = booking?.roomImage || booking?.listingImage || "/images/content/slider-pic-1.jpg";
     return [
       { src: img, srcSet: img },
       { src: img, srcSet: img },
@@ -102,15 +103,21 @@ const CheckoutComplete = () => {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  // Format amount - Razorpay amounts are in paise (smallest currency unit), so divide by 100 for INR
-  const formatAmount = (amount, currency = "INR") => {
+  // Format amount - amounts from Razorpay (via pendingPayment/actualPaidAmount) are in paise
+  // so we always divide by 100 for those. For values that might already be in rupees
+  // (e.g. from receipt total strings), we keep the >100000 heuristic as a guard.
+  const formatAmount = (amount, currency = "INR", alreadyInPaise = false) => {
     if (amount === undefined || amount === null || isNaN(amount)) return null;
-    // If amount is in paise (typically > 1000 for reasonable prices), convert to rupees
     const numAmount = typeof amount === 'number' ? amount : parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) return null;
-    const amountInRupees = numAmount > 1000 ? (numAmount / 100).toFixed(2) : numAmount.toFixed(2);
+    // Razorpay amounts are always in paise. Anything over 100 that looks like paise:
+    // treat amounts > 100 and they came from Razorpay as paise → divide by 100
+    const amountInRupees = (alreadyInPaise || numAmount > 100000)
+      ? (numAmount / 100).toFixed(2)
+      : numAmount.toFixed(2);
     return `${currency} ${amountInRupees}`;
   };
+
 
   const isStay = useMemo(() => booking?.isStay || !!(booking?.checkInDate || booking?.checkOutDate), [booking]);
 
@@ -141,22 +148,21 @@ const CheckoutComplete = () => {
       console.log("💳 Payment data:", paymentData);
     }
 
-    // Priority 1: Use paidAmount from paymentData (passed from checkout page)
-    // This is the actual amount that was paid (after discount)
+    // Priority 1: Use paidAmount from paymentData — this is in paise from Razorpay
     if (paymentData?.paidAmount !== undefined && paymentData.paidAmount !== null) {
-      const formatted = formatAmount(paymentData.paidAmount, paymentData.currency || "INR");
+      const formatted = formatAmount(paymentData.paidAmount, paymentData.currency || "INR", true);
       if (formatted) {
         amountPaid = formatted;
-        console.log("✅ Using paidAmount from paymentData (passed from checkout):", paymentData.paidAmount);
+        console.log("✅ Using paidAmount from paymentData (paise):", paymentData.paidAmount, "→", formatted);
       }
     }
 
-    // Priority 2: Check for finalAmount in paymentData
+    // Priority 2: Check for finalAmount in paymentData (also in paise)
     if (amountPaid === "—" && paymentData?.finalAmount !== undefined && paymentData.finalAmount !== null) {
-      const formatted = formatAmount(paymentData.finalAmount, paymentData.currency || "INR");
+      const formatted = formatAmount(paymentData.finalAmount, paymentData.currency || "INR", true);
       if (formatted) {
         amountPaid = formatted;
-        console.log("✅ Using finalAmount from paymentData:", paymentData.finalAmount);
+        console.log("✅ Using finalAmount from paymentData (paise):", paymentData.finalAmount, "→", formatted);
       }
     }
 
@@ -348,6 +354,9 @@ const CheckoutComplete = () => {
           content: guestsContent,
         },
         ...(booking?.roomType ? [{ title: "Room type", content: booking.roomType }] : []),
+        ...(booking?.roomsBooked && booking.roomsBooked > 0
+          ? [{ title: "Rooms booked", content: `${booking.roomsBooked} room${booking.roomsBooked > 1 ? "s" : ""}` }]
+          : []),
         ...(booking?.mealPlan ? [{ title: "Meal plan", content: booking.mealPlan }] : []),
       ];
     }
