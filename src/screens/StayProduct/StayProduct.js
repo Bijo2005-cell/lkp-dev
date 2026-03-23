@@ -224,7 +224,6 @@ const BookingSidebar = ({
 
   const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
 
-  const originalPrice = basePrice + totalExtraPrice;
   const price = discountedBasePrice + totalExtraPrice;
 
   // Always display stay prices in INR (₹) for this booking flow
@@ -628,7 +627,6 @@ const RoomCard = ({ room, onSelect, discountPercentage, guests, stay }) => {
 
   const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
 
-  const originalPrice = basePrice + totalExtraPrice;
   const price = discountedBasePrice + totalExtraPrice;
 
   return (

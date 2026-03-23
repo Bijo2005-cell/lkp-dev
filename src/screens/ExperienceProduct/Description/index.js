@@ -94,9 +94,6 @@ const Description = ({ classSection, listing, hostData }) => {
     try {
       setStayAvailabilityLoading(true);
 
-      const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
-      const customerId = userInfo.customerId || userInfo.id || null;
-
       const stayId = listing?.stayId || listing?.stay_id || listing?.id;
       const checkInDate = selectedDate.format("YYYY-MM-DD");
       const checkOutDate = selectedEndDate.format("YYYY-MM-DD");
@@ -769,7 +766,7 @@ const Description = ({ classSection, listing, hostData }) => {
     return finalPrice;
   }, [listing, isStay]);
 
-  const { addOnsTotal, finalTotal, receipt, priceInfo } = useMemo(() => {
+  const { addOnsTotal, finalTotal, receipt } = useMemo(() => {
     // Calculate addons price based on pricing type
     const addOnsPrice = selectedAddOns.reduce((sum, id) => {
       // Find addon from listing data

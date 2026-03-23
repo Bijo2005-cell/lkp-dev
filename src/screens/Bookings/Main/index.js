@@ -328,7 +328,6 @@ const Main = ({
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState(null);
-  const [cancelPreview, setCancelPreview] = useState(null);
   const [transformedBookings, setTransformedBookings] = useState([]);
   const [transformedCompletedBookings, setTransformedCompletedBookings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -420,7 +419,7 @@ const Main = ({
     };
 
     transformBookings();
-  }, [propBookingData, propCompletedOrders]);
+  }, [propBookingData, propCompletedOrders, initialTabSet]);
 
   const countsByTab = useMemo(() => {
     // Count upcoming and cancelled from regular bookings
@@ -541,7 +540,6 @@ const Main = ({
     setBookingToCancel(booking);
     setCancelReason("");
     setCancelError(null);
-    setCancelPreview(null);
 
     const isEventOrder = booking?.category === "EVENTS" || booking?.bookingData?.eventId != null;
     if (isEventOrder && booking?.orderId) {
@@ -552,7 +550,6 @@ const Main = ({
           preview,
           booking,
         });
-        setCancelPreview(preview);
       } catch (e) {
         console.warn("⚠️ Failed to fetch cancel preview:", e?.response?.data || e?.message || e);
       }
@@ -642,7 +639,6 @@ const Main = ({
     setBookingToCancel(null);
     setCancelReason("");
     setCancelError(null);
-    setCancelPreview(null);
   };
 
   const handleLeaveReviewClick = (booking) => {

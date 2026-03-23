@@ -112,8 +112,6 @@ const CheckoutComplete = () => {
     return `${currency} ${amountInRupees}`;
   };
 
-  const isStay = useMemo(() => booking?.isStay || !!(booking?.checkInDate || booking?.checkOutDate), [booking]);
-
   const parameters = useMemo(() => {
     // Get guest count - check multiple possible formats
     const guestsCount =
@@ -299,7 +297,7 @@ const CheckoutComplete = () => {
         icon: paymentFailed ? "alert-circle" : "wallet",
       },
     ];
-  }, [booking, paymentSuccess, paymentData]);
+  }, [booking, paymentSuccess, paymentData, paymentFailed]);
 
   const items = useMemo(() => {
     // Format time slot with start and end time if available

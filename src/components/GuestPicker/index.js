@@ -60,7 +60,7 @@ const GuestPicker = ({
 
       return target;
     });
-  }, [initialGuests, maxAllowed]);
+  }, [initialGuests, maxAllowed, onGuestChange]);
 
   const totalGuests = useMemo(() => {
     // Infants don't count toward maximum (matching Airbnb style)
@@ -138,9 +138,9 @@ const GuestPicker = ({
                     <div className={styles.categorySubtitle}>{category.subtitle}</div>
                   )}
                   {category.type === "pets" && category.showServiceAnimalLink && (
-                    <a href="#" className={styles.serviceAnimalLink}>
+                    <button type="button" className={styles.serviceAnimalLink}>
                       Bringing a service animal?
-                    </a>
+                    </button>
                   )}
                 </div>
                 <Counter
