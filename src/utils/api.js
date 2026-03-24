@@ -258,6 +258,22 @@ export const getListingMedia = async (listingId) => {
   }
 };
 
+export const getListingAddons = async (listingId) => {
+  try {
+    if (!listingId) throw new Error("listingId is required");
+    const response = await ListingsAPI.get(`/listings/${listingId}/addons`);
+    const payload = response.data;
+    console.log("✅ Listing addons fetched (raw):", payload);
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.addons)) return payload.addons;
+    return [];
+  } catch (error) {
+    console.error("❌ Error fetching listing addons:", error.response?.data || error.message);
+    return [];
+  }
+};
+
 // Function to get customer orders
 export const getCustomerOrders = async (limit = 20, page = 1) => {
   try {

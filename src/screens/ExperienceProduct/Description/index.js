@@ -333,6 +333,31 @@ const Description = ({ classSection, listing, hostData }) => {
     return (guestsObj.adults || 0) + (guestsObj.children || 0);
   };
 
+  const minimumChargeAge = useMemo(() => {
+    const parsedAge = Number(listing?.minimumAge);
+    return Number.isFinite(parsedAge) && parsedAge > 0 ? parsedAge : 13;
+  }, [listing?.minimumAge]);
+
+  const billableGuestLabel = useMemo(() => `Age ${minimumChargeAge}+`, [minimumChargeAge]);
+
+  const childrenGuestLabel = useMemo(() => {
+    if (minimumChargeAge <= 2) {
+      return "Under 2";
+    }
+    return `Ages 2-${minimumChargeAge - 1}`;
+  }, [minimumChargeAge]);
+
+  const getBillableGuestCount = (guestsObj) => {
+    if (!guestsObj) return 0;
+    if (isStay) {
+      return getGuestCount(guestsObj);
+    }
+    if (guestsObj.adults !== undefined || guestsObj.children !== undefined) {
+      return guestsObj.adults || 0;
+    }
+    return guestsObj.guests || 0;
+  };
+
   const stayRoomTypeOptions = useMemo(() => {
     const currentGuestCount = getGuestCount(guests);
 
@@ -818,8 +843,9 @@ const Description = ({ classSection, listing, hostData }) => {
       return sum;
     }, 0);
 
-    // Calculate base price based on guest count and price type
+    // Total guests drive slot capacity; billable guests drive experience pricing.
     const guestCount = getGuestCount(guests);
+    const billableGuestCount = getBillableGuestCount(guests);
     // Use availability data if available, then selected slot, then fallback to listing data
     const pricePerPerson = selectedDateAvailability?.price_per_person
       ? parseFloat(selectedDateAvailability.price_per_person)
@@ -896,10 +922,12 @@ const Description = ({ classSection, listing, hostData }) => {
 
     let basePriceAmount;
     let priceDescription;
+    const billableGuestText = `${billableGuestCount} ${billableGuestCount === 1 ? "guest" : "guests"}`;
+    const billablePriceDescription = `${currency} ${pricePerPerson?.toFixed?.(2) || "0.00"} x ${billableGuestText}${nightsCount > 1 ? ` x ${nightsCount} nights` : ""}`;
 
     if (!isStay && pricePerPerson) {
       // Experience: Price per person
-      basePriceAmount = pricePerPerson * guestCount * nightsCount;
+      basePriceAmount = pricePerPerson * billableGuestCount * nightsCount;
       priceDescription = `${currency} ${pricePerPerson.toFixed(2)} × ${guestCount} ${guestCount === 1 ? 'guest' : 'guests'}${nightsCount > 1 ? ` × ${nightsCount} nights` : ''}`;
     } else {
       // Stay: Price per room per night × nights × rooms
@@ -907,6 +935,10 @@ const Description = ({ classSection, listing, hostData }) => {
       const roomStr = roomsNeeded > 1 ? ` × ${roomsNeeded} room${roomsNeeded > 1 ? 's' : ''}` : '';
       const nightStr = nightsCount > 1 ? ` × ${nightsCount} nights` : '';
       priceDescription = `${currency} ${pricePerNight.toFixed(2)}${nightStr}${roomStr}`;
+    }
+
+    if (!isStay && pricePerPerson) {
+      priceDescription = billablePriceDescription;
     }
 
     const subtotal = basePriceAmount + addOnsPrice;
@@ -1139,6 +1171,7 @@ const Description = ({ classSection, listing, hostData }) => {
         endTime: summaryEndTime,
         slotId: summarySlotId,
         guestCount: stayGuestCount,
+        billableGuestCount: isStay ? stayGuestCount : getBillableGuestCount(guests),
       },
       // Stay-specific fields for "Your trip" section
       isStay,
@@ -1309,8 +1342,9 @@ const Description = ({ classSection, listing, hostData }) => {
         0
       );
 
-      // Get number of guests
+      // Total guests reserve capacity; billable guests drive pricing and payment.
       const numberOfGuests = getGuestCount(guests);
+      const billableGuests = getBillableGuestCount(guests);
 
       // Validate available seats before proceeding
       if (selectedDateAvailability) {
@@ -1324,7 +1358,7 @@ const Description = ({ classSection, listing, hostData }) => {
       }
 
       // Calculate base price amount
-      const guestCount = getGuestCount(guests);
+      const guestCount = billableGuests;
       const pricePerPerson = selectedDateAvailability?.price_per_person
         ? parseFloat(selectedDateAvailability.price_per_person)
         : (listing?.timeSlots?.[0]?.pricePerPerson
@@ -1438,7 +1472,7 @@ const Description = ({ classSection, listing, hostData }) => {
         bookingDate: bookingDate,
         bookingTime: bookingTime, // "HH:mm:ss"
         bookingSlotId: bookingSlotId || 0,
-        guestCount: numberOfGuests || 1,
+        guestCount: billableGuests,
         customer: {
           name: customerName || "Guest User",
           email: customerEmail || "guest@example.com",
@@ -1785,12 +1819,12 @@ const Description = ({ classSection, listing, hostData }) => {
     }
 
     // Get number of guests
-    const numberOfGuests = bookingData.guests ?
-      getGuestCount(bookingData.guests) :
-      getGuestCount(guests);
+    const billableGuests = bookingData.guests ?
+      getBillableGuestCount(bookingData.guests) :
+      getBillableGuestCount(guests);
 
     // Calculate base price amount
-    const guestCount = numberOfGuests;
+    const guestCount = billableGuests;
     const pricePerPerson = selectedDateAvailability?.price_per_person
       ? parseFloat(selectedDateAvailability.price_per_person)
       : (listing?.timeSlots?.[0]?.pricePerPerson
@@ -1873,7 +1907,7 @@ const Description = ({ classSection, listing, hostData }) => {
       bookingDate: bookingDate,
       bookingTime: bookingTime, // "HH:mm:ss"
       bookingSlotId: bookingSlotId || 0,
-      guestCount: numberOfGuests || 1,
+      guestCount: billableGuests,
       customer: {
         name: customerName || "Guest User",
         email: customerEmail || "guest@example.com",
@@ -2540,6 +2574,9 @@ const Description = ({ classSection, listing, hostData }) => {
                           childrenAllowed={listing?.childrenAllowed !== false}
                           infantsAllowed={listing?.infantsAllowed === true}
                           adultsLabel="Guests"
+                          adultsSubtitle={billableGuestLabel}
+                          childrenSubtitle={childrenGuestLabel}
+                          requireAdultForChildren={false}
                         />
                       </div>
                     );

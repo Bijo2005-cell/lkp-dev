@@ -21,6 +21,9 @@ const GuestPicker = ({
   childrenAllowed = true,
   infantsAllowed = true,
   adultsLabel = "Adults",
+  adultsSubtitle = "Age 13+",
+  childrenSubtitle = "Ages 2-12",
+  requireAdultForChildren = true,
   className,
 }) => {
   const [guests, setGuests] = useState(initialGuests);
@@ -31,16 +34,14 @@ const GuestPicker = ({
     onGuestChangeRef.current = onGuestChange;
   }, [onGuestChange]);
 
-  // Use maxSeats if provided, otherwise fall back to maxGuests, or undefined (no limit)
-  const maxAllowed = maxSeats !== undefined ? maxSeats : (maxGuests !== undefined ? maxGuests : undefined);
+  const maxAllowed =
+    maxSeats !== undefined ? maxSeats : (maxGuests !== undefined ? maxGuests : undefined);
 
-  // Keep state in sync with initialGuests prop and enforce maxAllowed
   React.useEffect(() => {
     const target = { ...initialGuests };
     const total = target.adults + target.children;
     let changed = false;
 
-    // If parent state exceeds maxAllowed, clamp it
     if (maxAllowed !== undefined && total > maxAllowed) {
       if (target.children > 0) {
         const overage = total - maxAllowed;
@@ -55,7 +56,6 @@ const GuestPicker = ({
       changed = true;
     }
 
-    // Also ensure infants don't exceed adults
     if (target.infants > target.adults) {
       target.infants = target.adults;
       changed = true;
@@ -82,33 +82,36 @@ const GuestPicker = ({
     onGuestChangeRef.current?.(guests);
   }, [guests]);
 
-
   const totalGuests = useMemo(() => {
-    // Infants don't count toward maximum (matching Airbnb style)
     return guests.adults + guests.children;
   }, [guests.adults, guests.children]);
 
   const guestCountText = useMemo(() => {
-    // Display count excludes infants (matching Airbnb style)
     const total = guests.adults + guests.children;
     if (total === 0) return "Add guests";
     if (total === 1) return "1 guest";
     return `${total} guests`;
   }, [guests.adults, guests.children]);
 
+  const adultMin = useMemo(() => {
+    if (maxAllowed === 0) return 0;
+    if (guests.infants > 0) return 1;
+    if (requireAdultForChildren && guests.children > 0) return 1;
+    return 0;
+  }, [guests.children, guests.infants, maxAllowed, requireAdultForChildren]);
 
   const guestCategories = [
     {
       type: "adults",
       label: adultsLabel,
-      subtitle: "Age 13+",
+      subtitle: adultsSubtitle,
       value: guests.adults,
-      show: true, // Always show adults
+      show: true,
     },
     {
       type: "children",
       label: "Children",
-      subtitle: "Ages 2–12",
+      subtitle: childrenSubtitle,
       value: guests.children,
       show: childrenAllowed,
     },
@@ -146,7 +149,6 @@ const GuestPicker = ({
 
         <div className={styles.content}>
           {guestCategories.map((category) => {
-            // Filter categories based on show flag
             if (!category.show) {
               return null;
             }
@@ -172,25 +174,24 @@ const GuestPicker = ({
                       const newGuests = { ...prev };
 
                       if (category.type === "adults") {
-                        // Ensure at least 1 adult if there are children or infants
-                        if (newValue === 0 && (prev.children > 0 || prev.infants > 0)) {
+                        if (
+                          newValue === 0 &&
+                          ((requireAdultForChildren && prev.children > 0) || prev.infants > 0)
+                        ) {
                           newValue = 1;
                         }
                         newGuests.adults = newValue;
 
-                        // Limit infants to the same size as adults
                         if (newGuests.infants > newValue) {
                           newGuests.infants = newValue;
                         }
                       } else if (category.type === "children") {
                         newGuests.children = newValue;
-                        // Ensure at least 1 adult if there are children
-                        if (newValue > 0 && newGuests.adults === 0) {
+                        if (requireAdultForChildren && newValue > 0 && newGuests.adults === 0) {
                           newGuests.adults = 1;
                         }
                       } else if (category.type === "infants") {
                         newGuests.infants = newValue;
-                        // Ensure at least 1 adult if there are infants
                         if (newValue > 0 && newGuests.adults === 0) {
                           newGuests.adults = 1;
                         }
@@ -203,7 +204,7 @@ const GuestPicker = ({
                   }}
                   iconMinus="minus"
                   iconPlus="plus"
-                  min={category.type === "adults" ? (maxAllowed === 0 ? 0 : 1) : 0}
+                  min={category.type === "adults" ? adultMin : 0}
                   max={
                     category.type === "infants"
                       ? guests.adults
@@ -238,4 +239,3 @@ const GuestPicker = ({
 };
 
 export default GuestPicker;
-
