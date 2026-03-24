@@ -157,6 +157,8 @@ const Checkout = () => {
 
               return {
                 ...(prev || {}),
+                hostName: order?.hostName || orderDetails?.hostName || prev?.hostName,
+                hostAvatar: "/images/content/avatar.jpg",
                 pricing: {
                   ...prevPricing,
                   ...serverPricing,
@@ -447,10 +449,8 @@ const Checkout = () => {
     return "/images/content/photo-1.1.jpg";
   };
   const listingImage = getListingImage();
-  const hostName = bookingData?.listing?.host?.firstName
-    ? `${bookingData.listing.host.firstName} ${bookingData.listing.host.lastName || ''}`.trim()
-    : (bookingData?.listing?.host?.name || "Host");
-  const hostAvatar = bookingData?.listing?.host?.picture || bookingData?.listing?.host?.avatar;
+  const hostName = bookingData?.hostName || "Host";
+  const hostAvatar = bookingData?.hostAvatar || "/images/content/avatar.jpg";
 
   return (
     <div className={cn("section-mb80", styles.section)}>

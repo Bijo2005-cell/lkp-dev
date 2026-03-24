@@ -1156,6 +1156,10 @@ const Description = ({ classSection, listing, hostData }) => {
       listingTitle: listing?.title || listing?.name || listing?.listingTitle || "",
       listingImage: getFirstListingImage(),
       roomImage: roomImage || getFirstListingImage(),
+      hostName: (hostData?.firstName ? `${hostData?.firstName} ${hostData?.lastName || ""}`.trim() : hostData?.name) ||
+                (listing?.host?.firstName ? `${listing?.host?.firstName} ${listing?.host?.lastName || ""}`.trim() : listing?.host?.name) || "Host",
+      hostAvatar: hostData?.profilePhotoUrl || hostData?.avatar || hostData?.profileImage || hostData?.image ||
+                  listing?.host?.profilePhotoUrl || listing?.host?.picture || listing?.host?.avatar || "/images/content/avatar.jpg",
       selectedDate: selectedDate ? selectedDate.format("YYYY-MM-DD") : null,
       selectedTimeSlot: selectedTimeSlot,
       guests: guests,
@@ -1297,6 +1301,7 @@ const Description = ({ classSection, listing, hostData }) => {
     }
 
     // User is logged in, create order
+    let success = false;
     try {
       reserveSubmitLockRef.current = true;
       setIsReserveSubmitting(true);
@@ -1592,6 +1597,7 @@ const Description = ({ classSection, listing, hostData }) => {
       }
 
       // Redirect to checkout or success page
+      success = true;
       proceedToCheckout();
 
     } catch (error) {
@@ -1628,8 +1634,10 @@ const Description = ({ classSection, listing, hostData }) => {
 
       alert(errorMessage);
     } finally {
-      reserveSubmitLockRef.current = false;
-      setIsReserveSubmitting(false);
+      if (!success) {
+        reserveSubmitLockRef.current = false;
+        setIsReserveSubmitting(false);
+      }
     }
   };
 
