@@ -18,26 +18,25 @@ const formatImageUrl = (url) => {
   return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${encodedPath}${queryPart ? `?${queryPart}` : ""}`;
 };
 
-const breadcrumbs = [
-  {
-    title: "Spectacular views of Queenstown",
-    url: "/experience-product",
-  },
-  {
-    title: "Confirm and pay",
-    url: "/experience-checkout",
-  },
-  {
-    title: "Checkout completed",
-  },
-];
-
 const ExperienceCheckoutComplete = () => {
   const [booking, setBooking] = useState(null);
   const [paymentSuccess, setPaymentSuccess] = useState(null);
   const [paymentData, setPaymentData] = useState(null);
   const [paymentFailed, setPaymentFailed] = useState(false);
   const [stayImageUrl, setStayImageUrl] = useState(null);
+
+  const breadcrumbs = useMemo(() => [
+    {
+      title: booking?.listingTitle || "Experience Details",
+      url: booking?.listingId ? `/experience-product?id=${booking.listingId}` : "/experience-product",
+    },
+    {
+      title: "Confirm and pay",
+    },
+    {
+      title: "Checkout completed",
+    },
+  ], [booking]);
 
   useEffect(() => {
     try {
@@ -407,7 +406,6 @@ const ExperienceCheckoutComplete = () => {
             <CheckoutComplete
               className={styles.complete}
               title={title}
-              parameters={parameters}
               options={options}
               items={items}
               paymentFailed={paymentFailed}

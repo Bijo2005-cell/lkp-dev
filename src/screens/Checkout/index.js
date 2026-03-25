@@ -21,15 +21,9 @@ const formatImageUrl = (url) => {
   return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${encodedPath}${queryPart ? `?${queryPart}` : ""}`;
 };
 
-const breadcrumbs = [
-  {
-    title: "Home",
-    url: "/",
-  },
-  {
-    title: "Confirm and pay",
-  },
-];
+
+  // The correct breadcrumbs logic is placed in the component render method
+
 
 const Checkout = () => {
   const location = useLocation();
@@ -359,6 +353,16 @@ const Checkout = () => {
     ? `${bookingData.listing.host.firstName} ${bookingData.listing.host.lastName || ''}`.trim()
     : (bookingData?.listing?.host?.name || "Host");
   const hostAvatar = bookingData?.listing?.host?.picture || bookingData?.listing?.host?.avatar;
+
+  const breadcrumbs = [
+    {
+      title: "Booking details",
+      url: bookingData?.listingId ? `/experience-product?id=${bookingData.listingId}` : "/experience-product",
+    },
+    {
+      title: "Confirm and pay",
+    },
+  ];
 
   return (
     <div className={cn("section-mb80", styles.section)}>

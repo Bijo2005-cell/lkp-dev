@@ -426,8 +426,8 @@ const Checkout = () => {
   const listingTitle = bookingData?.listingTitle || "Your trip";
   const breadcrumbs = [
     {
-      title: listingTitle,
-      url: "/experience-product",
+      title: "Booking details",
+      url: bookingData?.listingId ? `/experience-product?id=${bookingData.listingId}` : "/experience-product",
     },
     {
       title: "Confirm and pay",

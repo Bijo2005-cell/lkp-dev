@@ -333,19 +333,11 @@ const Description = ({ classSection, listing, hostData }) => {
     return (guestsObj.adults || 0) + (guestsObj.children || 0);
   };
 
-  const minimumChargeAge = useMemo(() => {
-    const parsedAge = Number(listing?.minimumAge);
-    return Number.isFinite(parsedAge) && parsedAge > 0 ? parsedAge : 13;
-  }, [listing?.minimumAge]);
+  const minimumChargeAge = 12;
 
-  const billableGuestLabel = useMemo(() => `Age ${minimumChargeAge}+`, [minimumChargeAge]);
+  const billableGuestLabel = useMemo(() => `Age 12+`, []);
 
-  const childrenGuestLabel = useMemo(() => {
-    if (minimumChargeAge <= 2) {
-      return "Under 2";
-    }
-    return `Ages 2-${minimumChargeAge - 1}`;
-  }, [minimumChargeAge]);
+  const childrenGuestLabel = useMemo(() => `Ages 6-12`, []);
 
   const getBillableGuestCount = (guestsObj) => {
     if (!guestsObj) return 0;

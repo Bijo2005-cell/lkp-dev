@@ -15,6 +15,7 @@ const Product = ({
   rating,
   reviews,
   hostAvatar,
+  mapLocation,
 }) => {
   // Format rating to 1 decimal place if provided
   const displayRating = rating !== null && rating !== undefined 
@@ -67,7 +68,7 @@ const Product = ({
               </div>
             </div>
           </div>
-          <Actions className={styles.actions} />
+          <Actions className={styles.actions} mapLocation={mapLocation} />
         </div>
         {gallery && (
           <Gallery 

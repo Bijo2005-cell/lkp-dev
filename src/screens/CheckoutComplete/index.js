@@ -86,11 +86,12 @@ const CheckoutComplete = () => {
   const breadcrumbs = [
     {
       title: title,
-      url: booking?.isStay || booking?.checkInDate ? "/stay-product" : "/experience-product",
+      url: booking?.listingId 
+        ? (booking?.isStay || booking?.checkInDate ? `/stay-product?id=${booking.listingId}` : `/experience-product?id=${booking.listingId}`) 
+        : (booking?.isStay || booking?.checkInDate ? "/stay-product" : "/experience-product"),
     },
     {
       title: "Confirm and pay",
-      url: "/checkout",
     },
     {
       title: "Checkout completed",
@@ -442,7 +443,6 @@ const CheckoutComplete = () => {
             <CheckoutCompleteComponent
               className={styles.complete}
               title={title}
-              parameters={parameters}
               options={options}
               items={items}
               isStay={booking?.isStay || !!(booking?.checkInDate || booking?.checkOutDate)}
