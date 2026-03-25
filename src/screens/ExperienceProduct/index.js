@@ -335,6 +335,7 @@ useEffect(() => {
         rating={rating}
         reviews={reviews}
         hostAvatar={hostAvatar}
+        mapLocation={listing?.meetingAddress || listing?.location || listing?.city}
       />
 
       {listing && (
