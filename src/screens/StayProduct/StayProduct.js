@@ -10,12 +10,25 @@ import { getStayDetails, getStayRoomAvailability, createStayOrder } from "../../
 // Helper to format image URLs
 const formatImageUrl = (url) => {
   if (!url) return null;
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  if (url.startsWith("leads/")) {
-    return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+  const raw = String(url).trim();
+  if (!raw) return null;
+
+  // If already a full URL, return as is
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    return raw;
   }
-  if (url.startsWith("/")) return url;
-  return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${url}`;
+
+  // Relative path - return as is
+  if (raw.startsWith("/")) {
+    return raw;
+  }
+
+  // Azure blob storage path (e.g., "leads/Events/10/CoverPhoto/..." or an already-encoded "leads%2FEvents%2F...")
+  // Keep any query string intact and ensure the path is safely encoded.
+  const [pathPart, queryPart] = raw.split("?");
+  const normalizedPath = String(pathPart).replaceAll("%2F", "/");
+  const encodedPath = encodeURI(normalizedPath);
+  return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${encodedPath}${queryPart ? `?${queryPart}` : ""}`;
 };
 
 const toDisplayString = (value) => {
@@ -1343,19 +1356,26 @@ const StayProduct = () => {
         (Array.isArray(stay?.media) && stay.media[0]
           ? (stay.media[0].url || stay.media[0].blobName || stay.media[0].fileUrl)
           : null) ||
-        (Array.isArray(stay?.images) ? stay.images[0] : null) ||
-        (Array.isArray(stay?.propertyImages) ? stay.propertyImages[0] : null) ||
+        (Array.isArray(stay?.images) && stay.images[0]
+          ? (stay.images[0].url || stay.images[0].blobName || stay.images[0].fileUrl || (typeof stay.images[0] === "string" ? stay.images[0] : null))
+          : null) ||
+        (Array.isArray(stay?.propertyImages) && stay.propertyImages[0]
+          ? (stay.propertyImages[0].url || stay.propertyImages[0].blobName || stay.propertyImages[0].fileUrl || (typeof stay.propertyImages[0] === "string" ? stay.propertyImages[0] : null))
+          : null) ||
         "";
       const coverImg = formatImageUrl(rawCoverImg) || "";
 
       // Room-specific image (prefer room photo, fall back to property cover)
       const rawRoomImg = selectedRoom
         ? (selectedRoom.photoUrl || selectedRoom.imageUrl || selectedRoom.coverPhotoUrl ||
-          (Array.isArray(selectedRoom.images) ? (selectedRoom.images[0]?.url || selectedRoom.images[0]) : null))
+          (Array.isArray(selectedRoom.images) && selectedRoom.images[0]
+            ? (selectedRoom.images[0].url || selectedRoom.images[0].blobName || selectedRoom.images[0].fileUrl || (typeof selectedRoom.images[0] === "string" ? selectedRoom.images[0] : null))
+            : null))
         : null;
       const roomImg = formatImageUrl(rawRoomImg) || coverImg;
 
       const stayBookingData = {
+        stayId: Number(stayId),
         listingTitle: stay?.propertyName || stay?.title || stay?.name || "Stay",
         listingImage: coverImg,
         roomImage: roomImg,
