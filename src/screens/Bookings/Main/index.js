@@ -420,6 +420,15 @@ const Main = ({
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [orderIdsEligibleForReview, setOrderIdsEligibleForReview] = useState(new Set());
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset page when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [displayedTab]);
+
   // Transform booking data when propBookingData is provided
   useEffect(() => {
     const transformBookings = async () => {
@@ -534,6 +543,17 @@ const Main = ({
       return tabId === displayedTab;
     });
   }, [transformedBookings, transformedCompletedBookings, displayedTab]);
+
+  // Paginated bookings
+  const paginatedBookings = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return bookingsForTab.slice(startIndex, startIndex + itemsPerPage);
+  }, [bookingsForTab, currentPage]);
+
+  const totalPages = Math.ceil(bookingsForTab.length / itemsPerPage);
+
+  const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const nextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
   const emptyState = emptyStateCopy[displayedTab] || emptyStateCopy.upcoming;
 
@@ -831,7 +851,7 @@ const Main = ({
             </div>
           ) : bookingsForTab.length > 0 ? (
             <div className={styles.list}>
-              {bookingsForTab.map((booking) => (
+              {paginatedBookings.map((booking) => (
                 <article className={styles.card} key={booking.id}>
                   <div className={styles.media}>
                     <img
@@ -955,6 +975,30 @@ const Main = ({
                   </div>
                 </article>
               ))}
+
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '32px', gap: '16px' }}>
+                  <button
+                    type="button"
+                    className="button-stroke button-small"
+                    onClick={prevPage}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </button>
+                  <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="button-stroke button-small"
+                    onClick={nextPage}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className={styles.emptyState}>
