@@ -172,7 +172,28 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null, 
     CANCELLED: "Cancelled",
   };
 
-  const status = statusMap[apiBooking.orderStatus] || "Upcoming";
+  let status = statusMap[apiBooking.orderStatus] || "Upcoming";
+
+  // If the backend says Upcoming (PENDING/CONFIRMED) but the booking date has
+  // already passed, show the booking in Completed instead.
+  if (status === "Upcoming") {
+    const bookingDateStr =
+      apiBooking.checkOutDate ||
+      apiBooking.checkInDate ||
+      apiBooking.bookingDate ||
+      apiBooking.eventDate ||
+      apiBooking.eventDetails?.eventDate ||
+      null;
+
+    if (bookingDateStr) {
+      // Compare against end-of-day so same-day bookings stay in Upcoming
+      const bookingEndOfDay = new Date(bookingDateStr);
+      bookingEndOfDay.setHours(23, 59, 59, 999);
+      if (bookingEndOfDay < new Date()) {
+        status = "Completed";
+      }
+    }
+  }
 
   // Get title - for EVENTS orders, prefer eventTitle; for others, prefer listing data
   // Check if this is an EVENTS order by businessInterestCode
@@ -508,19 +529,21 @@ const Main = ({
   }, [propBookingData, propCompletedOrders, initialTabSet]);
 
   const countsByTab = useMemo(() => {
-    // Count upcoming and cancelled from regular bookings
+    // Count upcoming, completed (date-overridden), and cancelled from regular bookings
     const categorized = transformedBookings.reduce((acc, booking) => {
       const tabId = booking.statusTone === "upcoming" ? "upcoming"
+        : booking.statusTone === "completed" ? "completed"
         : "cancelled";
       acc[tabId] = (acc[tabId] || 0) + 1;
       return acc;
     }, {});
 
-    // Use completedCount from API initially, but update to actual loaded orders count once fetched
+    // Add server-side completed orders; also include date-overridden completed from regular bookings
+    const dateOverriddenCompleted = categorized.completed || 0;
     if (transformedCompletedBookings.length > 0) {
-      categorized.completed = transformedCompletedBookings.length;
+      categorized.completed = transformedCompletedBookings.length + dateOverriddenCompleted;
     } else {
-      categorized.completed = completedCount || 0;
+      categorized.completed = (completedCount || 0) + dateOverriddenCompleted;
     }
 
     return tabs.reduce((acc, tab) => {
@@ -530,14 +553,18 @@ const Main = ({
   }, [transformedBookings, transformedCompletedBookings, completedCount]);
 
   const bookingsForTab = useMemo(() => {
-    // For completed tab, use completed/expired bookings
+    // For completed tab: merge server-side completed orders + date-overridden ones from regular bookings
     if (displayedTab === "completed") {
-      return transformedCompletedBookings;
+      const dateOverridden = transformedBookings.filter(
+        (b) => b.statusTone === "completed"
+      );
+      return [...dateOverridden, ...transformedCompletedBookings];
     }
 
-    // For upcoming and cancelled tabs, use regular bookings
+    // For upcoming and cancelled tabs, exclude date-overridden completed bookings
     return transformedBookings.filter((booking) => {
       const tabId = booking.statusTone === "upcoming" ? "upcoming"
+        : booking.statusTone === "completed" ? null  // exclude — goes to completed tab
         : "cancelled";
       return tabId === displayedTab;
     });
@@ -867,7 +894,8 @@ const Main = ({
                           <span className={styles.category}>
                             {booking.category}
                           </span>
-                          {booking.bookingData?.paymentStatus && (
+                          {booking.bookingData?.paymentStatus &&
+                           booking.bookingData?.orderStatus !== "CANCELLED" && (
                             <>
                               <span className={styles.dot} aria-hidden="true">
                                 •
@@ -883,9 +911,11 @@ const Main = ({
                                 textTransform: "uppercase",
                                 letterSpacing: "0.5px",
                                 backgroundColor: booking.bookingData.paymentStatus === "SUCCESS" ? "#E8F5E9" :
-                                                 booking.bookingData.paymentStatus === "PENDING" ? "#FFF3E0" : "#FFEBEE",
+                                                 booking.bookingData.paymentStatus === "PENDING" ? "#FFF3E0" :
+                                                 booking.bookingData.paymentStatus === "FAILED" ? "#FFEBEE" : "#FFEBEE",
                                 color: booking.bookingData.paymentStatus === "SUCCESS" ? "#2E7D32" :
-                                       booking.bookingData.paymentStatus === "PENDING" ? "#E65100" : "#C62828",
+                                       booking.bookingData.paymentStatus === "PENDING" ? "#E65100" :
+                                       booking.bookingData.paymentStatus === "FAILED" ? "#C62828" : "#C62828",
                               }}>
                                 {booking.bookingData.paymentStatus}
                               </span>
