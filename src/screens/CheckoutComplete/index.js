@@ -4,12 +4,26 @@ import styles from "./CheckoutComplete.module.sass";
 import Control from "../../components/Control";
 import CheckoutSlider from "./CheckoutSlider";
 import CheckoutCompleteComponent from "../../components/CheckoutComplete";
+import { getStayDetails } from "../../utils/api";
+
+const formatImageUrl = (url) => {
+  if (!url) return null;
+  const raw = String(url).trim();
+  if (!raw) return null;
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  if (raw.startsWith("/")) return raw;
+  const [pathPart, queryPart] = raw.split("?");
+  const normalizedPath = String(pathPart).replaceAll("%2F", "/");
+  const encodedPath = encodeURI(normalizedPath);
+  return `https://lkpleadstoragedev.blob.core.windows.net/lead-documents/${encodedPath}${queryPart ? `?${queryPart}` : ""}`;
+};
 
 const CheckoutComplete = () => {
   const [booking, setBooking] = useState(null);
   const [paymentSuccess, setPaymentSuccess] = useState(null);
   const [paymentData, setPaymentData] = useState(null);
   const [paymentFailed, setPaymentFailed] = useState(false);
+  const [stayImageUrl, setStayImageUrl] = useState(null);
 
   useEffect(() => {
     try {
@@ -72,25 +86,59 @@ const CheckoutComplete = () => {
   const breadcrumbs = [
     {
       title: title,
-      url: booking?.isStay || booking?.checkInDate ? "/stay-product" : "/experience-product",
+      url: booking?.listingId 
+        ? (booking?.isStay || booking?.checkInDate ? `/stay-product?id=${booking.listingId}` : `/experience-product?id=${booking.listingId}`) 
+        : (booking?.isStay || booking?.checkInDate ? "/stay-product" : "/experience-product"),
     },
     {
       title: "Confirm and pay",
-      url: "/checkout",
     },
     {
       title: "Checkout completed",
     },
   ];
 
+  useEffect(() => {
+    if (booking?.stayId) {
+      getStayDetails(booking.stayId)
+        .then((data) => {
+          const rawCoverImg =
+            data?.coverImageUrl ||
+            data?.coverPhotoUrl ||
+            (Array.isArray(data?.listingMedia) && data.listingMedia[0]
+              ? (data.listingMedia[0].url || data.listingMedia[0].blobName || data.listingMedia[0].fileUrl)
+              : null) ||
+            (Array.isArray(data?.media) && data.media[0]
+              ? (data.media[0].url || data.media[0].blobName || data.media[0].fileUrl)
+              : null) ||
+            (Array.isArray(data?.images) && data.images[0]
+              ? (data.images[0].url || data.images[0].blobName || data.images[0].fileUrl || (typeof data.images[0] === "string" ? data.images[0] : null))
+              : null) ||
+            (Array.isArray(data?.propertyImages) && data.propertyImages[0]
+              ? (data.propertyImages[0].url || data.propertyImages[0].blobName || data.propertyImages[0].fileUrl || (typeof data.propertyImages[0] === "string" ? data.propertyImages[0] : null))
+              : null) ||
+            "";
+          if (rawCoverImg) {
+            setStayImageUrl(formatImageUrl(rawCoverImg));
+          }
+        })
+        .catch(console.error);
+    }
+  }, [booking?.stayId]);
+
   const gallery = useMemo(() => {
-    const img = booking?.listingImage || "/images/content/slider-pic-1.jpg";
+    // Prefer stay image fetched from API if we have stayId, else fallback to booking stored images
+    const rawImg = stayImageUrl || booking?.roomImage || booking?.listingImage;
+    const img = rawImg && typeof rawImg === 'string' && !rawImg.startsWith('http') && !rawImg.startsWith('/')
+      ? formatImageUrl(rawImg)
+      : (rawImg || "/images/content/slider-pic-1.jpg");
+
     return [
       { src: img, srcSet: img },
       { src: img, srcSet: img },
       { src: img, srcSet: img },
     ];
-  }, [booking]);
+  }, [booking, stayImageUrl]);
 
   // Helper function to format time from "HH:mm" to "HH:mm AM/PM"
   const formatTime = (timeString) => {
@@ -102,15 +150,23 @@ const CheckoutComplete = () => {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  // Format amount - Razorpay amounts are in paise (smallest currency unit), so divide by 100 for INR
-  const formatAmount = (amount, currency = "INR") => {
+  // Format amount - amounts from Razorpay (via pendingPayment/actualPaidAmount) are in paise
+  // so we always divide by 100 for those. For values that might already be in rupees
+  // (e.g. from receipt total strings), we keep the >100000 heuristic as a guard.
+  const formatAmount = (amount, currency = "INR", alreadyInPaise = false) => {
     if (amount === undefined || amount === null || isNaN(amount)) return null;
-    // If amount is in paise (typically > 1000 for reasonable prices), convert to rupees
     const numAmount = typeof amount === 'number' ? amount : parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) return null;
-    const amountInRupees = numAmount > 1000 ? (numAmount / 100).toFixed(2) : numAmount.toFixed(2);
+    // Razorpay amounts are always in paise. Anything over 100 that looks like paise:
+    // treat amounts > 100 and they came from Razorpay as paise → divide by 100
+    const amountInRupees = (alreadyInPaise || numAmount > 100000)
+      ? (numAmount / 100).toFixed(2)
+      : numAmount.toFixed(2);
     return `${currency} ${amountInRupees}`;
   };
+
+
+  const isStay = useMemo(() => booking?.isStay || !!(booking?.checkInDate || booking?.checkOutDate), [booking]);
 
   const parameters = useMemo(() => {
     // Get guest count - check multiple possible formats
@@ -139,22 +195,21 @@ const CheckoutComplete = () => {
       console.log("💳 Payment data:", paymentData);
     }
 
-    // Priority 1: Use paidAmount from paymentData (passed from checkout page)
-    // This is the actual amount that was paid (after discount)
+    // Priority 1: Use paidAmount from paymentData — this is in paise from Razorpay
     if (paymentData?.paidAmount !== undefined && paymentData.paidAmount !== null) {
-      const formatted = formatAmount(paymentData.paidAmount, paymentData.currency || "INR");
+      const formatted = formatAmount(paymentData.paidAmount, paymentData.currency || "INR", true);
       if (formatted) {
         amountPaid = formatted;
-        console.log("✅ Using paidAmount from paymentData (passed from checkout):", paymentData.paidAmount);
+        console.log("✅ Using paidAmount from paymentData (paise):", paymentData.paidAmount, "→", formatted);
       }
     }
 
-    // Priority 2: Check for finalAmount in paymentData
+    // Priority 2: Check for finalAmount in paymentData (also in paise)
     if (amountPaid === "—" && paymentData?.finalAmount !== undefined && paymentData.finalAmount !== null) {
-      const formatted = formatAmount(paymentData.finalAmount, paymentData.currency || "INR");
+      const formatted = formatAmount(paymentData.finalAmount, paymentData.currency || "INR", true);
       if (formatted) {
         amountPaid = formatted;
-        console.log("✅ Using finalAmount from paymentData:", paymentData.finalAmount);
+        console.log("✅ Using finalAmount from paymentData (paise):", paymentData.finalAmount, "→", formatted);
       }
     }
 
@@ -346,6 +401,9 @@ const CheckoutComplete = () => {
           content: guestsContent,
         },
         ...(booking?.roomType ? [{ title: "Room type", content: booking.roomType }] : []),
+        ...(booking?.roomsBooked && booking.roomsBooked > 0
+          ? [{ title: "Rooms booked", content: `${booking.roomsBooked} room${booking.roomsBooked > 1 ? "s" : ""}` }]
+          : []),
         ...(booking?.mealPlan ? [{ title: "Meal plan", content: booking.mealPlan }] : []),
       ];
     }
@@ -385,7 +443,6 @@ const CheckoutComplete = () => {
             <CheckoutCompleteComponent
               className={styles.complete}
               title={title}
-              parameters={parameters}
               options={options}
               items={items}
               isStay={booking?.isStay || !!(booking?.checkInDate || booking?.checkOutDate)}

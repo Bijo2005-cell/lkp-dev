@@ -62,7 +62,7 @@ function App() {
             exact
             path="/"
             render={() => (
-              <Page hideHeaderOnMobile>
+              <Page>
                 <FleetHome />
               </Page>
             )}

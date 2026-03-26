@@ -4,7 +4,7 @@ import cn from "classnames";
 import styles from "./ViewDetails.module.sass";
 import Icon from "../../components/Icon";
 import { getBookingDetails } from "../../mocks/bookings";
-import { getListing, getOrderDetails, getEventOrderDetails, getEventDetails, submitOrderReview } from "../../utils/api";
+import { getListing, getOrderDetails, getEventOrderDetails, getEventDetails, submitOrderReview, getStayDetails } from "../../utils/api";
 import Rating from "../../components/Rating";
 
 // Helper function to format image URLs
@@ -12,12 +12,12 @@ const formatImageUrl = (url) => {
   if (!url) return "/images/content/card-pic-13.jpg";
   const raw = String(url).trim();
   if (!raw) return "/images/content/card-pic-13.jpg";
-  
+
   // If already a full URL, return as is
   if (raw.startsWith("http://") || raw.startsWith("https://")) {
     return raw;
   }
-  
+
   // Relative path - return as is
   if (raw.startsWith("/")) {
     return raw;
@@ -40,10 +40,10 @@ const asNonEmptyString = (value) => {
 // Determine payment status mapping - handle case-insensitive matching
 const getPaymentStatus = (paymentStatus) => {
   if (!paymentStatus) return "Pending";
-  
+
   // Normalize to uppercase for comparison
   const normalizedStatus = String(paymentStatus).toUpperCase().trim();
-  
+
   // Map to display status
   const statusMap = {
     PENDING: "Pending",
@@ -56,7 +56,7 @@ const getPaymentStatus = (paymentStatus) => {
     CANCELED: "Cancelled",
     REFUNDED: "Refunded",
   };
-  
+
   return statusMap[normalizedStatus] || "Pending";
 };
 
@@ -69,10 +69,10 @@ const isPaymentFailed = (paymentStatus) => {
 
 // Transform API booking data to component format
 // eventData is used for EVENTS orders to get event details (images, title, location, etc.)
-const transformBookingData = (apiBooking, listingData = null, eventData = null) => {
+const transformBookingData = (apiBooking, listingData = null, eventData = null, stayData = null) => {
   // Determine if this is an event order
-  const isEventOrder = apiBooking?.businessInterestCode === "EVENTS" || 
-                       apiBooking?.eventId != null;
+  const isEventOrder = apiBooking?.businessInterestCode === "EVENTS" ||
+    apiBooking?.eventId != null;
 
   const asText = (value) => {
     if (value === null || value === undefined) return null;
@@ -186,55 +186,62 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
   // Determine status mapping - handle case-insensitive matching
   const getOrderStatus = (orderStatus) => {
     if (!orderStatus) return "Pending";
-    
+
     // Normalize to uppercase for comparison
     const normalizedStatus = String(orderStatus).toUpperCase().trim();
-    
+
     // Map to display status - keep PENDING as "Pending", CONFIRMED as "Confirmed"
-  const statusMap = {
+    const statusMap = {
       PENDING: "Pending",
       CONFIRMED: "Confirmed",
-    COMPLETED: "Completed",
-    CANCELLED: "Cancelled",
+      COMPLETED: "Completed",
+      CANCELLED: "Cancelled",
       CANCELED: "Cancelled", // Handle alternative spelling
-  };
+    };
 
     const mappedStatus = statusMap[normalizedStatus] || "Pending";
-    
+
     // Log status mapping for debugging
     console.log("📊 Status mapping:", {
       originalOrderStatus: orderStatus,
       normalizedStatus: normalizedStatus,
       mappedStatus: mappedStatus,
     });
-    
+
     return mappedStatus;
   };
 
   const status = getOrderStatus(apiBooking.orderStatus);
-  
+
   // Also store the original orderStatus for reference
   const originalOrderStatus = apiBooking.orderStatus;
 
   // Get listing/event information - for EVENTS, prefer eventData and eventTitle
   const title = isEventOrder
-    ? (eventData?.title || 
-       eventData?.eventTitle ||
-       apiBooking?.eventTitle || 
-       apiBooking?.eventDetails?.eventTitle || 
-       "Event Booking")
-    : (listingData?.title || apiBooking?.listingTitle || "Booking");
-  
+    ? (eventData?.title ||
+      eventData?.eventTitle ||
+      apiBooking?.eventTitle ||
+      apiBooking?.eventDetails?.eventTitle ||
+      "Event Booking")
+    : (stayData?.propertyName ||
+      stayData?.title ||
+      stayData?.name ||
+      apiBooking?.stayOrderRooms?.[0]?.propertyName ||
+      listingData?.title ||
+      apiBooking?.listingTitle ||
+      apiBooking?.stayTitle ||
+      "Booking");
+
   // Extract location from listing data or event data
-  let location = { 
-    address: "TBD", 
-    city: "TBD", 
-    country: "TBD", 
+  let location = {
+    address: "TBD",
+    city: "TBD",
+    country: "TBD",
     directionsUrl: "#",
     latitude: null,
     longitude: null
   };
-  
+
   // For event orders, try to get location from event data first
   if (isEventOrder && eventData) {
     // Check for coordinates first (most accurate)
@@ -245,7 +252,7 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
       location.latitude = parseFloat(eventData.latitude);
       location.longitude = parseFloat(eventData.longitude);
     }
-    
+
     // Check various possible location fields from event data
     if (eventData.venueFullAddress) {
       location.address = eventData.venueFullAddress;
@@ -254,13 +261,13 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
     } else if (eventData.address) {
       location.address = eventData.address;
     }
-    
+
     if (eventData.venueDistrict) {
       location.city = eventData.venueDistrict;
     } else if (eventData.city) {
       location.city = eventData.city;
     }
-    
+
     if (eventData.venueState) {
       location.country = eventData.venueState;
     } else if (eventData.state) {
@@ -268,7 +275,7 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
     } else if (eventData.country) {
       location.country = eventData.country;
     }
-    
+
     // Build directions URL - prefer coordinates if available
     if (location.latitude && location.longitude) {
       location.directionsUrl = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
@@ -276,13 +283,13 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
       const locationQuery = [location.address, location.city, location.country]
         .filter(part => part && part !== "TBD")
         .join(", ");
-      
+
       if (locationQuery && locationQuery !== "TBD, TBD, TBD") {
         location.directionsUrl = `https://maps.google.com/?q=${encodeURIComponent(locationQuery)}`;
       }
     }
   }
-  
+
   // Try to get location from listing data (for non-event orders or as fallback)
   if (!isEventOrder && listingData) {
     // Check for coordinates first (most accurate)
@@ -293,7 +300,7 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
       location.latitude = parseFloat(listingData.latitude);
       location.longitude = parseFloat(listingData.longitude);
     }
-    
+
     // Check various possible location fields
     if (listingData.address) {
       location.address = listingData.address;
@@ -306,7 +313,7 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
     } else if (listingData.country) {
       location.country = listingData.country;
     }
-    
+
     // If there's a location string, try to parse it
     if (listingData.location && typeof listingData.location === 'string') {
       const locationParts = listingData.location.split(',').map(s => s.trim());
@@ -317,7 +324,7 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
         location.city = listingData.location;
       }
     }
-    
+
     // Build directions URL - prefer coordinates if available
     if (location.latitude && location.longitude) {
       location.directionsUrl = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
@@ -325,13 +332,45 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
       const locationQuery = [location.address, location.city, location.country]
         .filter(part => part && part !== "TBD")
         .join(", ");
-      
+
       if (locationQuery && locationQuery !== "TBD, TBD, TBD") {
         location.directionsUrl = `https://maps.google.com/?q=${encodeURIComponent(locationQuery)}`;
       }
     }
   }
-  
+
+  // Try to get location from stay data
+  if (!isEventOrder && stayData) {
+    if (stayData.latitude && stayData.longitude) {
+      location.latitude = parseFloat(stayData.latitude);
+      location.longitude = parseFloat(stayData.longitude);
+    }
+    if (stayData.address) {
+      location.address = stayData.address;
+    }
+    if (stayData.city) {
+      location.city = stayData.city;
+    }
+    if (stayData.state) {
+      location.country = stayData.state;
+    } else if (stayData.country) {
+      location.country = stayData.country;
+    }
+
+    // Build directions URL
+    if (location.latitude && location.longitude) {
+      location.directionsUrl = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
+    } else {
+      const locationQuery = [location.address, location.city, location.country]
+        .filter(part => part && part !== "TBD")
+        .join(", ");
+
+      if (locationQuery && locationQuery !== "TBD, TBD, TBD") {
+        location.directionsUrl = `https://maps.google.com/?q=${encodeURIComponent(locationQuery)}`;
+      }
+    }
+  }
+
   // Fallback: if no location data, use a default or try to construct from available data
   if (location.city === "TBD" && location.country === "TBD" && !location.latitude) {
     // Try to get any location info from the listing
@@ -351,22 +390,22 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
         location.address = instructions;
       }
     }
-    
+
     // Rebuild directions URL with updated data
     if (!location.latitude) {
       const locationQuery = [location.address, location.city, location.country]
         .filter(part => part && part !== "TBD")
         .join(", ");
-      
+
       if (locationQuery && locationQuery !== "TBD, TBD, TBD") {
         location.directionsUrl = `https://maps.google.com/?q=${encodeURIComponent(locationQuery)}`;
       }
     }
   }
-  
+
   // Get cover photo - for EVENTS prefer event data, then listing data, then booking data
   let coverPhotoUrl;
-  
+
   if (isEventOrder && eventData) {
     // Align with EventProduct: prefer canonical cover fields from /events/{id}
     // (some embedded event-details payloads contain non-canonical image fields).
@@ -388,12 +427,29 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
       asNonEmptyString(apiBooking?.coverPhotoUrl) ||
       "/images/content/card-pic-13.jpg";
   } else {
-    coverPhotoUrl = listingData?.coverPhotoUrl || 
-                    apiBooking?.listingCoverPhoto ||
-                    apiBooking?.coverPhotoUrl ||
-                    "/images/content/card-pic-13.jpg";
+    let stayCoverPhoto = null;
+    if (stayData) {
+      stayCoverPhoto =
+        stayData.coverImageUrl ||
+        stayData.coverPhotoUrl ||
+        (Array.isArray(stayData.listingMedia) && stayData.listingMedia[0]
+          ? (stayData.listingMedia[0].url || stayData.listingMedia[0].blobName || stayData.listingMedia[0].fileUrl)
+          : null) ||
+        (Array.isArray(stayData.media) && stayData.media[0]
+          ? (stayData.media[0].url || stayData.media[0].blobName || stayData.media[0].fileUrl)
+          : null) ||
+        (Array.isArray(stayData.images) ? stayData.images[0] : null) ||
+        (Array.isArray(stayData.propertyImages) ? stayData.propertyImages[0] : null);
+    }
+
+    coverPhotoUrl = listingData?.coverPhotoUrl ||
+      stayCoverPhoto ||
+      apiBooking?.listingCoverPhoto ||
+      apiBooking?.coverPhotoUrl ||
+      "/images/content/card-pic-13.jpg";
   }
-  
+
+
   // Format the image URL to ensure it's a valid full URL
   coverPhotoUrl = formatImageUrl(coverPhotoUrl);
 
@@ -409,23 +465,23 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
   };
 
   // Build addons list
-  const addonsList = Array.isArray(apiBooking.addons) 
+  const addonsList = Array.isArray(apiBooking.addons)
     ? apiBooking.addons.map(addon => ({
-        name: addon.addonName || "Addon",
-        price: formatCurrency(addon.addonPrice, apiBooking.currency),
-        quantity: addon.quantity || 1,
-        total: formatCurrency((parseFloat(addon.addonPrice || 0) * (addon.quantity || 1)), apiBooking.currency),
-      }))
+      name: addon.addonName || "Addon",
+      price: formatCurrency(addon.addonPrice, apiBooking.currency),
+      quantity: addon.quantity || 1,
+      total: formatCurrency((parseFloat(addon.addonPrice || 0) * (addon.quantity || 1)), apiBooking.currency),
+    }))
     : [];
 
   // Build discounts list
   const discountsList = Array.isArray(apiBooking.discounts)
     ? apiBooking.discounts.map(discount => ({
-        name: discount.discountName || "Discount",
-        percentage: discount.appliedPercentage || 0,
-        amount: formatCurrency(discount.discountAmount, apiBooking.currency),
-        sponsor: discount.sponsor || "PLATFORM",
-      }))
+      name: discount.discountName || "Discount",
+      percentage: discount.appliedPercentage || 0,
+      amount: formatCurrency(discount.discountAmount, apiBooking.currency),
+      sponsor: discount.sponsor || "PLATFORM",
+    }))
     : [];
 
   const result = {
@@ -434,9 +490,9 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
     bookingId: `LKP-${apiBooking.orderId}`,
     title: title,
     status: status,
-    startDate: formatDate(apiBooking.bookingDate),
-    endDate: formatDate(apiBooking.bookingDate),
-    bookingDate: formatDate(apiBooking.bookingDate),
+    startDate: formatDate(apiBooking.checkInDate || apiBooking.bookingDate),
+    endDate: formatDate(apiBooking.checkOutDate || apiBooking.bookingDate),
+    bookingDate: formatDate(apiBooking.checkInDate || apiBooking.bookingDate),
     bookingTime: formatTime(apiBooking.bookingTime),
     startTime: null, // Will be populated from slot data
     endTime: null, // Will be populated from slot data
@@ -467,6 +523,7 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
     originalData: apiBooking,
     listingData: listingData,
     eventData: eventData,
+    stayData: stayData,
     isEventOrder: isEventOrder,
     // Store original orderStatus for proper status handling
     originalOrderStatus: originalOrderStatus,
@@ -480,7 +537,7 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
     const rulesAndPolicies = listingData.guestRequirements.find(
       (gr) => gr?.setting?.settingId === 17 && gr?.setting?.isActive
     );
-    
+
     if (rulesAndPolicies && Array.isArray(rulesAndPolicies.questions)) {
       result.notes.hostInstructions = rulesAndPolicies.questions
         .filter((q) => q?.question?.isActive)
@@ -491,11 +548,23 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
     const whatsToBring = listingData.guestRequirements.find(
       (gr) => gr?.setting?.settingId === 18 && gr?.setting?.isActive
     );
-    
+
     if (whatsToBring && Array.isArray(whatsToBring.questions)) {
       result.notes.requirements = whatsToBring.questions
         .filter((q) => q?.question?.isActive)
         .map((q) => q.question.title);
+    }
+  }
+
+  // Extract stay amenities/policies if available
+  if (stayData) {
+    if (stayData.houseRules && !result.notes.hostInstructions.length) {
+      result.notes.hostInstructions = Array.isArray(stayData.houseRules)
+        ? stayData.houseRules
+        : [stayData.houseRules];
+    }
+    if (stayData.cancellationPolicy && !result.notes.cancellationPolicy.length) {
+      result.notes.cancellationPolicy = [stayData.cancellationPolicy];
     }
   }
 
@@ -511,7 +580,7 @@ const ViewDetails = () => {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Review form state
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
@@ -523,14 +592,14 @@ const ViewDetails = () => {
     const loadBooking = async () => {
       setLoading(true);
       setError(null);
-      
+
       console.log("🔍 Loading booking with bookingId:", bookingId);
-      
+
       try {
         // Extract orderId from bookingId (e.g., "bk-57" -> 57)
         // Try multiple formats: "bk-57", "57", etc.
         let orderId = null;
-        
+
         // Format 1: "bk-57"
         const orderIdMatch = bookingId.match(/bk-(\d+)/);
         if (orderIdMatch) {
@@ -542,9 +611,9 @@ const ViewDetails = () => {
             orderId = parseInt(directMatch[1], 10);
           }
         }
-        
+
         console.log("🔍 Extracted orderId:", orderId);
-        
+
         if (!orderId || isNaN(orderId)) {
           const errorMsg = `Invalid booking ID format: "${bookingId}". Expected format: "bk-57" or "57"`;
           console.error("❌", errorMsg);
@@ -552,7 +621,7 @@ const ViewDetails = () => {
           setLoading(false);
           return;
         }
-        
+
         let apiBookingData = null;
         let orderResponse = null;
         let slotDetails = null;
@@ -569,7 +638,7 @@ const ViewDetails = () => {
             orderResponse = await getOrderDetails(orderId);
             console.log("✅ Order details fetched from API:", orderResponse);
           }
-          
+
           // The response structure can be:
           // Option 1: { order: {...}, addons: [], guestAnswers: [], history: [] }
           // Option 2: Direct order object
@@ -583,7 +652,7 @@ const ViewDetails = () => {
               apiBookingData = orderResponse;
               console.log("✅ Order data is direct object:", apiBookingData);
             }
-            
+
             if (apiBookingData) {
               console.log("✅ Order data extracted:", apiBookingData);
               console.log("✅ Order addons:", orderResponse.addons || apiBookingData.addons);
@@ -599,7 +668,7 @@ const ViewDetails = () => {
             statusText: apiErr.response?.statusText,
             url: apiErr.config?.url,
           });
-          
+
           // Extract meaningful error message
           let errorMessage = "Failed to fetch order details";
           if (apiErr.response?.data?.error) {
@@ -609,7 +678,7 @@ const ViewDetails = () => {
           } else if (apiErr.message) {
             errorMessage = apiErr.message;
           }
-          
+
           if (apiErr.response?.status === 404) {
             errorMessage = `Order not found (ID: ${orderId})`;
           } else if (apiErr.response?.status === 401 || apiErr.response?.status === 403) {
@@ -617,7 +686,7 @@ const ViewDetails = () => {
           } else if (apiErr.response?.status === 500) {
             errorMessage = "Server error. Please try again later.";
           }
-          
+
           setError(errorMessage);
         }
 
@@ -632,7 +701,7 @@ const ViewDetails = () => {
             setLoading(false);
             return;
           }
-          
+
           // If no mock data and no API data, show error
           if (!error) {
             setError(`Booking not found for order ID: ${orderId}`);
@@ -662,9 +731,9 @@ const ViewDetails = () => {
         }
 
         // Determine if this is an event order
-        const isEventOrder = bookingType === "event" || 
-                             apiBookingData?.businessInterestCode === "EVENTS" || 
-                             apiBookingData?.eventId != null;
+        const isEventOrder = bookingType === "event" ||
+          apiBookingData?.businessInterestCode === "EVENTS" ||
+          apiBookingData?.eventId != null;
 
         // For event orders, prefer using event info embedded in the event-details API response
         // so the page can render without additional calls.
@@ -764,14 +833,14 @@ const ViewDetails = () => {
               description: apiBookingData.listingDescription || apiBookingData.description || "",
               location: apiBookingData.listingLocation || apiBookingData.location || "",
               address: apiBookingData.listingAddress || apiBookingData.address || "",
-              latitude: apiBookingData.listingLatitude ? parseFloat(apiBookingData.listingLatitude) : 
-                        (apiBookingData.latitude ? parseFloat(apiBookingData.latitude) : null),
-              longitude: apiBookingData.listingLongitude ? parseFloat(apiBookingData.listingLongitude) : 
-                         (apiBookingData.longitude ? parseFloat(apiBookingData.longitude) : null),
-              meetingLatitude: apiBookingData.listingLatitude ? parseFloat(apiBookingData.listingLatitude) : 
-                              (apiBookingData.meetingLatitude ? parseFloat(apiBookingData.meetingLatitude) : null),
-              meetingLongitude: apiBookingData.listingLongitude ? parseFloat(apiBookingData.listingLongitude) : 
-                               (apiBookingData.meetingLongitude ? parseFloat(apiBookingData.meetingLongitude) : null),
+              latitude: apiBookingData.listingLatitude ? parseFloat(apiBookingData.listingLatitude) :
+                (apiBookingData.latitude ? parseFloat(apiBookingData.latitude) : null),
+              longitude: apiBookingData.listingLongitude ? parseFloat(apiBookingData.listingLongitude) :
+                (apiBookingData.longitude ? parseFloat(apiBookingData.longitude) : null),
+              meetingLatitude: apiBookingData.listingLatitude ? parseFloat(apiBookingData.listingLatitude) :
+                (apiBookingData.meetingLatitude ? parseFloat(apiBookingData.meetingLatitude) : null),
+              meetingLongitude: apiBookingData.listingLongitude ? parseFloat(apiBookingData.listingLongitude) :
+                (apiBookingData.meetingLongitude ? parseFloat(apiBookingData.meetingLongitude) : null),
               category: apiBookingData.listingCategory || apiBookingData.category || "Experience",
               categoryName: apiBookingData.listingCategory || apiBookingData.category || "Experience",
               maxGuests: apiBookingData.listingMaxGuests || apiBookingData.maxGuests || null,
@@ -780,10 +849,40 @@ const ViewDetails = () => {
               coverPhotoUrl: apiBookingData.listingCoverPhoto || apiBookingData.coverPhotoUrl || "/images/content/card-pic-13.jpg",
             };
           }
-        } else if (!isEventOrder) {
+        }
+        // Fetch stay data if stayId is available
+        let stayData = null;
+        const resolvedStayId = (() => {
+          if (apiBookingData?.stayId != null) return apiBookingData.stayId;
+          const rooms = orderResponse?.stayOrderRooms || apiBookingData?.stayOrderRooms || apiBookingData?.rooms || apiBookingData?.room || [];
+          if (Array.isArray(rooms) && rooms.length > 0) {
+            const id = rooms[0]?.stayId ?? rooms[0]?.stay_id ?? rooms[0]?.propertyId;
+            if (id != null) return id;
+          }
+          return apiBookingData?.propertyId ?? apiBookingData?.stay_id ?? null;
+        })();
+
+        if (resolvedStayId != null) {
+          try {
+            stayData = await getStayDetails(resolvedStayId);
+            console.log(`✅ Fetched stay ${resolvedStayId} for order details`);
+          } catch (error) {
+            console.warn(`⚠️ Failed to fetch stay data for order ${apiBookingData.orderId}:`, error.message);
+          }
+        }
+
+        const isStayOrder = apiBookingData?.businessInterestCode === "STAYS" || resolvedStayId != null;
+
+        if (!isEventOrder) {
           // Create listingData from order fields if no listingId
-          listingData = {
-            title: apiBookingData.listingTitle || apiBookingData.title || "Booking",
+          const fallbackRooms = orderResponse?.stayOrderRooms || apiBookingData?.stayOrderRooms || [];
+          const categoryName = isStayOrder ? "Stays" : "Experience";
+          const title = isStayOrder
+            ? (stayData?.propertyName || stayData?.name || fallbackRooms[0]?.propertyName || "Stay Booking")
+            : (apiBookingData.listingTitle || apiBookingData.title || "Booking");
+
+          listingData = listingData || {
+            title: title,
             description: apiBookingData.listingDescription || apiBookingData.description || "",
             location: apiBookingData.listingLocation || apiBookingData.location || "",
             address: apiBookingData.listingAddress || apiBookingData.address || "",
@@ -791,14 +890,15 @@ const ViewDetails = () => {
             longitude: apiBookingData.listingLongitude ? parseFloat(apiBookingData.listingLongitude) : null,
             meetingLatitude: apiBookingData.listingLatitude ? parseFloat(apiBookingData.listingLatitude) : null,
             meetingLongitude: apiBookingData.listingLongitude ? parseFloat(apiBookingData.listingLongitude) : null,
-            category: apiBookingData.listingCategory || apiBookingData.category || "Experience",
-            categoryName: apiBookingData.listingCategory || apiBookingData.category || "Experience",
+            category: apiBookingData.listingCategory || apiBookingData.category || categoryName,
+            categoryName: apiBookingData.listingCategory || apiBookingData.category || categoryName,
             maxGuests: apiBookingData.listingMaxGuests || apiBookingData.maxGuests || null,
             status: apiBookingData.listingStatus || apiBookingData.status || "",
-            coverPhotoUrl: apiBookingData.listingCoverPhoto || apiBookingData.coverPhotoUrl || "/images/content/card-pic-13.jpg",
+            coverPhotoUrl: apiBookingData.listingCoverPhoto || apiBookingData.coverPhotoUrl || stayData?.coverImageUrl || "/images/content/card-pic-13.jpg",
           };
         }
-        
+
+
         console.log("✅ Using data:", isEventOrder ? "eventData" : (listingData ? "listingData from API" : "listingData from order fields"));
 
         // Transform the booking data
@@ -809,42 +909,42 @@ const ViewDetails = () => {
               ? { ...orderResponse, ...orderResponse.order }
               : apiBookingData;
 
-          transformed = transformBookingData(mergedApiBookingData, listingData, eventData);
-        console.log("✅ Transformed booking data:", transformed);
-        console.log("✅ Original API booking data paymentMethod:", apiBookingData.paymentMethod);
-        console.log("✅ Transformed paymentMethod:", transformed.paymentMethod);
-        
+          transformed = transformBookingData(mergedApiBookingData, listingData, eventData, stayData);
+          console.log("✅ Transformed booking data:", transformed);
+          console.log("✅ Original API booking data paymentMethod:", apiBookingData.paymentMethod);
+          console.log("✅ Transformed paymentMethod:", transformed.paymentMethod);
+
           // Add slot time information from order data
           if (apiBookingData.timeSlotStartTime || apiBookingData.timeSlotEndTime) {
-          const formatSlotTime = (timeString) => {
-            if (!timeString) return "";
-            // Handle both "HH:mm" and "HH:mm:ss" formats
-            const timePart = timeString.split(" ")[0]; // Remove any date part
-            const [hours, minutes] = timePart.split(":");
-            const hour = parseInt(hours, 10);
-            if (isNaN(hour)) return "";
-            const ampm = hour >= 12 ? "PM" : "AM";
-            const displayHour = hour % 12 || 12;
-            return `${displayHour}:${minutes} ${ampm}`;
-          };
-          
+            const formatSlotTime = (timeString) => {
+              if (!timeString) return "";
+              // Handle both "HH:mm" and "HH:mm:ss" formats
+              const timePart = timeString.split(" ")[0]; // Remove any date part
+              const [hours, minutes] = timePart.split(":");
+              const hour = parseInt(hours, 10);
+              if (isNaN(hour)) return "";
+              const ampm = hour >= 12 ? "PM" : "AM";
+              const displayHour = hour % 12 || 12;
+              return `${displayHour}:${minutes} ${ampm}`;
+            };
+
             if (apiBookingData.timeSlotStartTime) {
               transformed.startTime = formatSlotTime(apiBookingData.timeSlotStartTime);
               console.log("✅ Set start time from order:", apiBookingData.timeSlotStartTime, "->", transformed.startTime);
-          }
-            
+            }
+
             if (apiBookingData.timeSlotEndTime) {
               transformed.endTime = formatSlotTime(apiBookingData.timeSlotEndTime);
               console.log("✅ Set end time from order:", apiBookingData.timeSlotEndTime, "->", transformed.endTime);
+            }
           }
-          }
-          
+
           // Verify transformation was successful
           if (!transformed || !transformed.id) {
             throw new Error("Transformation failed - missing required fields");
-        }
-        
-        setBooking(transformed);
+          }
+
+          setBooking(transformed);
           console.log("✅ Booking set successfully");
         } catch (transformErr) {
           console.error("❌ Error transforming booking data:", transformErr);
@@ -862,7 +962,7 @@ const ViewDetails = () => {
 
     loadBooking();
   }, [bookingId, bookingType]); // eslint-disable-line react-hooks/exhaustive-deps
-  
+
   const getInitialTab = () => {
     if (!booking) return "cancellation";
     if (booking.notes.cancellationPolicy) return "cancellation";
@@ -870,44 +970,44 @@ const ViewDetails = () => {
     if (booking.notes.requirements) return "requirements";
     return "cancellation";
   };
-  
+
   const [activeNotesTab, setActiveNotesTab] = useState(getInitialTab);
 
   // Handle review submission
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (reviewRating === 0) {
       setReviewError("Please select a rating");
       return;
     }
-    
+
     if (!booking || !booking.orderId) {
       setReviewError("Invalid booking information");
       return;
     }
-    
+
     setIsSubmittingReview(true);
     setReviewError(null);
-    
+
     try {
       // Get listingId and customerId from booking data
       const listingId = booking.originalData?.listingId || booking.listingData?.listingId || null;
-      
+
       // Get customerId from booking data, or try localStorage as fallback
       let customerId = booking.originalData?.customerId || null;
-      
+
       if (!customerId && typeof window !== "undefined") {
         // Try to get customerId from localStorage (various possible keys)
         try {
           const userDataStr = localStorage.getItem("userData");
           const customerDataStr = localStorage.getItem("customerData");
-          
+
           if (userDataStr) {
             const userData = JSON.parse(userDataStr);
             customerId = userData.customerId || userData.id || userData.userId || null;
           }
-          
+
           if (!customerId && customerDataStr) {
             const customerData = JSON.parse(customerDataStr);
             customerId = customerData.customerId || customerData.id || customerData.userId || null;
@@ -916,7 +1016,7 @@ const ViewDetails = () => {
           console.warn("Could not parse user data from localStorage:", e);
         }
       }
-      
+
       console.log("📤 Submitting review with data:", {
         orderId: booking.orderId,
         rating: reviewRating,
@@ -924,24 +1024,24 @@ const ViewDetails = () => {
         listingId: listingId,
         customerId: customerId,
       });
-      
+
       await submitOrderReview(booking.orderId, {
         rating: reviewRating,
         comment: reviewText,
         listingId: listingId,
         customerId: customerId,
       });
-      
+
       setReviewSubmitted(true);
       setReviewText("");
       setReviewRating(0);
       console.log("✅ Review submitted successfully");
     } catch (err) {
       console.error("❌ Error submitting review:", err);
-      const errorMessage = err.response?.data?.error || 
-                          err.response?.data?.message || 
-                          err.message || 
-                          "Failed to submit review. Please try again.";
+      const errorMessage = err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to submit review. Please try again.";
       setReviewError(errorMessage);
     } finally {
       setIsSubmittingReview(false);
@@ -999,10 +1099,10 @@ const ViewDetails = () => {
 
   const getStatusClass = (status) => {
     if (!status) return styles.statusDefault;
-    
+
     // Get original orderStatus first for accurate status class
     const originalStatus = booking?.originalData?.orderStatus ? String(booking.originalData.orderStatus).toUpperCase().trim() : "";
-    
+
     // Check original orderStatus first
     if (originalStatus === "PENDING") {
       return styles.statusPending; // Orange background for pending
@@ -1016,7 +1116,7 @@ const ViewDetails = () => {
     if (originalStatus === "CANCELLED" || originalStatus === "CANCELED") {
       return styles.statusCancelled;
     }
-    
+
     // Fallback to status parameter
     const statusLower = String(status).toLowerCase().trim();
     if (statusLower === "pending") {
@@ -1039,10 +1139,10 @@ const ViewDetails = () => {
 
   const getActionButtons = () => {
     // Get status from multiple sources for reliability
-    const status = booking.status?.toLowerCase() || 
-                   booking.statusTone || 
-                   (booking.originalData?.orderStatus ? String(booking.originalData.orderStatus).toLowerCase() : "");
-    
+    const status = booking.status?.toLowerCase() ||
+      booking.statusTone ||
+      (booking.originalData?.orderStatus ? String(booking.originalData.orderStatus).toLowerCase() : "");
+
     if (status === "upcoming" || status === "pending" || status === "confirmed") {
       return [
         { label: "Message Host", variant: "primary" },
@@ -1082,7 +1182,15 @@ const ViewDetails = () => {
     <div className={cn("section", styles.section)}>
       <div className={cn("container", styles.container)}>
         <header className={styles.header}>
-          <h1 className={cn("h2", styles.title)}>{booking.title}</h1>
+          <Link
+            to="/bookings"
+            className={cn("button-stroke", "button-small")}
+            style={{ marginBottom: "24px", display: "inline-flex", alignItems: "center", gap: "8px" }}
+          >
+            <Icon name="arrow-prev" size="14" />
+            <span>Back to Bookings</span>
+          </Link>
+          <h1 className={cn("h2", styles.title)} style={{ marginTop: "16px" }}>{booking.title}</h1>
         </header>
 
         <div className={styles.banner}>
@@ -1146,7 +1254,7 @@ const ViewDetails = () => {
                       if (normalized === "COMPLETED") return "Completed";
                       if (normalized === "CANCELLED" || normalized === "CANCELED") return "Cancelled";
                     }
-                    
+
                     // Fallback to booking.status if originalStatus not available
                     return booking.status || "Pending";
                   })()}
@@ -1157,10 +1265,10 @@ const ViewDetails = () => {
               <div className={styles.summaryLabel}>Payment Method</div>
               <div className={styles.summaryValue}>
                 {(() => {
-                  const paymentMethod = booking.paymentMethod || 
-                                       booking.originalData?.paymentMethod || 
-                                       booking.originalData?.payment_method ||
-                                       null;
+                  const paymentMethod = booking.paymentMethod ||
+                    booking.originalData?.paymentMethod ||
+                    booking.originalData?.payment_method ||
+                    null;
                   console.log("✅ Displaying payment method:", {
                     bookingPaymentMethod: booking.paymentMethod,
                     originalPaymentMethod: booking.originalData?.paymentMethod,
@@ -1199,9 +1307,9 @@ const ViewDetails = () => {
                 <Icon name="marker" size="20" />
                 <div>
                   {booking.location.address && booking.location.address !== "TBD" && (
-                  <div className={styles.addressLine}>
-                    {booking.location.address}
-                  </div>
+                    <div className={styles.addressLine}>
+                      {booking.location.address}
+                    </div>
                   )}
                   <div className={styles.addressCity}>
                     {[booking.location.city, booking.location.country]
@@ -1213,11 +1321,11 @@ const ViewDetails = () => {
               {(() => {
                 // Check if we have coordinates (most accurate)
                 const hasCoordinates = booking.location.latitude && booking.location.longitude;
-                
+
                 // Build location query for map - prefer coordinates
                 let mapUrl = "";
                 let hasValidLocation = false;
-                
+
                 if (hasCoordinates) {
                   // Use coordinates for precise location
                   mapUrl = `https://www.google.com/maps?q=${booking.location.latitude},${booking.location.longitude}&z=14&output=embed`;
@@ -1229,38 +1337,38 @@ const ViewDetails = () => {
                     booking.location.city,
                     booking.location.country
                   ].filter(part => part && part !== "TBD");
-                  
+
                   const locationQuery = locationParts.join(", ");
                   hasValidLocation = locationQuery && locationQuery.length > 0;
-                  
+
                   if (hasValidLocation) {
                     mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(locationQuery)}&z=14&output=embed`;
                   }
                 }
-                
+
                 return hasValidLocation ? (
-              <div className={styles.mapContainer}>
-                <iframe
+                  <div className={styles.mapContainer}>
+                    <iframe
                       src={mapUrl}
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className={styles.map}
-                  title="Location map"
-                />
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0 }}
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      className={styles.map}
+                      title="Location map"
+                    />
                     {booking.location.directionsUrl && booking.location.directionsUrl !== "#" && (
-                <a
-                  href={booking.location.directionsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.directionsLink}
-                >
-                  <Icon name="route" size="16" />
-                  <span>Get Directions</span>
-                </a>
+                      <a
+                        href={booking.location.directionsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.directionsLink}
+                      >
+                        <Icon name="route" size="16" />
+                        <span>Get Directions</span>
+                      </a>
                     )}
                   </div>
                 ) : (
@@ -1271,7 +1379,7 @@ const ViewDetails = () => {
                       <p className={styles.mapPlaceholderSubtext}>
                         Please contact the host for location details
                       </p>
-              </div>
+                    </div>
                   </div>
                 );
               })()}
@@ -1339,7 +1447,7 @@ const ViewDetails = () => {
               {booking.originalData?.razorpayOrderId && (
                 <div className={styles.paymentMethod} style={{ marginTop: '8px', fontSize: '12px', color: '#777E90' }}>
                   <span>Order ID: {booking.originalData.razorpayOrderId}</span>
-              </div>
+                </div>
               )}
               {isPaymentFailed(booking.paymentStatus) && (
                 <div className={styles.paymentActions}>
@@ -1363,7 +1471,7 @@ const ViewDetails = () => {
 
         {/* Addons Section */}
         {booking.addons && booking.addons.length > 0 && (
-          <div className={cn(styles.card, styles.addonsCard)}>
+          <div className={cn(styles.card, styles.addonsCard, "mb-5")} style={{ marginBottom: 32 }}>
             <h2 className={styles.cardTitle}>Addons</h2>
             <div className={styles.addonsList}>
               {booking.addons.map((addon, index) => (
@@ -1415,13 +1523,13 @@ const ViewDetails = () => {
           <h2 className={styles.cardTitle}>Important Notes & Terms</h2>
           <div className={styles.notesTabs}>
             {notesTabs.map((tab) => {
-              const hasContent = 
+              const hasContent =
                 (tab.id === "cancellation" && booking.notes.cancellationPolicy) ||
                 (tab.id === "host" && booking.notes.hostInstructions) ||
                 (tab.id === "requirements" && booking.notes.requirements);
-              
+
               if (!hasContent) return null;
-              
+
               return (
                 <button
                   key={tab.id}

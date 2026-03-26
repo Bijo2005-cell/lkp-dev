@@ -42,6 +42,14 @@ const Description = ({ classSection, listing, hostData }) => {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
+  const normalizeBookingTime = (timeString) => {
+    if (!timeString) return "00:00";
+    const parts = String(timeString).split(":");
+    const hours = parts[0] ?? "00";
+    const minutes = parts[1] ?? "00";
+    return `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}`;
+  };
+
   const handleCheckStayAvailability = async () => {
     try {
       if (!isStay || isPropertyBased) return;
@@ -121,6 +129,8 @@ const Description = ({ classSection, listing, hostData }) => {
       }
 
       let calculatedAmount = 0;
+      let roomsNeeded = 1; // default to 1 room
+
       if (selectedRoomObject && staySelectedRoomType) {
         let basePrice = 0;
         let extraAdultPrice = parseFloat(selectedRoomObject.extraAdultPrice || listing?.stay?.extraAdultPrice || 0);
@@ -128,7 +138,8 @@ const Description = ({ classSection, listing, hostData }) => {
 
         if (selectedRoomObject.mealPlanPricing && selectedRoomObject.mealPlanPricing[mealPlanCode]) {
           const mp = selectedRoomObject.mealPlanPricing[mealPlanCode];
-          basePrice = parseFloat(mp.b2cPrice || mp.b2bPrice || mp.price || 0);
+          // Use b2cPrice ONLY — never fall back to b2bPrice for customer billing
+          basePrice = parseFloat(mp.b2cPrice || mp.price || 0);
           if (mp.extraAdultPrice) extraAdultPrice = parseFloat(mp.extraAdultPrice);
           if (mp.extraChildPrice) extraChildPrice = parseFloat(mp.extraChildPrice);
         } else {
@@ -137,40 +148,54 @@ const Description = ({ classSection, listing, hostData }) => {
           else if (mealPlanCode === "MAP" && Number(selectedRoomObject.mapPrice) > 0) basePrice = parseFloat(selectedRoomObject.mapPrice);
           else if (mealPlanCode === "AP" && Number(selectedRoomObject.apPrice) > 0) basePrice = parseFloat(selectedRoomObject.apPrice);
           else if (mealPlanCode === "EP" && Number(selectedRoomObject.epPrice) > 0) basePrice = parseFloat(selectedRoomObject.epPrice);
-          else basePrice = parseFloat(selectedRoomObject.b2cPrice || selectedRoomObject.price || selectedRoomObject.b2bPrice || 0);
+          else basePrice = parseFloat(selectedRoomObject.b2cPrice || selectedRoomObject.price || 0);
         }
 
+        // Compute how many rooms are needed for the guest count
+        const roomCap = Number(
+          selectedRoomObject.maxGuests ??
+          ((selectedRoomObject.maxAdults || 0) + (selectedRoomObject.maxChildren || 0))
+        ) || 2;
+        if (guestCount > roomCap) {
+          roomsNeeded = Math.ceil(guestCount / roomCap);
+        }
+
+        // Extra guest pricing (applies within a single room's capacity)
         const maxAdults = selectedRoomObject.maxAdults || listing?.stay?.maxAdults || 0;
         const maxChildren = selectedRoomObject.maxChildren || listing?.stay?.maxChildren || 0;
-
         const extraAdults = Math.max(0, (guests?.adults || 0) - maxAdults);
         const extraChildren = Math.max(0, (guests?.children || 0) - maxChildren);
-
         const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
+
         const amountPerNight = basePrice + totalExtraPrice;
         const nightsCount = checkInDate && checkOutDate ? Math.max(1, moment(checkOutDate).diff(moment(checkInDate), "days")) : 1;
-        calculatedAmount = amountPerNight * nightsCount;
+        // Multiply by roomsNeeded so total amount reflects all rooms booked
+        calculatedAmount = amountPerNight * nightsCount * roomsNeeded;
+
+        console.log("💰 Booking amount calc:", { basePrice, roomCap, guestCount, roomsNeeded, amountPerNight, nightsCount, calculatedAmount });
       }
+
 
       let orderData;
 
       if (staySelectedRoomType && selectedRoomId) {
-        // Room-based stay: include rooms array
+        // Room-based stay: include rooms array with correct roomsBooked count
         orderData = {
           stayId: Number(stayId) || 0,
           checkInDate,
           checkOutDate,
           numberOfGuests: guestCount,
-          amount: calculatedAmount, // Pass calculated B2C amount
-          paymentMethod: "razorpay", // Explicitly request Razorpay
+          amount: calculatedAmount, // B2C price × nights × roomsNeeded
+          paymentMethod: "razorpay",
           rooms: [
             {
               roomId: selectedRoomId,
-              roomsBooked: 1,
+              roomsBooked: roomsNeeded,  // ← correct: 1 or more based on guest count
               mealPlanCode: mealPlanCode,
             },
           ],
         };
+
       } else {
         // Property-based stay: send minimal body but calculate B2C amount properly
         const propertyBasePrice = parseFloat(listing?.stay?.fullPropertyB2cPrice || listing?.stay?.b2cPrice || listing?.stay?.startingPrice || listing?.stay?.pricePerNight || listing?.stay?.price || 0);
@@ -207,7 +232,12 @@ const Description = ({ classSection, listing, hostData }) => {
       const rzpOrderId = paymentResponse?.razorpayOrderId || res?.razorpayOrderId || res?.order?.razorpayOrderId;
       const rzpKeyId = paymentResponse?.razorpayKeyId || res?.razorpayKeyId || res?.order?.razorpayKeyId || "rzp_test_RaBjdu0Ed3p1gN";
 
-      const amountInPaise = paymentResponse?.amount ? paymentResponse.amount : Math.round(calculatedAmount * 100);
+      // Always use our frontend-calculated amount (b2cPrice × nights × roomsNeeded).
+      // The backend may add taxes/surcharges that inflate the Razorpay order amount —
+      // we display our calculated total to keep it consistent with the receipt breakdown.
+      const amountInPaise = Math.round(calculatedAmount * 100);
+      // Keep backend Razorpay order id & key for the actual payment flow
+
       const currency = paymentResponse?.currency || res?.currency || res?.order?.currency || "INR";
 
       localStorage.setItem("pendingPayment", JSON.stringify({
@@ -253,17 +283,20 @@ const Description = ({ classSection, listing, hostData }) => {
     infants: 0,
     pets: 0,
   });
+  const [hasSelectedGuests, setHasSelectedGuests] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimeSlots, setShowTimeSlots] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [showRoomTypePicker, setShowRoomTypePicker] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isReserveSubmitting, setIsReserveSubmitting] = useState(false);
   const dateItemRef = useRef(null);
   const timeItemRef = useRef(null);
   const guestItemRef = useRef(null);
   const checkoutItemRef = useRef(null);
   const roomTypeItemRef = useRef(null);
   const initialValuesSetRef = useRef(false);
+  const reserveSubmitLockRef = useRef(false);
 
   useEffect(() => {
     if (!showRoomTypePicker) return;
@@ -279,11 +312,13 @@ const Description = ({ classSection, listing, hostData }) => {
 
   useEffect(() => {
     if (!isStay) return;
+    // Only reset availability when DATES change, NOT when guest count changes.
+    // Guest count changes should not require re-checking availability.
     setStayAvailabilityChecked(false);
     setStayAvailabilityResult(null);
     setStaySelectedRoomType("");
     setShowRoomTypePicker(false);
-  }, [isStay, selectedDate, selectedEndDate, guests]);
+  }, [isStay, selectedDate, selectedEndDate]);
 
   // Helper function to get guest count (supports both old and new format)
   const getGuestCount = (guestsObj) => {
@@ -293,6 +328,23 @@ const Description = ({ classSection, listing, hostData }) => {
     }
     // Legacy format: adults + children
     return (guestsObj.adults || 0) + (guestsObj.children || 0);
+  };
+
+  const minimumChargeAge = 12;
+
+  const billableGuestLabel = useMemo(() => `Age 12+`, []);
+
+  const childrenGuestLabel = useMemo(() => `Ages 6-12`, []);
+
+  const getBillableGuestCount = (guestsObj) => {
+    if (!guestsObj) return 0;
+    if (isStay) {
+      return getGuestCount(guestsObj);
+    }
+    if (guestsObj.adults !== undefined || guestsObj.children !== undefined) {
+      return guestsObj.adults || 0;
+    }
+    return guestsObj.guests || 0;
   };
 
   const stayRoomTypeOptions = useMemo(() => {
@@ -336,12 +388,9 @@ const Description = ({ classSection, listing, hostData }) => {
         if (!id || seenIds.has(String(id))) return null;
         seenIds.add(String(id));
 
-        // Filter by guest count range (max capacity of the room)
+        // Show ALL rooms regardless of guest count.
+        // Extra-room logic / messaging handles cases where guests > room capacity.
         const maxRoomGuests = x?.maxGuests ?? x?.max_guests ?? x?.capacity ?? x?.maxAdults ?? 0;
-        if (currentGuestCount > 0 && maxRoomGuests > 0 && currentGuestCount > maxRoomGuests) {
-          // Hide rooms that can't fit the selected number of guests
-          return null;
-        }
 
         const labelBase =
           x?.roomName ??
@@ -376,11 +425,12 @@ const Description = ({ classSection, listing, hostData }) => {
 
 
   const guestCountText = useMemo(() => {
+    if (!isStay && !hasSelectedGuests) return "Add guests";
     const total = getGuestCount(guests);
     if (total === 0) return "Add guests";
     if (total === 1) return "1 guest";
     return `${total} guests`;
-  }, [guests]);
+  }, [guests, hasSelectedGuests, isStay]);
 
   // Validation helper functions
   const isPastDate = (date) => {
@@ -551,6 +601,7 @@ const Description = ({ classSection, listing, hostData }) => {
   // Get availability data for selected date and slot
   const selectedDateAvailability = useMemo(() => {
     if (!selectedDate) return null;
+    if (!isStay && !selectedTimeSlot) return null;
     const dateStr = selectedDate.format("YYYY-MM-DD");
 
     // 1. Try to find explicit availability from the array (updated by bookings)
@@ -576,7 +627,7 @@ const Description = ({ classSection, listing, hostData }) => {
     }
 
     return null;
-  }, [selectedDate, filteredAvailabilityData, selectedTimeSlotData, selectedTimeSlot, listing?.maxGuests]);
+  }, [selectedDate, filteredAvailabilityData, selectedTimeSlotData, selectedTimeSlot, listing?.maxGuests, isStay]);
 
   // Get the selected timeSlot object for display
   const selectedTimeSlotDisplay = useMemo(() => {
@@ -707,54 +758,50 @@ const Description = ({ classSection, listing, hostData }) => {
     const rooms = listing.rooms || listing.roomTypes || listing.room_types || listing.stay?.rooms || listing.stayDetails?.rooms || [];
     if (!Array.isArray(rooms) || rooms.length === 0) return null;
 
-    let minMealPrice = Infinity;
-    let minGeneralPrice = Infinity;
+    let minB2cMealPrice = Infinity;
+    let minGeneralB2cPrice = Infinity;
 
     rooms.forEach((room) => {
-      // 1. Check nested mealPlanPricing object (New API format)
+      // 1. Check nested mealPlanPricing — use ONLY b2cPrice (never b2bPrice for customer display)
       if (room.mealPlanPricing && typeof room.mealPlanPricing === 'object') {
         Object.values(room.mealPlanPricing).forEach((plan) => {
           if (plan) {
-            const planPrices = [plan.b2cPrice, plan.b2bPrice, plan.price, plan.amount];
-            planPrices.forEach((p) => {
-              const val = parseFloat(p);
-              if (!isNaN(val) && val > 0 && val < minMealPrice) {
-                minMealPrice = val;
-              }
-            });
+            const val = parseFloat(plan.b2cPrice || plan.price || plan.amount || 0);
+            if (!isNaN(val) && val > 0 && val < minB2cMealPrice) {
+              minB2cMealPrice = val;
+            }
           }
         });
       }
 
-      // 2. Check flat meal plan prices (CP, MAP, AP) - Alternative/Legacy formats
+      // 2. Flat meal plan b2c prices
       const mealPrices = [room.cpPrice, room.mapPrice, room.apPrice, room.cp_price, room.map_price, room.ap_price];
       mealPrices.forEach((p) => {
         const val = parseFloat(p);
-        if (!isNaN(val) && val > 0 && val < minMealPrice) {
-          minMealPrice = val;
+        if (!isNaN(val) && val > 0 && val < minB2cMealPrice) {
+          minB2cMealPrice = val;
         }
       });
 
-      // 3. Check general room prices (EP, B2C, B2B, etc.)
-      const generalPrices = [room.epPrice, room.ep_price, room.price, room.b2cPrice, room.b2c_price, room.b2bRate, room.b2b_rate, room.amount];
-      generalPrices.forEach((p) => {
+      // 3. General b2cPrice (never b2bPrice)
+      const generalB2cPrices = [room.b2cPrice, room.b2c_price, room.price, room.amount];
+      generalB2cPrices.forEach((p) => {
         const val = parseFloat(p);
-        if (!isNaN(val) && val > 0 && val < minGeneralPrice) {
-          minGeneralPrice = val;
+        if (!isNaN(val) && val > 0 && val < minGeneralB2cPrice) {
+          minGeneralB2cPrice = val;
         }
       });
     });
 
-    // Strategy: Prefer meal price if found, otherwise general price, otherwise null
-    const finalPrice = minMealPrice !== Infinity ? minMealPrice : (minGeneralPrice !== Infinity ? minGeneralPrice : null);
+    const finalPrice = minB2cMealPrice !== Infinity ? minB2cMealPrice : (minGeneralB2cPrice !== Infinity ? minGeneralB2cPrice : null);
 
     if (finalPrice !== null || rooms.length > 0) {
       console.log(`📊 API Pricing Debug [Listing: ${listing?.id || listing?.stayId || 'unknown'}]:`, {
         isStay,
         foundRoomsCount: rooms.length,
-        minMealPrice: minMealPrice === Infinity ? 'N/A' : minMealPrice,
-        minGeneralPrice: minGeneralPrice === Infinity ? 'N/A' : minGeneralPrice,
-        selectedLowestPrice: finalPrice,
+        minB2cMealPrice: minB2cMealPrice === Infinity ? 'N/A' : minB2cMealPrice,
+        minGeneralB2cPrice: minGeneralB2cPrice === Infinity ? 'N/A' : minGeneralB2cPrice,
+        selectedLowestB2cPrice: finalPrice,
         firstRoomSample: rooms[0] ? {
           name: rooms[0].roomName || rooms[0].name,
           mealPlanPricing: rooms[0].mealPlanPricing,
@@ -766,7 +813,7 @@ const Description = ({ classSection, listing, hostData }) => {
     return finalPrice;
   }, [listing, isStay]);
 
-  const { addOnsTotal, finalTotal, receipt } = useMemo(() => {
+  const { addOnsTotal, finalTotal, receipt, priceInfo, pricingBreakdown } = useMemo(() => {
     // Calculate addons price based on pricing type
     const addOnsPrice = selectedAddOns.reduce((sum, id) => {
       // Find addon from listing data
@@ -785,8 +832,9 @@ const Description = ({ classSection, listing, hostData }) => {
       return sum;
     }, 0);
 
-    // Calculate base price based on guest count and price type
+    // Total guests drive slot capacity; billable guests drive experience pricing.
     const guestCount = getGuestCount(guests);
+    const billableGuestCount = getBillableGuestCount(guests);
     // Use availability data if available, then selected slot, then fallback to listing data
     const pricePerPerson = selectedDateAvailability?.price_per_person
       ? parseFloat(selectedDateAvailability.price_per_person)
@@ -795,41 +843,108 @@ const Description = ({ classSection, listing, hostData }) => {
         : (listing?.timeSlots?.[0]?.pricePerPerson
           ? parseFloat(listing.timeSlots[0].pricePerPerson)
           : null));
-    const pricePerNight = selectedDateAvailability?.b2b_rate
-      ? parseFloat(selectedDateAvailability.b2b_rate)
-      : (selectedTimeSlotData?.b2bRate
-        ? parseFloat(selectedTimeSlotData.b2bRate)
-        : isStay && isPropertyBased && (listing?.stay?.fullPropertyB2cPrice || listing?.stay?.b2cPrice)
-          ? parseFloat(listing?.stay?.fullPropertyB2cPrice || listing?.stay?.b2cPrice)
-          : isStay && lowestRoomPrice
-            ? lowestRoomPrice
-            : (listing?.timeSlots?.[0]?.b2bRate
-              ? parseFloat(listing.timeSlots[0].b2bRate)
-              : 119));
-    const currency = listing?.currency || "INR";
 
-    // Calculate nights (assuming 1 night for now, can be enhanced with date range)
-    const nights = 1; // Default to 1 night, can be calculated from date range
+    // For stays: calculate actual nights between check-in and check-out
+    const nightsCount = (isStay && selectedDate && selectedEndDate)
+      ? Math.max(1, moment(selectedEndDate).diff(moment(selectedDate), 'days'))
+      : 1;
+
+    // For room-based stays: determine how many rooms are needed based on guest count
+    // Use the selected room's maxGuests (or first room's) to compute roomsNeeded
+    let roomsNeeded = 1;
+    if (isStay && !isPropertyBased && staySelectedRoomType) {
+      const rooms = listing.rooms || listing.roomTypes || listing.room_types || listing.stay?.rooms || [];
+      const selectedRoomObj = rooms.find(r =>
+        String(r.roomId ?? r.room_id ?? r.roomTypeId ?? r.id ?? r.code) === String(staySelectedRoomType)
+      );
+      if (selectedRoomObj) {
+        const roomCap = Number(
+          selectedRoomObj.maxGuests ?? selectedRoomObj.max_guests ??
+          ((selectedRoomObj.maxAdults || 0) + (selectedRoomObj.maxChildren || 0)) ?? 2
+        ) || 2;
+        if (guestCount > roomCap) {
+          roomsNeeded = Math.ceil(guestCount / roomCap);
+        }
+      }
+    }
+
+    // pricePerNight: use B2C price only (never b2bPrice for customer display)
+    // Priority: selected room's mealPlanPricing b2cPrice > lowestRoomPrice (b2c) > property b2cPrice
+    let pricePerNight;
+    if (isStay && isPropertyBased) {
+      // fullPropertyB2cPrice may be directly on listing OR under listing.stay
+      pricePerNight = parseFloat(
+        listing?.fullPropertyB2cPrice ||
+        listing?.stay?.fullPropertyB2cPrice ||
+        listing?.fullPropertyB2cPrice ||
+        listing?.stay?.b2cPrice ||
+        listing?.b2cPrice ||
+        listing?.stay?.startingPrice ||
+        listing?.stay?.pricePerNight ||
+        listing?.stay?.price ||
+        lowestRoomPrice || 0
+      );
+    } else if (isStay && staySelectedRoomType) {
+      // Find selected room and get its b2cPrice from mealPlanPricing
+      const rooms = listing.rooms || listing.roomTypes || listing.room_types || listing.stay?.rooms || [];
+      const selRoom = rooms.find(r =>
+        String(r.roomId ?? r.room_id ?? r.roomTypeId ?? r.id ?? r.code) === String(staySelectedRoomType)
+      );
+      if (selRoom?.mealPlanPricing) {
+        const plans = Object.values(selRoom.mealPlanPricing);
+        pricePerNight = plans.reduce((best, plan) => {
+          const val = parseFloat(plan?.b2cPrice || plan?.price || 0);
+          return val > 0 && (best === 0 || val < best) ? val : best;
+        }, 0);
+      }
+      pricePerNight = pricePerNight || lowestRoomPrice || 0;
+    } else if (isStay) {
+      pricePerNight = lowestRoomPrice || 0;
+    } else {
+      pricePerNight = selectedDateAvailability?.b2b_rate
+        ? parseFloat(selectedDateAvailability.b2b_rate)
+        : (selectedTimeSlotData?.b2bRate
+          ? parseFloat(selectedTimeSlotData.b2bRate)
+          : (listing?.timeSlots?.[0]?.b2bRate ? parseFloat(listing.timeSlots[0].b2bRate) : 0));
+    }
+    const currency = listing?.currency || "INR";
 
     let basePriceAmount;
     let priceDescription;
+    const billableGuestText = `${billableGuestCount} ${billableGuestCount === 1 ? "guest" : "guests"}`;
+    const billablePriceDescription = `${currency} ${pricePerPerson?.toFixed?.(2) || "0.00"} x ${billableGuestText}${nightsCount > 1 ? ` x ${nightsCount} nights` : ""}`;
 
-    if (pricePerPerson) {
-      // Price per person
-      basePriceAmount = pricePerPerson * guestCount * nights;
-      priceDescription = `${currency} ${pricePerPerson.toFixed(2)} × ${guestCount} ${guestCount === 1 ? 'guest' : 'guests'}${nights > 1 ? ` × ${nights} nights` : ''}`;
+    if (!isStay && pricePerPerson) {
+      // Experience: Price per person
+      basePriceAmount = pricePerPerson * billableGuestCount * nightsCount;
+      priceDescription = `${currency} ${pricePerPerson.toFixed(2)} × ${guestCount} ${guestCount === 1 ? 'guest' : 'guests'}${nightsCount > 1 ? ` × ${nightsCount} nights` : ''}`;
     } else {
-      // Price per night
-      basePriceAmount = pricePerNight * nights;
-      priceDescription = `${currency} ${pricePerNight.toFixed(2)}${nights > 1 ? ` × ${nights} nights` : ''}`;
+      // Stay: Price per room per night × nights × rooms
+      basePriceAmount = pricePerNight * nightsCount * roomsNeeded;
+      const roomStr = roomsNeeded > 1 ? ` × ${roomsNeeded} room${roomsNeeded > 1 ? 's' : ''}` : '';
+      const nightStr = nightsCount > 1 ? ` × ${nightsCount} nights` : '';
+      priceDescription = `${currency} ${pricePerNight.toFixed(2)}${nightStr}${roomStr}`;
+    }
+
+    if (!isStay && pricePerPerson) {
+      priceDescription = billablePriceDescription;
     }
 
     const subtotal = basePriceAmount + addOnsPrice;
+    const discountPercentage = parseFloat(
+      listing?.pricing?.discount?.total ||
+      listing?.pricing?.discount?.percentage ||
+      0
+    ) || 0;
+    const discountAmount = (subtotal * discountPercentage) / 100;
+    const taxableAmount = Math.max(subtotal - discountAmount, 0);
 
     const receiptData = [
       {
         title: priceDescription,
         content: `${currency} ${basePriceAmount.toFixed(2)}`,
+        kind: "base",
+        showInCheckout: true,
       },
     ];
 
@@ -851,15 +966,28 @@ const Description = ({ classSection, listing, hostData }) => {
             receiptData.push({
               title: `${addonTitle} × ${quantity}`,
               content: `${currency} ${addonTotal.toFixed(2)}`,
+              kind: "addon",
+              showInCheckout: false,
             });
           } else {
             receiptData.push({
               title: addonTitle,
               content: `${currency} ${addonTotal.toFixed(2)}`,
+              kind: "addon",
+              showInCheckout: false,
             });
           }
         }
         // No fallback - only use API addons
+      });
+    }
+
+    if (discountAmount > 0) {
+      receiptData.push({
+        title: `Discount (${discountPercentage.toFixed(0)}%)`,
+        content: `- ${currency} ${discountAmount.toFixed(2)}`,
+        kind: "discount",
+        showInCheckout: false,
       });
     }
 
@@ -868,20 +996,24 @@ const Description = ({ classSection, listing, hostData }) => {
     if (billingConfig?.taxes && Array.isArray(billingConfig.taxes)) {
       const enabledTaxes = billingConfig.taxes.filter(tax => tax.isEnabled);
       enabledTaxes.forEach(tax => {
-        const taxAmount = (subtotal * parseFloat(tax.currentRate || 0)) / 100;
+        const taxAmount = (taxableAmount * parseFloat(tax.currentRate || 0)) / 100;
         totalTaxAmount += taxAmount;
         receiptData.push({
           title: tax.name,
           content: `${currency} ${taxAmount.toFixed(2)}`,
+          kind: "tax",
+          showInCheckout: true,
         });
       });
     }
 
-    const total = subtotal + totalTaxAmount;
+    const total = taxableAmount + totalTaxAmount;
 
     receiptData.push({
       title: "Total",
       content: `${currency} ${total.toFixed(2)}`,
+      kind: "total",
+      showInCheckout: true,
     });
 
     const displayPriceValue = pricePerPerson || pricePerNight;
@@ -896,10 +1028,20 @@ const Description = ({ classSection, listing, hostData }) => {
         priceActual: priceActualText,
         time: priceTimeUnit,
         total: total,
+      },
+      pricingBreakdown: {
+        currency,
+        basePrice: basePriceAmount,
+        addonsTotal: addOnsPrice,
+        subtotal,
+        discountPercentage,
+        discountAmount,
+        taxAmount: totalTaxAmount,
+        total,
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAddOns, addOnQuantities, guests, listing, billingConfig, selectedDateAvailability, lowestRoomPrice, selectedTimeSlotData, isStay]);
+  }, [selectedAddOns, addOnQuantities, guests, listing, billingConfig, selectedDateAvailability, lowestRoomPrice, selectedTimeSlotData, isStay, isPropertyBased, staySelectedRoomType, selectedDate, selectedEndDate]);
 
   // Save booking data to localStorage
   const saveBookingData = () => {
@@ -979,10 +1121,34 @@ const Description = ({ classSection, listing, hostData }) => {
 
     const mealPlanLabels = { EP: "EP (Room Only)", CP: "CP (Breakfast)", BB: "BB (Bed & Breakfast)", MAP: "MAP (Half Board)", AP: "AP (Full Board)" };
 
+    // Calculate roomsNeeded for the selected room
+    let stayRoomsNeeded = 1;
+    const stayGuestCount = getGuestCount(guests);
+    if (selectedRoomObj) {
+      const cap = Number(
+        selectedRoomObj.maxGuests ??
+        ((selectedRoomObj.maxAdults || 0) + (selectedRoomObj.maxChildren || 0))
+      ) || 2;
+      if (stayGuestCount > cap) stayRoomsNeeded = Math.ceil(stayGuestCount / cap);
+    }
+
+    // Get room image (prefer room photo, fall back to listing image)
+    const roomImage = selectedRoomObj?.photoUrl ||
+      selectedRoomObj?.imageUrl ||
+      selectedRoomObj?.coverPhotoUrl ||
+      (Array.isArray(selectedRoomObj?.images) ? selectedRoomObj.images[0]?.url : null) ||
+      null;
+
     const bookingData = {
+      stayId: isStay ? (listing?.stayId || listing?.stay_id || listing?.id) : null,
       listingId: listing?.listingId || listing?.id,
       listingTitle: listing?.title || listing?.name || listing?.listingTitle || "",
       listingImage: getFirstListingImage(),
+      roomImage: roomImage || getFirstListingImage(),
+      hostName: (hostData?.firstName ? `${hostData?.firstName} ${hostData?.lastName || ""}`.trim() : hostData?.name) ||
+                (listing?.host?.firstName ? `${listing?.host?.firstName} ${listing?.host?.lastName || ""}`.trim() : listing?.host?.name) || "Host",
+      hostAvatar: hostData?.profilePhotoUrl || hostData?.avatar || hostData?.profileImage || hostData?.image ||
+                  listing?.host?.profilePhotoUrl || listing?.host?.picture || listing?.host?.avatar || "/images/content/avatar.jpg",
       selectedDate: selectedDate ? selectedDate.format("YYYY-MM-DD") : null,
       selectedTimeSlot: selectedTimeSlot,
       guests: guests,
@@ -990,22 +1156,26 @@ const Description = ({ classSection, listing, hostData }) => {
       addOnQuantities: addOnQuantities,
       receipt: receipt,
       finalTotal: finalTotal,
+      pricing: pricingBreakdown,
       // extra fields to help checkout display
       bookingSummary: {
         date: selectedDate ? selectedDate.format("YYYY-MM-DD") : null,
         time: summaryBookingTime,
         endTime: summaryEndTime,
         slotId: summarySlotId,
-        guestCount: guestsCount,
+        guestCount: stayGuestCount,
+        billableGuestCount: isStay ? stayGuestCount : getBillableGuestCount(guests),
       },
       // Stay-specific fields for "Your trip" section
       isStay,
       checkInDate: isStay && selectedDate ? selectedDate.format("MMM DD, YYYY") : null,
       checkOutDate: isStay && selectedEndDate ? selectedEndDate.format("MMM DD, YYYY") : null,
       roomType: selectedRoomLabel || null,
+      roomsBooked: isStay && !isPropertyBased ? stayRoomsNeeded : null,
       mealPlan: staySelectedRoomType ? (mealPlanLabels[stayMealPlanCode] || stayMealPlanCode) : null,
       timestamp: new Date().toISOString(),
     };
+
 
     localStorage.setItem("pendingBooking", JSON.stringify(bookingData));
   };
@@ -1061,7 +1231,7 @@ const Description = ({ classSection, listing, hostData }) => {
     const hasTimeSlot = selectedTimeSlot !== null;
     const hasCheckout = selectedEndDate !== null;
     const guestCount = getGuestCount(guests);
-    const hasGuests = guestCount > 0;
+    const hasGuests = isStay ? guestCount > 0 : hasSelectedGuests && guestCount > 0;
 
     // Check if requested guests exceed available capacity
     // Use selectedDateAvailability (which now always has a value if a date/slot is picked)
@@ -1070,11 +1240,15 @@ const Description = ({ classSection, listing, hostData }) => {
       : true;
 
     return isStay ? (hasDate && hasCheckout && hasGuests) : (hasDate && hasTimeSlot && hasGuests && hasCapacity);
-  }, [selectedDate, selectedEndDate, selectedTimeSlot, guests, isStay, selectedDateAvailability]);
+  }, [selectedDate, selectedEndDate, selectedTimeSlot, guests, isStay, selectedDateAvailability, hasSelectedGuests]);
 
   const handleReserveClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (reserveSubmitLockRef.current) {
+      return;
+    }
 
     if (isStay) {
       return;
@@ -1116,7 +1290,11 @@ const Description = ({ classSection, listing, hostData }) => {
     }
 
     // User is logged in, create order
+    let success = false;
     try {
+      reserveSubmitLockRef.current = true;
+      setIsReserveSubmitting(true);
+
       // Get customer info from localStorage or user profile
       const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
       const customerName = userInfo.name ||
@@ -1128,20 +1306,15 @@ const Description = ({ classSection, listing, hostData }) => {
         (userInfo.phone ? (userInfo.countryCode || "+91") + userInfo.phone : "") ||
         userInfo.phoneNumber ||
         userInfo.phone || "";
-      // Try to derive customerId from stored user info (various possible keys)
-      const customerId =
-        userInfo.customerId ||
-        userInfo.customer_id ||
-        userInfo.id ||
-        userInfo.userId ||
-        userInfo.customerID ||
-        null;
-
       // Get special requests (if any input field exists in future)
       const specialRequests = "";
 
       // Get listing ID
-      const listingId = listing?.listingId || listing?.id || 0;
+      const listingId = Number(listing?.listingId || listing?.id || 0);
+      if (!listingId || listingId < 1) {
+        alert("Invalid listing. Please reload the experience and try again.");
+        return;
+      }
 
       // Format booking date (YYYY-MM-DD)
       const bookingDate = selectedDate ? selectedDate.format("YYYY-MM-DD") : new Date().toISOString().split('T')[0];
@@ -1153,15 +1326,19 @@ const Description = ({ classSection, listing, hostData }) => {
       } else if (selectedTimeSlotData?.startTime) {
         bookingTime = selectedTimeSlotData.startTime;
       }
+      bookingTime = normalizeBookingTime(bookingTime);
 
       // Get booking slot ID
-      const bookingSlotId = selectedTimeSlotData?.slotId ||
+      const bookingSlotId = Number(
+        selectedTimeSlotData?.slotId ||
         selectedTimeSlotData?.slot_id ||
         selectedTimeSlotData?.id ||
-        0;
+        0
+      );
 
-      // Get number of guests
+      // Total guests reserve capacity; billable guests drive pricing and payment.
       const numberOfGuests = getGuestCount(guests);
+      const billableGuests = getBillableGuestCount(guests);
 
       // Validate available seats before proceeding
       if (selectedDateAvailability) {
@@ -1175,7 +1352,7 @@ const Description = ({ classSection, listing, hostData }) => {
       }
 
       // Calculate base price amount
-      const guestCount = getGuestCount(guests);
+      const guestCount = billableGuests;
       const pricePerPerson = selectedDateAvailability?.price_per_person
         ? parseFloat(selectedDateAvailability.price_per_person)
         : (listing?.timeSlots?.[0]?.pricePerPerson
@@ -1208,22 +1385,26 @@ const Description = ({ classSection, listing, hostData }) => {
         }
       }
 
+      const pricingDiscountAmount = (pricingSubtotal * (parseFloat(
+        listing?.pricing?.discount?.total ||
+        listing?.pricing?.discount?.percentage ||
+        0
+      ) || 0)) / 100;
+      const pricingTaxableAmount = Math.max(pricingSubtotal - pricingDiscountAmount, 0);
+
       // Calculate tax amount
       let pricingTaxAmount = 0;
       if (billingConfig?.taxes && Array.isArray(billingConfig.taxes)) {
         const enabledTaxes = billingConfig.taxes.filter(tax => tax.isEnabled);
         enabledTaxes.forEach(tax => {
-          const taxAmount = (pricingSubtotal * parseFloat(tax.currentRate || 0)) / 100;
+          const taxAmount = (pricingTaxableAmount * parseFloat(tax.currentRate || 0)) / 100;
           pricingTaxAmount += taxAmount;
         });
       }
 
-      // Calculate discount (from billing config or default 0)
-      const pricingDiscountAmount = 0; // Can be enhanced with discount codes
-
       // Calculate total price (subtotal + taxes - discounts, excluding platform commission)
       // eslint-disable-next-line no-unused-vars
-      const pricingTotal = pricingSubtotal + pricingTaxAmount - pricingDiscountAmount;
+      const pricingTotal = pricingTaxableAmount + pricingTaxAmount;
 
       // Calculate host earnings (what the host receives: subtotal - platform commission)
       const calculatedHostEarnings = (pricingSubtotal || 5500) - (pricingPlatformCommission || 550);
@@ -1249,6 +1430,8 @@ const Description = ({ classSection, listing, hostData }) => {
 
           return {
             addonId: listingAddon.addon?.addonId ?? listingAddon.addonId ?? listingAddon.assignmentId,
+            addonName: listingAddon.addon?.title || "Add-on",
+            addonPrice: parseFloat(listingAddon.addon?.price || 0),
             quantity: quantity,
           };
         }
@@ -1262,7 +1445,7 @@ const Description = ({ classSection, listing, hostData }) => {
         return;
       }
 
-      if (!selectedTimeSlot || !bookingSlotId || bookingSlotId === 0) {
+      if (!selectedTimeSlot || !bookingSlotId || bookingSlotId < 1) {
         alert("Please select a time slot.");
         return;
       }
@@ -1281,10 +1464,9 @@ const Description = ({ classSection, listing, hostData }) => {
       const orderData = {
         listingId: listingId || 0,
         bookingDate: bookingDate,
-        bookingTime: bookingTime, // "HH:mm"
+        bookingTime: bookingTime, // "HH:mm:ss"
         bookingSlotId: bookingSlotId || 0,
-        guestCount: numberOfGuests || 1,
-        ...(customerId ? { customerId } : {}),
+        guestCount: billableGuests,
         customer: {
           name: customerName || "Guest User",
           email: customerEmail || "guest@example.com",
@@ -1404,6 +1586,7 @@ const Description = ({ classSection, listing, hostData }) => {
       }
 
       // Redirect to checkout or success page
+      success = true;
       proceedToCheckout();
 
     } catch (error) {
@@ -1439,6 +1622,11 @@ const Description = ({ classSection, listing, hostData }) => {
       }
 
       alert(errorMessage);
+    } finally {
+      if (!success) {
+        reserveSubmitLockRef.current = false;
+        setIsReserveSubmitting(false);
+      }
     }
   };
 
@@ -1564,6 +1752,10 @@ const Description = ({ classSection, listing, hostData }) => {
 
   // Create order from pending booking data (used after login)
   const createOrderFromPendingBooking = async () => {
+    if (reserveSubmitLockRef.current) {
+      return;
+    }
+
     const savedBooking = localStorage.getItem("pendingBooking");
     if (!savedBooking) {
       console.warn("No pending booking data found");
@@ -1582,19 +1774,14 @@ const Description = ({ classSection, listing, hostData }) => {
       (userInfo.phone ? (userInfo.countryCode || "+91") + userInfo.phone : "") ||
       userInfo.phoneNumber ||
       userInfo.phone || "";
-    const customerId =
-      userInfo.customerId ||
-      userInfo.customer_id ||
-      userInfo.id ||
-      userInfo.userId ||
-      userInfo.customerID ||
-      null;
-
     // Get special requests (if any input field exists in future)
     const specialRequests = "";
 
     // Get listing ID
-    const listingId = bookingData.listingId || listing?.listingId || listing?.id || 0;
+    const listingId = Number(bookingData.listingId || listing?.listingId || listing?.id || 0);
+    if (!listingId || listingId < 1) {
+      throw new Error("Invalid listing. Please reload the experience and try again.");
+    }
 
     // Format booking date
     const bookingDate = bookingData.selectedDate ||
@@ -1606,22 +1793,35 @@ const Description = ({ classSection, listing, hostData }) => {
       bookingTime = selectedDateAvailability.start_time;
     } else if (selectedTimeSlotData?.startTime) {
       bookingTime = selectedTimeSlotData.startTime;
+    } else if (bookingData?.bookingSummary?.time) {
+      bookingTime = bookingData.bookingSummary.time;
     }
+    bookingTime = normalizeBookingTime(bookingTime);
 
     // Get booking slot ID
-    const bookingSlotId = selectedTimeSlotData?.slotId ||
+    const bookingSlotId = Number(
+      selectedTimeSlotData?.slotId ||
       selectedTimeSlotData?.slot_id ||
       selectedTimeSlotData?.id ||
-      bookingData.selectedTimeSlot ||
-      0;
+      bookingData?.bookingSummary?.slotId ||
+      0
+    );
+
+    if (!bookingSlotId || bookingSlotId < 1) {
+      throw new Error("Invalid booking slot. Please reselect the date and time slot.");
+    }
+
+    if (!bookingTime || bookingTime === "00:00") {
+      throw new Error("Invalid booking time. Please reselect the date and time slot.");
+    }
 
     // Get number of guests
-    const numberOfGuests = bookingData.guests ?
-      getGuestCount(bookingData.guests) :
-      getGuestCount(guests);
+    const billableGuests = bookingData.guests ?
+      getBillableGuestCount(bookingData.guests) :
+      getBillableGuestCount(guests);
 
     // Calculate base price amount
-    const guestCount = numberOfGuests;
+    const guestCount = billableGuests;
     const pricePerPerson = selectedDateAvailability?.price_per_person
       ? parseFloat(selectedDateAvailability.price_per_person)
       : (listing?.timeSlots?.[0]?.pricePerPerson
@@ -1651,6 +1851,8 @@ const Description = ({ classSection, listing, hostData }) => {
         pricingAddonsTotal += addonPrice * quantity;
         addonsArray.push({
           addonId: addonData.id || addonData.addonId,
+          addonName: addonData.title || addonData.addonName || "Add-on",
+          addonPrice: addonPrice,
           quantity: quantity,
         });
       });
@@ -1667,20 +1869,26 @@ const Description = ({ classSection, listing, hostData }) => {
       }
     }
 
+    const pricingDiscountAmount = (pricingSubtotal * (parseFloat(
+      listing?.pricing?.discount?.total ||
+      listing?.pricing?.discount?.percentage ||
+      0
+    ) || 0)) / 100;
+    const pricingTaxableAmount = Math.max(pricingSubtotal - pricingDiscountAmount, 0);
+
     // Calculate tax amount
     let pricingTaxAmount = 0;
     if (billingConfig?.taxes && Array.isArray(billingConfig.taxes)) {
       const enabledTaxes = billingConfig.taxes.filter(tax => tax.isEnabled);
       enabledTaxes.forEach(tax => {
-        const taxAmount = (pricingSubtotal * parseFloat(tax.currentRate || 0)) / 100;
+        const taxAmount = (pricingTaxableAmount * parseFloat(tax.currentRate || 0)) / 100;
         pricingTaxAmount += taxAmount;
       });
     }
 
-    const pricingDiscountAmount = 0;
     // Calculate total price (subtotal + taxes - discounts, excluding platform commission)
     // eslint-disable-next-line no-unused-vars
-    const pricingTotal = pricingSubtotal + pricingTaxAmount - pricingDiscountAmount;
+    const pricingTotal = pricingTaxableAmount + pricingTaxAmount;
 
     // Calculate host earnings (what the host receives: subtotal - platform commission)
     const calculatedHostEarnings = (pricingSubtotal || 5500) - (pricingPlatformCommission || 550);
@@ -1694,10 +1902,9 @@ const Description = ({ classSection, listing, hostData }) => {
     const orderData = {
       listingId: listingId || 0,
       bookingDate: bookingDate,
-      bookingTime: bookingTime, // "HH:mm"
+      bookingTime: bookingTime, // "HH:mm:ss"
       bookingSlotId: bookingSlotId || 0,
-      guestCount: numberOfGuests || 1,
-      ...(customerId ? { customerId } : {}),
+      guestCount: billableGuests,
       customer: {
         name: customerName || "Guest User",
         email: customerEmail || "guest@example.com",
@@ -1710,6 +1917,9 @@ const Description = ({ classSection, listing, hostData }) => {
     };
 
     console.log("📦 Creating order after login:", orderData);
+
+    reserveSubmitLockRef.current = true;
+    setIsReserveSubmitting(true);
 
     // Create the order
     const orderResponse = await createOrder(orderData);
@@ -1748,6 +1958,8 @@ const Description = ({ classSection, listing, hostData }) => {
 
     // Redirect to checkout
     proceedToCheckout();
+    reserveSubmitLockRef.current = false;
+    setIsReserveSubmitting(false);
   };
 
   // Handle phone login callback (called after successful OTP verification)
@@ -1758,6 +1970,8 @@ const Description = ({ classSection, listing, hostData }) => {
     try {
       await createOrderFromPendingBooking();
     } catch (error) {
+      reserveSubmitLockRef.current = false;
+      setIsReserveSubmitting(false);
       console.error("Error creating order after login:", error);
       alert(error.response?.data?.message || error.message || "Failed to create order. Please try again.");
     }
@@ -1783,6 +1997,8 @@ const Description = ({ classSection, listing, hostData }) => {
           try {
             await createOrderFromPendingBooking();
           } catch (error) {
+            reserveSubmitLockRef.current = false;
+            setIsReserveSubmitting(false);
             console.error("Error creating order after login:", error);
             // Don't show alert for 400 errors - they're handled gracefully
             if (error.response?.status !== 400) {
@@ -1813,6 +2029,9 @@ const Description = ({ classSection, listing, hostData }) => {
       setShowGuestPicker(false);
     }
     else if (index === 2) {
+      if (!isStay && (!selectedDate || !selectedTimeSlot)) {
+        return;
+      }
       setShowGuestPicker(true);
       setShowDatePicker(false);
       setShowTimeSlots(false);
@@ -1858,11 +2077,19 @@ const Description = ({ classSection, listing, hostData }) => {
         setSelectedEndDate(null);
       }
     }
+    if (!isStay) {
+      setHasSelectedGuests(false);
+      setShowGuestPicker(false);
+    }
     setShowDatePicker(false);
   };
 
   const handleTimeSelect = (timeText) => {
     setSelectedTimeSlot(timeText);
+    if (!isStay) {
+      setHasSelectedGuests(false);
+      setShowGuestPicker(false);
+    }
     setShowTimeSlots(false);
   };
 
@@ -2145,14 +2372,22 @@ const Description = ({ classSection, listing, hostData }) => {
   const displayPrice = React.useMemo(() => {
     let price = 0;
     if (isPropertyBased) {
-      price = parseFloat(listing?.stay?.fullPropertyB2cPrice || listing?.stay?.b2cPrice || listing?.stay?.startingPrice || listing?.stay?.pricePerNight || listing?.stay?.price || 0);
+      // Property-based stay: fullPropertyB2cPrice may be directly on listing OR under listing.stay
+      price = parseFloat(
+        listing?.fullPropertyB2cPrice ||
+        listing?.stay?.fullPropertyB2cPrice ||
+        listing?.stay?.b2cPrice ||
+        listing?.stay?.startingPrice ||
+        listing?.stay?.pricePerNight ||
+        listing?.stay?.price || 0
+      );
     } else if (isStay) {
-      price = parseFloat(listing?.stay?.fullPropertyB2cPrice || listing?.stay?.b2cPrice || listing?.b2cPrice || 0);
+      // Room-based stay: show the lowest room B2C price ("starting from")
+      price = lowestRoomPrice || parseFloat(listing?.stay?.startingPrice || listing?.stay?.pricePerNight || listing?.stay?.b2cPrice || 0);
     } else {
       price = parseFloat(listing?.b2cPrice || listing?.price || 0);
       // Fallback: Check slots data for pricing if experience level price is missing
       if (!price && slotsData && slotsData.length > 0) {
-        // Prioritize first slot's price_per_person, fallback to b2b_rate
         const firstSlotPrice = slotsData[0]?.pricing?.price_per_person || slotsData[0]?.pricing?.b2b_rate;
         if (firstSlotPrice) {
           price = parseFloat(firstSlotPrice);
@@ -2161,7 +2396,7 @@ const Description = ({ classSection, listing, hostData }) => {
     }
     const currency = listing?.stay?.currency || listing?.currency || "INR";
     return price > 0 ? `${currency} ${price.toFixed(2)}` : "";
-  }, [listing, isStay, isPropertyBased, slotsData]);
+  }, [listing, isStay, isPropertyBased, slotsData, lowestRoomPrice]);
 
   const displayTime = isStay ? "night" : "person";
 
@@ -2183,7 +2418,7 @@ const Description = ({ classSection, listing, hostData }) => {
                 className={styles.receipt}
                 items={items}
                 hostData={hostData}
-                priceActual={displayPrice || "$119"}
+                priceActual={displayPrice}
                 time={displayTime}
                 avatar={listing?.hostAvatar || listing?.avatar}
                 onItemClick={handleOpenDateTime}
@@ -2298,12 +2533,19 @@ const Description = ({ classSection, listing, hostData }) => {
                     );
                   }
                   if (index === 2) {
+                    const canSelectGuests = isStay || (selectedDate && selectedTimeSlot);
                     return (
                       <div ref={guestItemRef} style={{ position: 'relative' }}>
                         <div
                           className={cn(receiptStyles.item, receiptStyles.guestCentered)}
-                          onClick={() => handleOpenDateTime(2)}
-                          role="button"
+                          onClick={canSelectGuests ? () => handleOpenDateTime(2) : undefined}
+                          role={canSelectGuests ? "button" : undefined}
+                          style={{
+                            cursor: canSelectGuests ? 'pointer' : 'not-allowed',
+                            opacity: canSelectGuests ? 1 : 0.5,
+                            pointerEvents: canSelectGuests ? 'auto' : 'none',
+                          }}
+                          title={canSelectGuests ? undefined : "Please select date and time first"}
                         >
                           <div className={receiptStyles.icon}>
                             <Icon name={item.icon} size="24" />
@@ -2314,10 +2556,13 @@ const Description = ({ classSection, listing, hostData }) => {
                           </div>
                         </div>
                         <GuestPicker
-                          visible={showGuestPicker}
+                          visible={showGuestPicker && canSelectGuests}
                           onClose={() => setShowGuestPicker(false)}
                           onGuestChange={(guestData) => {
                             setGuests(guestData);
+                            if (!isStay) {
+                              setHasSelectedGuests(true);
+                            }
                           }}
                           initialGuests={guests}
                           maxGuests={listing?.maxGuests || undefined}
@@ -2326,6 +2571,9 @@ const Description = ({ classSection, listing, hostData }) => {
                           childrenAllowed={listing?.childrenAllowed !== false}
                           infantsAllowed={listing?.infantsAllowed === true}
                           adultsLabel="Guests"
+                          adultsSubtitle={billableGuestLabel}
+                          childrenSubtitle={childrenGuestLabel}
+                          requireAdultForChildren={false}
                         />
                       </div>
                     );
@@ -2394,10 +2642,10 @@ const Description = ({ classSection, listing, hostData }) => {
                       type="button"
                       className={cn("button", styles.button)}
                       onClick={handleReserveClick}
-                      disabled={!isReserveEnabled}
+                      disabled={!isReserveEnabled || isReserveSubmitting}
                       title={!isReserveEnabled ? "Please select date, time slot, and guests" : ""}
                     >
-                      <span>{isFullyBooked ? "Fully Booked" : "Reserve"}</span>
+                      <span>{isReserveSubmitting ? "Processing..." : (isFullyBooked ? "Fully Booked" : "Reserve")}</span>
                       <Icon name="bag" size="16" />
                     </button>
                   )}
@@ -2414,13 +2662,20 @@ const Description = ({ classSection, listing, hostData }) => {
                 )}
 
                 <div className={styles.table}>
-                  {receipt.map((x, index) => (
+                  {/* For room-based stays: hide receipt until a room type is chosen.
+                      For property-based stays: hide until dates are selected.
+                      For experiences/other: only show after guests are explicitly selected. */}
+                  {((!isStay && hasSelectedGuests) ||
+                    (isStay && isPropertyBased && selectedDate && selectedEndDate) ||
+                    (isStay && !isPropertyBased && staySelectedRoomType)
+                  ) && receipt.map((x, index) => (
                     <div className={styles.line} key={index}>
                       <div className={styles.cell}>{x.title}</div>
                       <div className={styles.cell}>{x.content}</div>
                     </div>
                   ))}
                 </div>
+
                 <div className={styles.foot}>
                   <button className={styles.report}>
                     <Icon name="flag" size="12" />
@@ -2443,3 +2698,6 @@ const Description = ({ classSection, listing, hostData }) => {
 };
 
 export default Description;
+
+
+

@@ -5,7 +5,7 @@ import styles from "./Main.module.sass";
 import Icon from "../../../components/Icon";
 import Modal from "../../../components/Modal";
 import { emptyStateCopy } from "../../../mocks/bookings";
-import { cancelOrder, cancelEventOrder, getEventDetails, getListing, getCompletedOrders, getOrderCancelPreview, submitOrderReview, getEligibleBookings } from "../../../utils/api";
+import { cancelOrder, cancelEventOrder, getEventDetails, getListing, getCompletedOrders, getOrderCancelPreview, submitOrderReview, getEligibleBookings, getStayDetails } from "../../../utils/api";
 import Rating from "../../../components/Rating";
 
 // Helper function to format image URLs
@@ -52,9 +52,29 @@ const transformMultipleBookings = async (bookingsArray) => {
       .filter((id) => id != null && id !== undefined)
   )];
 
+  // Step 1c: Collect unique stayIds for stay orders
+  // Stay orders may have stayId at top level, inside rooms array, or derivable from businessInterestCode
+  const uniqueStayIds = [...new Set(
+    bookingsArray
+      .map((booking) => {
+        // Try top-level stayId first
+        if (booking?.stayId != null) return booking.stayId;
+        // Try rooms array (each room might have stayId) - note it's `stayOrderRooms` in API
+        const rooms = booking?.stayOrderRooms || booking?.rooms || booking?.room || [];
+        if (Array.isArray(rooms) && rooms.length > 0) {
+          const roomStayId = rooms[0]?.stayId ?? rooms[0]?.stay_id ?? rooms[0]?.propertyId;
+          if (roomStayId != null) return roomStayId;
+        }
+        // Try other common field names
+        return booking?.propertyId ?? booking?.stay_id ?? booking?.stayOrderId ?? null;
+      })
+      .filter((id) => id != null && id !== undefined)
+  )];
+
   // Step 2: Fetch all unique listings in parallel (cached)
   const listingCache = new Map();
   const eventCache = new Map();
+  const stayCache = new Map();
 
   if (uniqueListingIds.length > 0) {
     const listingPromises = uniqueListingIds.map(async (listingId) => {
@@ -86,16 +106,42 @@ const transformMultipleBookings = async (bookingsArray) => {
     await Promise.all(eventPromises);
   }
 
+  if (uniqueStayIds.length > 0) {
+    const stayPromises = uniqueStayIds.map(async (stayId) => {
+      try {
+        const stayData = await getStayDetails(stayId);
+        stayCache.set(stayId, stayData);
+        console.log(`✅ Fetched stay ${stayId} (cached for reuse)`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch stay ${stayId}:`, error.message);
+        stayCache.set(stayId, null);
+      }
+    });
+
+    await Promise.all(stayPromises);
+  }
+
   // Step 3: Transform bookings using cached listing data
   return bookingsArray.map((apiBooking) => {
     const listingData = apiBooking.listingId ? listingCache.get(apiBooking.listingId) : null;
     const eventData = apiBooking?.eventId ? eventCache.get(apiBooking.eventId) : null;
-    return transformBookingData(apiBooking, listingData, eventData);
+    // Resolve stayId using same multi-path logic as uniqueStayIds extraction above
+    const resolvedStayId = (() => {
+      if (apiBooking?.stayId != null) return apiBooking.stayId;
+      const rooms = apiBooking?.stayOrderRooms || apiBooking?.rooms || apiBooking?.room || [];
+      if (Array.isArray(rooms) && rooms.length > 0) {
+        const id = rooms[0]?.stayId ?? rooms[0]?.stay_id ?? rooms[0]?.propertyId;
+        if (id != null) return id;
+      }
+      return apiBooking?.propertyId ?? apiBooking?.stay_id ?? null;
+    })();
+    const stayData = resolvedStayId != null ? stayCache.get(resolvedStayId) : null;
+    return transformBookingData(apiBooking, listingData, eventData, stayData);
   });
 };
 
 // Transform API booking data to component format
-const transformBookingData = (apiBooking, listingData = null, eventData = null) => {
+const transformBookingData = (apiBooking, listingData = null, eventData = null, stayData = null) => {
   // Format date from "2025-11-19" to "Fri, 21 Nov 2025" format
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -126,7 +172,28 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
     CANCELLED: "Cancelled",
   };
 
-  const status = statusMap[apiBooking.orderStatus] || "Upcoming";
+  let status = statusMap[apiBooking.orderStatus] || "Upcoming";
+
+  // If the backend says Upcoming (PENDING/CONFIRMED) but the booking date has
+  // already passed, show the booking in Completed instead.
+  if (status === "Upcoming") {
+    const bookingDateStr =
+      apiBooking.checkOutDate ||
+      apiBooking.checkInDate ||
+      apiBooking.bookingDate ||
+      apiBooking.eventDate ||
+      apiBooking.eventDetails?.eventDate ||
+      null;
+
+    if (bookingDateStr) {
+      // Compare against end-of-day so same-day bookings stay in Upcoming
+      const bookingEndOfDay = new Date(bookingDateStr);
+      bookingEndOfDay.setHours(23, 59, 59, 999);
+      if (bookingEndOfDay < new Date()) {
+        status = "Completed";
+      }
+    }
+  }
 
   // Get title - for EVENTS orders, prefer eventTitle; for others, prefer listing data
   // Check if this is an EVENTS order by businessInterestCode
@@ -139,22 +206,26 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
       apiBooking?.listing?.eventTitle ||
       apiBooking?.title ||
       "Event Booking")
-    : (listingData?.title ||
+    : (stayData?.title ||
+      stayData?.name ||
+      listingData?.title ||
       apiBooking?.listingTitle ||
       apiBooking?.listing?.title ||
+      apiBooking?.stayTitle ||
       apiBooking?.title ||
       "Booking");
 
   // Get category - use businessInterestCode (like "EXPERIENCE", "EVENTS")
   // This shows the service type after "SERVICE •"
   const category =
+    stayData?.businessInterestCode ||
     listingData?.businessInterestCode ||
     listingData?.businessInterest ||
     apiBooking?.businessInterestCode ||
     apiBooking?.businessInterest ||
     apiBooking?.listing?.businessInterestCode ||
     apiBooking?.listing?.businessInterest ||
-    (apiBooking?.eventId || apiBooking?.eventDetails ? "EVENTS" : "EXPERIENCE");
+    (stayData ? "STAYS" : (apiBooking?.eventId || apiBooking?.eventDetails ? "EVENTS" : "EXPERIENCE"));
 
   // Extract location - for EVENTS prefer event data, for others prefer listing data
   let location = "Location TBD";
@@ -202,6 +273,19 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
       location = listingData.city;
     } else if (listingData.address) {
       location = listingData.address;
+    }
+  }
+
+  // Check stay data for location
+  if (location === "Location TBD" && stayData) {
+    if (stayData.address) {
+      location = stayData.address;
+    } else if (stayData.city && stayData.state) {
+      location = `${stayData.city}, ${stayData.state}`;
+    } else if (stayData.city) {
+      location = stayData.city;
+    } else if (stayData.location) {
+      location = stayData.location;
     }
   }
 
@@ -256,6 +340,20 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
     // For non-event orders, use listing data
     if (listingData?.coverPhotoUrl) {
       coverPhotoUrl = listingData.coverPhotoUrl;
+    } else if (stayData) {
+      // Try all common image fields from the stay API response
+      coverPhotoUrl =
+        stayData.coverImageUrl ||
+        stayData.coverPhotoUrl ||
+        (Array.isArray(stayData.listingMedia) && stayData.listingMedia[0]
+          ? (stayData.listingMedia[0].url || stayData.listingMedia[0].blobName || stayData.listingMedia[0].fileUrl)
+          : null) ||
+        (Array.isArray(stayData.media) && stayData.media[0]
+          ? (stayData.media[0].url || stayData.media[0].blobName || stayData.media[0].fileUrl)
+          : null) ||
+        (Array.isArray(stayData.images) ? stayData.images[0] : null) ||
+        (Array.isArray(stayData.propertyImages) ? stayData.propertyImages[0] : null) ||
+        null;
     } else if (apiBooking?.listingCoverPhoto) {
       coverPhotoUrl = apiBooking.listingCoverPhoto;
     } else if (apiBooking?.listing?.coverPhotoUrl) {
@@ -278,8 +376,8 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null) 
     type: type,
     category: category,
     location: location,
-    startDate: formatDate(apiBooking.bookingDate),
-    endDate: formatDate(apiBooking.bookingDate), // You may want to calculate end date based on bookingSlotId
+    startDate: formatDate(apiBooking.checkInDate || apiBooking.bookingDate),
+    endDate: formatDate(apiBooking.checkOutDate || apiBooking.bookingDate), // You may want to calculate end date based on bookingSlotId
     status: status,
     statusTone: status.toLowerCase(),
     thumbnail: {
@@ -341,6 +439,15 @@ const Main = ({
   const [reviewError, setReviewError] = useState(null);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [orderIdsEligibleForReview, setOrderIdsEligibleForReview] = useState(new Set());
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset page when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [displayedTab]);
 
   // Transform booking data when propBookingData is provided
   useEffect(() => {
@@ -422,19 +529,21 @@ const Main = ({
   }, [propBookingData, propCompletedOrders, initialTabSet]);
 
   const countsByTab = useMemo(() => {
-    // Count upcoming and cancelled from regular bookings
+    // Count upcoming, completed (date-overridden), and cancelled from regular bookings
     const categorized = transformedBookings.reduce((acc, booking) => {
       const tabId = booking.statusTone === "upcoming" ? "upcoming"
+        : booking.statusTone === "completed" ? "completed"
         : "cancelled";
       acc[tabId] = (acc[tabId] || 0) + 1;
       return acc;
     }, {});
 
-    // Use completedCount from API initially, but update to actual loaded orders count once fetched
+    // Add server-side completed orders; also include date-overridden completed from regular bookings
+    const dateOverriddenCompleted = categorized.completed || 0;
     if (transformedCompletedBookings.length > 0) {
-      categorized.completed = transformedCompletedBookings.length;
+      categorized.completed = transformedCompletedBookings.length + dateOverriddenCompleted;
     } else {
-      categorized.completed = completedCount || 0;
+      categorized.completed = (completedCount || 0) + dateOverriddenCompleted;
     }
 
     return tabs.reduce((acc, tab) => {
@@ -444,18 +553,33 @@ const Main = ({
   }, [transformedBookings, transformedCompletedBookings, completedCount]);
 
   const bookingsForTab = useMemo(() => {
-    // For completed tab, use completed/expired bookings
+    // For completed tab: merge server-side completed orders + date-overridden ones from regular bookings
     if (displayedTab === "completed") {
-      return transformedCompletedBookings;
+      const dateOverridden = transformedBookings.filter(
+        (b) => b.statusTone === "completed"
+      );
+      return [...dateOverridden, ...transformedCompletedBookings];
     }
 
-    // For upcoming and cancelled tabs, use regular bookings
+    // For upcoming and cancelled tabs, exclude date-overridden completed bookings
     return transformedBookings.filter((booking) => {
       const tabId = booking.statusTone === "upcoming" ? "upcoming"
+        : booking.statusTone === "completed" ? null  // exclude — goes to completed tab
         : "cancelled";
       return tabId === displayedTab;
     });
   }, [transformedBookings, transformedCompletedBookings, displayedTab]);
+
+  // Paginated bookings
+  const paginatedBookings = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return bookingsForTab.slice(startIndex, startIndex + itemsPerPage);
+  }, [bookingsForTab, currentPage]);
+
+  const totalPages = Math.ceil(bookingsForTab.length / itemsPerPage);
+
+  const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const nextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
   const emptyState = emptyStateCopy[displayedTab] || emptyStateCopy.upcoming;
 
@@ -750,7 +874,7 @@ const Main = ({
             </div>
           ) : bookingsForTab.length > 0 ? (
             <div className={styles.list}>
-              {bookingsForTab.map((booking) => (
+              {paginatedBookings.map((booking) => (
                 <article className={styles.card} key={booking.id}>
                   <div className={styles.media}>
                     <img
@@ -770,6 +894,33 @@ const Main = ({
                           <span className={styles.category}>
                             {booking.category}
                           </span>
+                          {booking.bookingData?.paymentStatus &&
+                           booking.bookingData?.orderStatus !== "CANCELLED" && (
+                            <>
+                              <span className={styles.dot} aria-hidden="true">
+                                •
+                              </span>
+                              <span style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                padding: "4px 8px",
+                                borderRadius: "12px",
+                                fontSize: "11px",
+                                fontWeight: "700",
+                                lineHeight: "1",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.5px",
+                                backgroundColor: booking.bookingData.paymentStatus === "SUCCESS" ? "#E8F5E9" :
+                                                 booking.bookingData.paymentStatus === "PENDING" ? "#FFF3E0" :
+                                                 booking.bookingData.paymentStatus === "FAILED" ? "#FFEBEE" : "#FFEBEE",
+                                color: booking.bookingData.paymentStatus === "SUCCESS" ? "#2E7D32" :
+                                       booking.bookingData.paymentStatus === "PENDING" ? "#E65100" :
+                                       booking.bookingData.paymentStatus === "FAILED" ? "#C62828" : "#C62828",
+                              }}>
+                                {booking.bookingData.paymentStatus}
+                              </span>
+                            </>
+                          )}
                         </div>
                         <h2 className={styles.cardTitle}>{booking.title}</h2>
                         <div className={styles.locationRow}>
@@ -850,6 +1001,30 @@ const Main = ({
                   </div>
                 </article>
               ))}
+
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '32px', gap: '16px' }}>
+                  <button
+                    type="button"
+                    className="button-stroke button-small"
+                    onClick={prevPage}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </button>
+                  <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="button-stroke button-small"
+                    onClick={nextPage}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className={styles.emptyState}>
