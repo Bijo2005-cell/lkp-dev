@@ -202,6 +202,7 @@ const FleetHome = () => {
             }
 
 
+
             console.log(`✅ Section ${section.sectionId} has ${listings.length} listings`);
 
 
