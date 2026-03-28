@@ -150,8 +150,6 @@ const Description = ({ classSection, listing, hostData }) => {
           else if (mealPlanCode === "EP" && Number(selectedRoomObject.epPrice) > 0) basePrice = parseFloat(selectedRoomObject.epPrice);
           else basePrice = parseFloat(selectedRoomObject.b2cPrice || selectedRoomObject.price || 0);
         }
-        }
-
         // Compute how many rooms are needed for the guest count
         const roomCap = Number(
           selectedRoomObject.maxGuests ??
@@ -160,21 +158,6 @@ const Description = ({ classSection, listing, hostData }) => {
         if (guestCount > roomCap) {
           roomsNeeded = Math.ceil(guestCount / roomCap);
         }
-        // Compute how many rooms are needed for the guest count
-        const roomCap = Number(
-          selectedRoomObject.maxGuests ??
-          ((selectedRoomObject.maxAdults || 0) + (selectedRoomObject.maxChildren || 0))
-        ) || 2;
-        if (guestCount > roomCap) {
-          roomsNeeded = Math.ceil(guestCount / roomCap);
-        }
-
-        // Extra guest pricing (applies within a single room's capacity)
-        const maxAdults = selectedRoomObject.maxAdults || listing?.stay?.maxAdults || 0;
-        const maxChildren = selectedRoomObject.maxChildren || listing?.stay?.maxChildren || 0;
-        const extraAdults = Math.max(0, (guests?.adults || 0) - maxAdults);
-        const extraChildren = Math.max(0, (guests?.children || 0) - maxChildren);
-        const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
         // Extra guest pricing (applies within a single room's capacity)
         const maxAdults = selectedRoomObject.maxAdults || listing?.stay?.maxAdults || 0;
         const maxChildren = selectedRoomObject.maxChildren || listing?.stay?.maxChildren || 0;
@@ -191,13 +174,6 @@ const Description = ({ classSection, listing, hostData }) => {
       }
 
 
-        const amountPerNight = basePrice + totalExtraPrice;
-        const nightsCount = checkInDate && checkOutDate ? Math.max(1, moment(checkOutDate).diff(moment(checkInDate), "days")) : 1;
-        // Multiply by roomsNeeded so total amount reflects all rooms booked
-        calculatedAmount = amountPerNight * nightsCount * roomsNeeded;
-
-        console.log("💰 Booking amount calc:", { basePrice, roomCap, guestCount, roomsNeeded, amountPerNight, nightsCount, calculatedAmount });
-      }
 
 
 
@@ -2791,18 +2767,6 @@ return (
                   Only {selectedDateAvailability.available_seats} seat(s) available for this slot.
                 </div>
               )}
-              </div>
-              {isFullyBooked && (
-                <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
-                  This slot is fully booked. Please select another date or time.
-                </div>
-              )}
-              {!isFullyBooked && selectedDate && selectedTimeSlot && selectedDateAvailability && getGuestCount(guests) > (selectedDateAvailability.available_seats ?? 999) && (
-                <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
-                  Only {selectedDateAvailability.available_seats} seat(s) available for this slot.
-                </div>
-              )}
-
               <div className={styles.table}>
                 {shouldShowPricingDetails && receipt.map((x, index) => (
                   <div className={styles.line} key={index}>
