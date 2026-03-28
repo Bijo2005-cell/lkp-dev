@@ -182,6 +182,9 @@ const BookingSidebar = ({
   numberOfNights,
   roomsNeeded,
   roomCapacityMessage
+  numberOfNights,
+  roomsNeeded,
+  roomCapacityMessage
 }) => {
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [showRoomTypeDropdown, setShowRoomTypeDropdown] = useState(false);
@@ -194,7 +197,36 @@ const BookingSidebar = ({
     stay?.roomTypes?.length > 0 ||
     availableRooms?.length > 0
   );
+  const isRoomBased = !isPropertyBased && (
+    stay?.rooms?.length > 0 ||
+    stay?.roomTypes?.length > 0 ||
+    availableRooms?.length > 0
+  );
 
+  // ─── Price resolution ────────────────────────────────────────────────────
+  // For property-based: use fullPropertyB2cPrice.
+  // For room-based: use the selected room's mealPlanPricing b2cPrice (MAP key
+  //   falls back to other meal plans, then b2cPrice field, then stay b2cPrice).
+  // Shown at the top as a "starting from" price before selection.
+  const getMealPlanPriceForRoom = (room) => {
+    if (!room) return 0;
+    const mp = room.mealPlanPricing;
+    if (mp) {
+      // Try each plan in priority order
+      for (const code of ["MAP", "CP", "BB", "AP", "EP"]) {
+        const plan = mp[code];
+        if (plan) {
+          const p = parseFloat(plan.b2cPrice || plan.b2bPrice || plan.price || 0);
+          if (p > 0) return p;
+        }
+      }
+    }
+    return parseFloat(room.b2cPrice || room.mapPrice || room.cpPrice || room.bbPrice || room.apPrice || room.epPrice || room.price || 0);
+  };
+
+  // startingFromPricePerNight — shown at top even before room selection
+  // Uses availableRooms prop to reliably detect room-based pricing
+  // (stay.rooms may be empty on initial render before API re-populates rooms)
   // ─── Price resolution ────────────────────────────────────────────────────
   // For property-based: use fullPropertyB2cPrice.
   // For room-based: use the selected room's mealPlanPricing b2cPrice (MAP key
@@ -236,11 +268,31 @@ const BookingSidebar = ({
       const roomList = availableRooms?.length > 0 ? availableRooms : (stay?.rooms || stay?.roomTypes || []);
       if (roomList.length === 0) return 0;
       const prices = roomList.map((r) => getMealPlanPriceForRoom(r)).filter((p) => p > 0);
+      if (selectedRoom) return getMealPlanPriceForRoom(selectedRoom);
+      // Use availableRooms (from API) for computing starting price
+      const roomList = availableRooms?.length > 0 ? availableRooms : (stay?.rooms || stay?.roomTypes || []);
+      if (roomList.length === 0) return 0;
+      const prices = roomList.map((r) => getMealPlanPriceForRoom(r)).filter((p) => p > 0);
       return prices.length > 0 ? Math.min(...prices) : 0;
     }
     return 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stay, isPropertyBased, isRoomBased, selectedRoom, availableRooms]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [stay, isPropertyBased, isRoomBased, selectedRoom, availableRooms]);
+
+// basePrice is what we use for the active price line and total calculation
+const basePrice = isRoomBased
+  ? getMealPlanPriceForRoom(selectedRoom) || startingFromPricePerNight
+  : parseFloat(
+    (isPropertyBased ? stay?.fullPropertyB2cPrice : null) ||
+    stay?.b2cPrice ||
+    stay?.fullPropertyB2cPrice ||
+    stay?.startingPrice ||
+    stay?.pricePerNight ||
+    stay?.price ||
+    0
+  );
 
 // basePrice is what we use for the active price line and total calculation
 const basePrice = isRoomBased
@@ -1153,15 +1205,22 @@ const StayProduct = () => {
   }, [stayId]);
 
   // When dates change: clear stale rooms, room selection, and availability flag
+  // When dates change: clear stale rooms, room selection, and availability flag
   useEffect(() => {
+    setAvailableRooms([]);
+    setSelectedRoom(null);
     setAvailableRooms([]);
     setSelectedRoom(null);
     setAvailabilityChecked(false);
   }, [checkInDate, checkOutDate]);
 
   // Auto-call room availability API when user has selected check-in + check-out
+  // Auto-call room availability API when user has selected check-in + check-out
   useEffect(() => {
     if (!stayId || !checkInDate || !checkOutDate || !stay) return;
+    const isRoomBasedStay =
+      (stay?.bookingScope !== "Property-Based" && stay?.bookingScope !== "Property Based") &&
+      (stay?.rooms?.length > 0 || stay?.roomTypes?.length > 0);
     const isRoomBasedStay =
       (stay?.bookingScope !== "Property-Based" && stay?.bookingScope !== "Property Based") &&
       (stay?.rooms?.length > 0 || stay?.roomTypes?.length > 0);
@@ -1175,8 +1234,14 @@ const StayProduct = () => {
         if (cancelled) return;
         const fetchedRooms = result?.rooms || [];
         setAvailableRooms(fetchedRooms);
+        const fetchedRooms = result?.rooms || [];
+        setAvailableRooms(fetchedRooms);
         setAvailabilityChecked(true);
       } catch (err) {
+        if (!cancelled) {
+          console.error("Availability check failed:", err);
+          setAvailabilityChecked(false);
+        }
         if (!cancelled) {
           console.error("Availability check failed:", err);
           setAvailabilityChecked(false);
@@ -1323,6 +1388,11 @@ const StayProduct = () => {
       // so it stays consistent with the receipt breakdown shown to the user.
       const amountInPaise = Math.round((bookingPayload.amount || 0) * 100);
 
+      // Always use our frontend-calculated amount (b2cPrice × nights × rooms).
+      // The backend Razorpay order may include extra surcharges; we display our total
+      // so it stays consistent with the receipt breakdown shown to the user.
+      const amountInPaise = Math.round((bookingPayload.amount || 0) * 100);
+
       const currency = paymentResponse?.currency || response?.currency || response?.order?.currency || "INR";
 
       localStorage.setItem("pendingPayment", JSON.stringify({
@@ -1347,6 +1417,10 @@ const StayProduct = () => {
         ? (selectedRoom.selectedMealPlan || (Number(selectedRoom.bbPrice) > 0 ? "BB" : Number(selectedRoom.cpPrice) > 0 ? "CP" : Number(selectedRoom.mapPrice) > 0 ? "MAP" : "EP"))
         : null;
 
+      // Get cover image — formatImageUrl handles relative blob paths (e.g. "leads/...")
+      const rawCoverImg =
+        stay?.coverImageUrl ||
+        stay?.coverPhotoUrl ||
       // Get cover image — formatImageUrl handles relative blob paths (e.g. "leads/...")
       const rawCoverImg =
         stay?.coverImageUrl ||
@@ -1527,6 +1601,8 @@ const StayProduct = () => {
               selectedRoom={selectedRoom}
               discountPercentage={discountPercentage}
               numberOfNights={numberOfNights}
+              roomsNeeded={roomsNeeded}
+              roomCapacityMessage={roomCapacityMessage}
               roomsNeeded={roomsNeeded}
               roomCapacityMessage={roomCapacityMessage}
             />

@@ -131,6 +131,8 @@ const Description = ({ classSection, listing, hostData }) => {
       let calculatedAmount = 0;
       let roomsNeeded = 1; // default to 1 room
 
+      let roomsNeeded = 1; // default to 1 room
+
       if (selectedRoomObject && staySelectedRoomType) {
         let basePrice = 0;
         let extraAdultPrice = parseFloat(selectedRoomObject.extraAdultPrice || listing?.stay?.extraAdultPrice || 0);
@@ -138,6 +140,8 @@ const Description = ({ classSection, listing, hostData }) => {
 
         if (selectedRoomObject.mealPlanPricing && selectedRoomObject.mealPlanPricing[mealPlanCode]) {
           const mp = selectedRoomObject.mealPlanPricing[mealPlanCode];
+          // Use b2cPrice ONLY — never fall back to b2bPrice for customer billing
+          basePrice = parseFloat(mp.b2cPrice || mp.price || 0);
           // Use b2cPrice ONLY — never fall back to b2bPrice for customer billing
           basePrice = parseFloat(mp.b2cPrice || mp.price || 0);
           if (mp.extraAdultPrice) extraAdultPrice = parseFloat(mp.extraAdultPrice);
@@ -158,23 +162,25 @@ const Description = ({ classSection, listing, hostData }) => {
         ) || 2;
         if (guestCount > roomCap) {
           roomsNeeded = Math.ceil(guestCount / roomCap);
-        }
-
-        // Extra guest pricing (applies within a single room's capacity)
-        const maxAdults = selectedRoomObject.maxAdults || listing?.stay?.maxAdults || 0;
-        const maxChildren = selectedRoomObject.maxChildren || listing?.stay?.maxChildren || 0;
-        const extraAdults = Math.max(0, (guests?.adults || 0) - maxAdults);
-        const extraChildren = Math.max(0, (guests?.children || 0) - maxChildren);
-        const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
-
-        const amountPerNight = basePrice + totalExtraPrice;
-        const nightsCount = checkInDate && checkOutDate ? Math.max(1, moment(checkOutDate).diff(moment(checkInDate), "days")) : 1;
-        // Multiply by roomsNeeded so total amount reflects all rooms booked
-        calculatedAmount = amountPerNight * nightsCount * roomsNeeded;
-
-        console.log("💰 Booking amount calc:", { basePrice, roomCap, guestCount, roomsNeeded, amountPerNight, nightsCount, calculatedAmount });
+          else basePrice = parseFloat(selectedRoomObject.b2cPrice || selectedRoomObject.price || 0);
       }
 
+      // Compute how many rooms are needed for the guest count
+      const roomCap = Number(
+        selectedRoomObject.maxGuests ??
+        ((selectedRoomObject.maxAdults || 0) + (selectedRoomObject.maxChildren || 0))
+      ) || 2;
+      if (guestCount > roomCap) {
+        roomsNeeded = Math.ceil(guestCount / roomCap);
+      }
+
+      // Extra guest pricing (applies within a single room's capacity)
+      // Extra guest pricing (applies within a single room's capacity)
+      const maxAdults = selectedRoomObject.maxAdults || listing?.stay?.maxAdults || 0;
+      const maxChildren = selectedRoomObject.maxChildren || listing?.stay?.maxChildren || 0;
+      const extraAdults = Math.max(0, (guests?.adults || 0) - maxAdults);
+      const extraChildren = Math.max(0, (guests?.children || 0) - maxChildren);
+      const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
 
 
       let orderData;
@@ -260,6 +266,9 @@ const Description = ({ classSection, listing, hostData }) => {
 };
 
 
+    console.log("📦 Creating stay order (updated schema):", orderData);
+    const res = await createStayOrder(orderData);
+    console.log("✅ Stay order created:", res);
 
 // Helper function to format time range with cleaner display
 const formatTimeRange = (startTime, endTime) => {
@@ -424,7 +433,53 @@ const stayRoomTypeOptions = useMemo(() => {
     .filter(Boolean);
 }, [stayAvailabilityResult, listing, guests]);
 
+  if (!Array.isArray(candidates) || candidates.length === 0) return [];
 
+  const seenIds = new Set();
+  return candidates
+    .map((x) => {
+      if (typeof x === "string") {
+        if (seenIds.has(x)) return null;
+        seenIds.add(x);
+        return { value: x, label: x, raw: x };
+      }
+      const id =
+        x?.roomId ??
+        x?.room_id ??
+        x?.roomTypeId ??
+        x?.room_type_id ??
+        x?.id ??
+        x?.code ??
+        x?.name ??
+        x?.title;
+
+      if (!id || seenIds.has(String(id))) return null;
+      seenIds.add(String(id));
+
+      // Show ALL rooms regardless of guest count.
+      // Extra-room logic / messaging handles cases where guests > room capacity.
+      // Show ALL rooms regardless of guest count.
+      // Extra-room logic / messaging handles cases where guests > room capacity.
+      const maxRoomGuests = x?.maxGuests ?? x?.max_guests ?? x?.capacity ?? x?.maxAdults ?? 0;
+
+      const labelBase =
+        x?.roomName ??
+        x?.room_name ??
+        x?.roomTypeName ??
+        x?.room_type_name ??
+        x?.name ??
+        x?.title ??
+        String(id ?? "Room");
+
+      const availableRooms =
+        x?.availableRooms ?? x?.available_rooms ?? x?.availability ?? x?.available ?? null;
+
+      let label = String(labelBase);
+      if (typeof availableRooms === "number") {
+        label += ` (${availableRooms} available)`;
+      } else if (maxRoomGuests > 0) {
+        label += ` (Max ${maxRoomGuests})`;
+      }
 
 
 
@@ -808,6 +863,9 @@ const lowestRoomPrice = useMemo(() => {
         minB2cMealPrice: minB2cMealPrice === Infinity ? 'N/A' : minB2cMealPrice,
         minGeneralB2cPrice: minGeneralB2cPrice === Infinity ? 'N/A' : minGeneralB2cPrice,
         selectedLowestB2cPrice: finalPrice,
+        minB2cMealPrice: minB2cMealPrice === Infinity ? 'N/A' : minB2cMealPrice,
+        minGeneralB2cPrice: minGeneralB2cPrice === Infinity ? 'N/A' : minGeneralB2cPrice,
+        selectedLowestB2cPrice: finalPrice,
         firstRoomSample: rooms[0] ? {
           name: rooms[0].roomName || rooms[0].name,
           mealPlanPricing: rooms[0].mealPlanPricing,
@@ -1183,6 +1241,24 @@ const lowestRoomPrice = useMemo(() => {
     }
 
     const mealPlanLabels = { EP: "EP (Room Only)", CP: "CP (Breakfast)", BB: "BB (Bed & Breakfast)", MAP: "MAP (Half Board)", AP: "AP (Full Board)" };
+
+    // Calculate roomsNeeded for the selected room
+    let stayRoomsNeeded = 1;
+    const stayGuestCount = getGuestCount(guests);
+    if (selectedRoomObj) {
+      const cap = Number(
+        selectedRoomObj.maxGuests ??
+        ((selectedRoomObj.maxAdults || 0) + (selectedRoomObj.maxChildren || 0))
+      ) || 2;
+      if (stayGuestCount > cap) stayRoomsNeeded = Math.ceil(stayGuestCount / cap);
+    }
+
+    // Get room image (prefer room photo, fall back to listing image)
+    const roomImage = selectedRoomObj?.photoUrl ||
+      selectedRoomObj?.imageUrl ||
+      selectedRoomObj?.coverPhotoUrl ||
+      (Array.isArray(selectedRoomObj?.images) ? selectedRoomObj.images[0]?.url : null) ||
+      null;
 
     // Calculate roomsNeeded for the selected room
     let stayRoomsNeeded = 1;
@@ -2474,7 +2550,18 @@ const lowestRoomPrice = useMemo(() => {
         listing?.stay?.pricePerNight ||
         listing?.stay?.price || 0
       );
+      // Property-based stay: fullPropertyB2cPrice may be directly on listing OR under listing.stay
+      price = parseFloat(
+        listing?.fullPropertyB2cPrice ||
+        listing?.stay?.fullPropertyB2cPrice ||
+        listing?.stay?.b2cPrice ||
+        listing?.stay?.startingPrice ||
+        listing?.stay?.pricePerNight ||
+        listing?.stay?.price || 0
+      );
     } else if (isStay) {
+      // Room-based stay: show the lowest room B2C price ("starting from")
+      price = lowestRoomPrice || parseFloat(listing?.stay?.startingPrice || listing?.stay?.pricePerNight || listing?.stay?.b2cPrice || 0);
       // Room-based stay: show the lowest room B2C price ("starting from")
       price = lowestRoomPrice || parseFloat(listing?.stay?.startingPrice || listing?.stay?.pricePerNight || listing?.stay?.b2cPrice || 0);
     } else {

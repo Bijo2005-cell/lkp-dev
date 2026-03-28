@@ -41,6 +41,9 @@ const GuestPicker = ({
     const target = { ...initialGuests };
     const total = target.adults + target.children;
     let changed = false;
+    const target = { ...initialGuests };
+    const total = target.adults + target.children;
+    let changed = false;
 
     if (maxAllowed !== undefined && total > maxAllowed) {
       if (target.children > 0) {
