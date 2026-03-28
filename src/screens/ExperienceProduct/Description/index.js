@@ -1299,6 +1299,28 @@ const lowestRoomPrice = useMemo(() => {
     return isStay ? (hasDate && hasCheckout && hasGuests) : (hasDate && hasTimeSlot && hasGuests && hasCapacity);
   }, [selectedDate, selectedEndDate, selectedTimeSlot, guests, isStay, selectedDateAvailability, hasSelectedGuests]);
 
+  const shouldShowPricingDetails = useMemo(() => {
+    if (!isStay) {
+      const guestCount = getGuestCount(guests);
+      return Boolean(selectedDate && selectedTimeSlot && hasSelectedGuests && guestCount > 0);
+    }
+
+    if (isPropertyBased) {
+      return Boolean(selectedDate && selectedEndDate);
+    }
+
+    return Boolean(staySelectedRoomType);
+  }, [
+    guests,
+    hasSelectedGuests,
+    isPropertyBased,
+    isStay,
+    selectedDate,
+    selectedEndDate,
+    selectedTimeSlot,
+    staySelectedRoomType,
+  ]);
+
   const handleReserveClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -2747,28 +2769,7 @@ return (
               )}
 
               <div className={styles.table}>
-                  {/* For room-based stays: hide receipt until a room type is chosen.
-                      For property-based stays: hide until dates are selected.
-                      For experiences/other: always show when receipt has items. */}
-                  {((!isStay) ||
-                    (isStay && isPropertyBased && selectedDate && selectedEndDate) ||
-                    (isStay && !isPropertyBased && staySelectedRoomType)
-                  ) && receipt.map((x, index) => (
-                    <div className={styles.line} key={index}>
-                      <div className={styles.cell}>{x.title}</div>
-                      <div className={styles.cell}>{x.content}</div>
-                    </div>
-                  ))}
-                </div>
-
-              <div className={styles.table}>
-                {/* For room-based stays: hide receipt until a room type is chosen.
-                      For property-based stays: hide until dates are selected.
-                      For experiences/other: only show after guests are explicitly selected. */}
-                {((!isStay && hasSelectedGuests) ||
-                  (isStay && isPropertyBased && selectedDate && selectedEndDate) ||
-                  (isStay && !isPropertyBased && staySelectedRoomType)
-                ) && receipt.map((x, index) => (
+                {shouldShowPricingDetails && receipt.map((x, index) => (
                   <div className={styles.line} key={index}>
                     <div className={styles.cell}>{x.title}</div>
                     <div className={styles.cell}>{x.content}</div>
