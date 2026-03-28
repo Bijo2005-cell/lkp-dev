@@ -1271,12 +1271,10 @@ const StayProduct = () => {
         checkOutDate,
         numberOfGuests: (guests.adults || 1) + (guests.children || 0),
         amount: calculatedAmount * roomsNeeded, // Multiply by rooms needed for group bookings
-        amount: calculatedAmount * roomsNeeded, // Multiply by rooms needed for group bookings
         paymentMethod: "razorpay", // Explicitly request Razorpay
         rooms: [
           {
             roomId: selectedRoom.roomId || selectedRoom.id,
-            roomsBooked: roomsNeeded,
             roomsBooked: roomsNeeded,
             mealPlanCode: mealPlanCode,
           },
@@ -1380,18 +1378,13 @@ const StayProduct = () => {
         listingTitle: stay?.propertyName || stay?.title || stay?.name || "Stay",
         listingImage: coverImg,
         roomImage: roomImg,
-        roomImage: roomImg,
         isStay: true,
         checkInDate: checkInDate ? new Date(checkInDate).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null,
         checkOutDate: checkOutDate ? new Date(checkOutDate).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null,
         roomType: roomLabel,
         roomsBooked: bookingInfo?.roomsNeeded || 1,
-        roomsBooked: bookingInfo?.roomsNeeded || 1,
         mealPlan: mealCode ? getMealLabel(mealCode) : null,
         guests: guests,
-        bookingSummary: {
-          guestCount: (guests?.adults || 0) + (guests?.children || 0),
-        },
         bookingSummary: {
           guestCount: (guests?.adults || 0) + (guests?.children || 0),
         },
