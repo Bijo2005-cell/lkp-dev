@@ -631,6 +631,71 @@ const Description = ({ classSection, listing, hostData }) => {
     return null;
   }, [selectedDate, filteredAvailabilityData, selectedTimeSlotData, selectedTimeSlot, listing?.maxGuests, isStay]);
 
+  // Determine if listing has any future time slots (not fully expired)
+  const hasFutureTimeSlots = useMemo(() => {
+    const now = moment();
+    // Prefer slotsData (detailed slots from API), otherwise fallback to listing.timeSlots
+    const sourceSlots = Array.isArray(slotsData) && slotsData.length > 0 ? slotsData : (Array.isArray(listing?.timeSlots) ? listing.timeSlots : []);
+    if (!sourceSlots || sourceSlots.length === 0) return true; // If no slot info, assume available
+
+    for (const s of sourceSlots) {
+      if (!s) continue;
+      // Accept multiple possible field names
+      const endDateStr = s.endDate || s.end_date || s.schedule?.end_date || s.schedule?.endDate || s.eventEndDate || s.event_end_date;
+      const endTimeStr = s.endTime || s.end_time || s.schedule?.end_time || s.schedule?.endTime || s.endTime;
+
+      if (!endDateStr) {
+        // No end date — treat as available
+        return true;
+      }
+
+      const endDate = moment(String(endDateStr), "YYYY-MM-DD");
+      if (!endDate.isValid()) return true;
+
+      if (endDate.isAfter(now, 'day')) {
+        return true; // future date available
+      }
+
+      if (endDate.isSame(now, 'day')) {
+        // If same-day, check end time if available
+        if (!endTimeStr) return true; // no time specified -> available today
+        // Parse time in HH:mm or h:mm a formats
+        const endTime = moment(String(endTimeStr), ["HH:mm", "h:mm a", "HH:mm:ss"]);
+        if (!endTime.isValid()) return true; // can't parse -> be permissive
+        // Build a datetime on the same date
+        const endDateTime = moment(endDate.format("YYYY-MM-DD") + ' ' + endTime.format("HH:mm"), "YYYY-MM-DD HH:mm");
+        if (endDateTime.isAfter(now)) return true;
+      }
+      // otherwise this slot is expired — continue to check other slots
+    }
+
+    // No slot looked available
+    return false;
+  }, [slotsData, listing?.timeSlots]);
+
+  // Check if the currently selected date/slot has already passed (for disabling reserve)
+  const selectedSlotPassed = useMemo(() => {
+    if (!selectedDateAvailability) return false;
+    const dateStr = selectedDateAvailability.date || selectedDateAvailability.dateStr;
+    const endTimeStr = selectedDateAvailability.end_time || selectedDateAvailability.endTime;
+    if (!dateStr) return false;
+    const dateMoment = moment(String(dateStr), "YYYY-MM-DD");
+    if (!dateMoment.isValid()) return false;
+    // If date is after today -> not passed
+    const now = moment();
+    if (dateMoment.isAfter(now, 'day')) return false;
+    if (dateMoment.isBefore(now, 'day')) return true;
+    // date is today -> check end time
+    if (!endTimeStr) {
+      // No end time -> assume still available
+      return false;
+    }
+    const endTime = moment(String(endTimeStr), ["HH:mm", "h:mm a", "HH:mm:ss"]);
+    if (!endTime.isValid()) return false;
+    const endDateTime = moment(dateMoment.format("YYYY-MM-DD") + ' ' + endTime.format("HH:mm"), "YYYY-MM-DD HH:mm");
+    return endDateTime.isBefore(now);
+  }, [selectedDateAvailability]);
+
   // Get the selected timeSlot object for display
   const selectedTimeSlotDisplay = useMemo(() => {
     // Use availability data if available, otherwise fallback to timeSlot data
@@ -1304,6 +1369,16 @@ const Description = ({ classSection, listing, hostData }) => {
   const handleReserveClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Prevent reserve if selected slot has already passed or no future slots exist
+    if (selectedSlotPassed) {
+      alert("The selected time slot has already passed. Please choose another date or time.");
+      return;
+    }
+    if (!hasFutureTimeSlots) {
+      alert("No upcoming time slots are available for this experience.");
+      return;
+    }
 
     if (reserveSubmitLockRef.current) {
       return;
@@ -2587,18 +2662,24 @@ const Description = ({ classSection, listing, hostData }) => {
                       });
                     })();
                     const hasTimeSlots = slotsForSelectedDay.length > 0;
+                    // Enforce workflow: date -> time -> guest for experiences (non-stays).
+                    // Time selection is only allowed when a date is selected for experiences.
+                    const canOpenTime = isStay ? hasTimeSlots : (selectedDate && hasTimeSlots);
                     return (
                       <div ref={timeItemRef} style={{ position: 'relative' }}>
                         <div
                           className={receiptStyles.item}
-                          onClick={hasTimeSlots ? () => handleOpenDateTime(1) : undefined}
-                          role={hasTimeSlots ? "button" : undefined}
+                          onClick={canOpenTime ? () => handleOpenDateTime(1) : undefined}
+                          role={canOpenTime ? "button" : undefined}
                           style={{
-                            cursor: hasTimeSlots ? 'pointer' : 'not-allowed',
-                            opacity: hasTimeSlots ? 1 : 0.5,
-                            pointerEvents: hasTimeSlots ? 'auto' : 'none',
+                            cursor: canOpenTime ? 'pointer' : 'not-allowed',
+                            opacity: canOpenTime ? 1 : 0.5,
+                            pointerEvents: canOpenTime ? 'auto' : 'none',
                           }}
-                          title={hasTimeSlots ? undefined : "No time slots available for the selected date"}
+                          title={
+                            !hasTimeSlots ? "No time slots available for the selected date" :
+                            (!selectedDate && !isStay ? "Please select a date first" : undefined)
+                          }
                         >
                           <div className={receiptStyles.icon}>
                             <Icon name={item.icon} size="24" />
@@ -2609,7 +2690,7 @@ const Description = ({ classSection, listing, hostData }) => {
                           </div>
                         </div>
                         <TimeSlotsPicker
-                          visible={showTimeSlots && hasTimeSlots}
+                          visible={showTimeSlots && hasTimeSlots && (isStay || !!selectedDate)}
                           onClose={() => setShowTimeSlots(false)}
                           onTimeSelect={handleTimeSelect}
                           selectedTime={selectedTimeSlot}
@@ -2729,8 +2810,12 @@ const Description = ({ classSection, listing, hostData }) => {
                       type="button"
                       className={cn("button", styles.button)}
                       onClick={handleReserveClick}
-                      disabled={!isReserveEnabled || isReserveSubmitting}
-                      title={!isReserveEnabled ? "Please select date, time slot, and guests" : ""}
+                      disabled={!isReserveEnabled || isReserveSubmitting || selectedSlotPassed || !hasFutureTimeSlots}
+                      title={
+                        !isReserveEnabled ? "Please select date, time slot, and guests" :
+                        (!hasFutureTimeSlots ? "No upcoming time slots available for this experience" :
+                          (selectedSlotPassed ? "Selected time slot has already passed" : ""))
+                      }
                     >
                       <span>{isReserveSubmitting ? "Processing..." : (isFullyBooked ? "Fully Booked" : "Reserve")}</span>
                       <Icon name="bag" size="16" />
@@ -2740,6 +2825,18 @@ const Description = ({ classSection, listing, hostData }) => {
                 {isFullyBooked && (
                   <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
                     This slot is fully booked. Please select another date or time.
+                  </div>
+                )}
+                {/* New warnings for passed/absent slots */}
+                {!isFullyBooked && !hasFutureTimeSlots && (
+                  <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "600", textAlign: "center" }}>
+                    No upcoming time slots available for this experience.
+                    Please contact the host or check back later.
+                  </div>
+                )}
+                {!isFullyBooked && selectedSlotPassed && (
+                  <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "600", textAlign: "center" }}>
+                    The selected time slot has already passed for the chosen date. Please select another date or time.
                   </div>
                 )}
                 {!isFullyBooked && selectedDate && selectedTimeSlot && selectedDateAvailability && getGuestCount(guests) > (selectedDateAvailability.available_seats ?? 999) && (
