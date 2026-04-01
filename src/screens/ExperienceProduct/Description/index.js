@@ -2595,10 +2595,10 @@ return (
                 if (index === 1) {
                   if (isStay) {
                     return (
-                      <div ref={dateItemRef} style={{ position: 'relative' }}>
+                      <div ref={checkoutItemRef} style={{ position: 'relative' }}>
                         <div
                           className={receiptStyles.item}
-                          onClick={() => handleOpenDateTime(0)}
+                          onClick={() => handleOpenDateTime(1)}
                           role="button"
                         >
                           <div className={receiptStyles.icon}>
@@ -2610,10 +2610,10 @@ return (
                           </div>
                         </div>
                         <InlineDatePicker
-                          visible={isStay ? (showDatePicker && stayActiveDateField === "checkin") : showDatePicker}
+                          visible={isStay ? (showDatePicker && stayActiveDateField === "checkout") : showDatePicker}
                           onClose={() => setShowDatePicker(false)}
                           onDateSelect={handleDateSelect}
-                          selectedDate={selectedDate ? selectedDate.toDate().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null}
+                          selectedDate={selectedEndDate ? selectedEndDate.toDate().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null}
                           timeSlots={transformedTimeSlots.length > 0 ? transformedTimeSlots : (listing?.timeSlots || [])}
                           availabilityData={filteredAvailabilityData}
                         />

@@ -28,11 +28,11 @@ const Home = () => {
     }, [location.pathname, location.search]);
 
     return (
-        <React.Fragment>
+        <div className="eventflow-home-page">
              <HomeMain />
             <BackToTop scroll={isVisible} />
             <Footer />
-        </React.Fragment>
+        </div>
     );
 }
 

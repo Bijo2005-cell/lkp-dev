@@ -346,7 +346,9 @@ function App() {
             exact
             path="/event"
             render={() => (
+              <Page separatorHeader fooferHide>
                 <EventFlowHome />
+              </Page>
             )}
           />
           <Route
