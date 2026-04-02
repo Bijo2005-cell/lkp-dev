@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import "react-dates/lib/css/_datepicker.css";
 import "./styles/app.sass";
+import "./eventFlowTheme/assets/css/eventflow.css";
+import "react-modal-video/css/modal-video.css";
 import Page from "./components/Page";  //njj
 import ExperienceCategory from "./screens/ExperienceCategory";
 import ExperienceProduct from "./screens/ExperienceProduct";
@@ -35,6 +37,8 @@ import ListYourProperty from "./screens/ListYourProperty";
 import FleetHome from "./screens/FleetHome";
 import Listings from "./pages/listings";
 import EventProduct from "./screens/EventProduct";
+import EventFlowHome from "./eventFlowTheme/pages/home";
+import EventDetailsPage from "./eventFlowTheme/pages/event-details";
 import StayProduct from "./screens/StayProduct";
 import StayDetails from "./screens/StayDetails";
 import FoodDetails from "./screens/FoodDetails";
@@ -82,6 +86,15 @@ function App() {
             render={() => (
               <Page separatorHeader>
                 <ExperienceProduct />
+              </Page>
+            )}
+          />
+          <Route
+            exact
+            path="/event-product"
+            render={() => (
+              <Page separatorHeader>
+                <EventProduct />
               </Page>
             )}
           />
@@ -333,9 +346,16 @@ function App() {
             exact
             path="/event"
             render={() => (
-              <Page separatorHeader>
-                <EventProduct />
+              <Page separatorHeader fooferHide>
+                <EventFlowHome />
               </Page>
+            )}
+          />
+          <Route
+            exact
+            path="/event-details"
+            render={() => (
+                <EventDetailsPage />
             )}
           />
           <Route

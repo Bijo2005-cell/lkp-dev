@@ -443,6 +443,9 @@ const Checkout = () => {
   }
 
   const listingTitle = bookingData?.listingTitle || "Your trip";
+  const backUrl =
+    bookingData?.returnTo ||
+    (bookingData?.eventId ? `/event?id=${bookingData.eventId}` : null);
   const breadcrumbs = [
     {
       title: "Booking details",
@@ -478,6 +481,7 @@ const Checkout = () => {
         <Control
           className={styles.control}
           urlHome="/"
+          backUrl={backUrl}
           breadcrumbs={breadcrumbs}
         />
         <div className={styles.wrapper}>
