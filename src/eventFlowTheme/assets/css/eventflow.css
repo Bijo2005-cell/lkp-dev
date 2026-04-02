@@ -61,7 +61,7 @@
   --bs-gutter-y: 30px;
 }
 
-body {
+body.eventflow-theme {
   font-family: var(--eventflow-font);
   font-size: 16px;
   line-height: 26px;
@@ -83,6 +83,10 @@ body.locked {
 }
 
 a {
+  /* scoped to eventflow pages by requiring body.eventflow-theme */
+}
+
+body.eventflow-theme a {
   color: var(--eventflow-base);
   -webkit-transition: all 500ms ease;
   transition: all 500ms ease;
@@ -121,6 +125,15 @@ h3,
 h4,
 h5,
 h6 {
+  /* only style headings on eventflow pages */
+}
+
+body.eventflow-theme h1,
+body.eventflow-theme h2,
+body.eventflow-theme h3,
+body.eventflow-theme h4,
+body.eventflow-theme h5,
+body.eventflow-theme h6 {
   color: var(--eventflow-white);
   margin: 0;
   font-family: var(--eventflow-font-two);

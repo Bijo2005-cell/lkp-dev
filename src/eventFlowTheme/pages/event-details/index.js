@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import '../../assets/css/eventflow.css';
 import { useLocation } from 'react-router-dom';
 import BackToTop from '../../components/elements/BackToTop';
 import Header from '../../components/Layout/Header';
@@ -29,6 +30,15 @@ const Event = () => {
     useEffect(() => {
         document.addEventListener("scroll", handleScroll);
         return () => document.removeEventListener("scroll", handleScroll);
+    }, []);
+
+    // Add a marker class to <body> while this page is mounted so
+    // the eventflow CSS rules can be scoped to this page only.
+    useEffect(() => {
+        document.body.classList.add('eventflow-theme');
+        return () => {
+            document.body.classList.remove('eventflow-theme');
+        };
     }, []);
 
     useEffect(() => {

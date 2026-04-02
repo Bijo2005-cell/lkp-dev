@@ -864,6 +864,10 @@ const lowestRoomPrice = useMemo(() => {
   }, [listing, isStay]);
 
   const { addOnsTotal, finalTotal, receipt, priceInfo, pricingBreakdown } = useMemo(() => {
+    // Determine guest counts early so individual-priced addons can be multiplied per guest
+    const guestCount = getGuestCount(guests);
+    const billableGuestCount = getBillableGuestCount(guests);
+
     // Calculate addons price based on pricing type
     const addOnsPrice = selectedAddOns.reduce((sum, id) => {
       // Find addon from listing data
@@ -874,7 +878,7 @@ const lowestRoomPrice = useMemo(() => {
       if (listingAddon) {
         const price = parseFloat(listingAddon.addon?.price || 0);
         const pricingType = listingAddon.addon?.pricingType || "Individual";
-        const quantity = pricingType === "Group" ? (addOnQuantities[id] || 1) : 1;
+        const quantity = pricingType === "Group" ? (addOnQuantities[id] || 1) : billableGuestCount;
         return sum + (price * quantity);
       }
 
@@ -883,8 +887,6 @@ const lowestRoomPrice = useMemo(() => {
     }, 0);
 
     // Total guests drive slot capacity; billable guests drive experience pricing.
-    const guestCount = getGuestCount(guests);
-    const billableGuestCount = getBillableGuestCount(guests);
     // Use availability data if available, then selected slot, then fallback to listing data
     let pricePerPerson = selectedDateAvailability?.price_per_person
       ? parseFloat(selectedDateAvailability.price_per_person)
@@ -1017,6 +1019,7 @@ const lowestRoomPrice = useMemo(() => {
 
     // Add individual addon entries
     if (selectedAddOns.length > 0) {
+      const billableGuestCountForReceipt = getBillableGuestCount(guests);
       selectedAddOns.forEach((id) => {
         const listingAddon = listing?.addons?.find(
           (a) => (a?.addon?.addonId ?? a?.addonId ?? a?.assignmentId) === id
@@ -1025,7 +1028,7 @@ const lowestRoomPrice = useMemo(() => {
         if (listingAddon) {
           const price = parseFloat(listingAddon.addon?.price || 0);
           const pricingType = listingAddon.addon?.pricingType || "Individual";
-          const quantity = pricingType === "Group" ? (addOnQuantities[id] || 1) : 1;
+          const quantity = pricingType === "Group" ? (addOnQuantities[id] || 1) : billableGuestCountForReceipt;
           const addonTotal = price * quantity;
           const addonTitle = listingAddon.addon?.title || "Add-on";
 
@@ -1159,13 +1162,13 @@ const lowestRoomPrice = useMemo(() => {
         );
         if (listingAddon) {
           return {
-            id: listingAddon.addon?.addonId ?? listingAddon.addonId ?? listingAddon.assignmentId,
-            title: listingAddon.addon?.title,
-            price: listingAddon.addon?.price,
-            currency: listingAddon.addon?.currency,
-            pricingType: listingAddon.addon?.pricingType,
-            quantity: listingAddon.addon?.pricingType === "Group" ? (addOnQuantities[id] || 1) : 1,
-          };
+              id: listingAddon.addon?.addonId ?? listingAddon.addonId ?? listingAddon.assignmentId,
+              title: listingAddon.addon?.title,
+              price: listingAddon.addon?.price,
+              currency: listingAddon.addon?.currency,
+              pricingType: listingAddon.addon?.pricingType,
+              quantity: listingAddon.addon?.pricingType === "Group" ? (addOnQuantities[id] || 1) : getBillableGuestCount(guests),
+            };
         }
         // No fallback - return null if not found in API
         return null;

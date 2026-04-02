@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import '../../assets/css/eventflow.css';
 import { useLocation } from 'react-router-dom';
 import HomeMain from './HomeMain';
 import Footer from '../../components/Layout/Footer';
