@@ -150,7 +150,6 @@ const Description = ({ classSection, listing, hostData }) => {
           else if (mealPlanCode === "EP" && Number(selectedRoomObject.epPrice) > 0) basePrice = parseFloat(selectedRoomObject.epPrice);
           else basePrice = parseFloat(selectedRoomObject.b2cPrice || selectedRoomObject.price || 0);
         }
-
         // Compute how many rooms are needed for the guest count
         const roomCap = Number(
           selectedRoomObject.maxGuests ??
@@ -159,7 +158,6 @@ const Description = ({ classSection, listing, hostData }) => {
         if (guestCount > roomCap) {
           roomsNeeded = Math.ceil(guestCount / roomCap);
         }
-
         // Extra guest pricing (applies within a single room's capacity)
         const maxAdults = selectedRoomObject.maxAdults || listing?.stay?.maxAdults || 0;
         const maxChildren = selectedRoomObject.maxChildren || listing?.stay?.maxChildren || 0;
@@ -174,6 +172,8 @@ const Description = ({ classSection, listing, hostData }) => {
 
         console.log("💰 Booking amount calc:", { basePrice, roomCap, guestCount, roomsNeeded, amountPerNight, nightsCount, calculatedAmount });
       }
+
+
 
 
 
@@ -348,8 +348,6 @@ const getBillableGuestCount = (guestsObj) => {
 };
 
 const stayRoomTypeOptions = useMemo(() => {
-  const currentGuestCount = getGuestCount(guests);
-
   // Choose candidates: from availability result or directly from listing
   let candidates = [];
   if (stayAvailabilityResult) {
@@ -627,6 +625,59 @@ const selectedDateAvailability = useMemo(() => {
 
   return null;
 }, [selectedDate, filteredAvailabilityData, selectedTimeSlotData, selectedTimeSlot, listing?.maxGuests, isStay]);
+
+const availableTimeSlotsForSelectedDate = useMemo(() => {
+  if (isStay) return [];
+
+  const availableTimeSlots = transformedTimeSlots.length > 0 ? transformedTimeSlots : (listing?.timeSlots || []);
+  if (!selectedDate) return availableTimeSlots;
+
+  const DAY_CODES_LOCAL = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const DAY_FLAGS_LOCAL = ['isSunday', 'isMonday', 'isTuesday', 'isWednesday', 'isThursday', 'isFriday', 'isSaturday'];
+  const dayIdx = selectedDate.day();
+  const dayCode = DAY_CODES_LOCAL[dayIdx];
+  const dayFlag = DAY_FLAGS_LOCAL[dayIdx];
+
+  return availableTimeSlots.filter((slot) => {
+    const slotStartDate = slot.startDate || slot.start_date;
+    const slotEndDate = slot.endDate || slot.end_date;
+    const isWithinDateRange = (!slotStartDate || !selectedDate.isBefore(moment(slotStartDate), "day"))
+      && (!slotEndDate || !selectedDate.isAfter(moment(slotEndDate), "day"));
+
+    if (!isWithinDateRange) return false;
+
+    if (Array.isArray(slot.selected_days) && slot.selected_days.length > 0) {
+      return slot.selected_days.includes(dayCode);
+    }
+    if (slot[dayFlag] !== undefined) return slot[dayFlag] === true;
+    return true;
+  });
+}, [isStay, transformedTimeSlots, listing?.timeSlots, selectedDate]);
+
+const hasFutureTimeSlots = useMemo(() => {
+  if (isStay || !selectedDate) return true;
+  if (isPastDate(selectedDate)) return false;
+
+  if (availableTimeSlotsForSelectedDate.length === 0) {
+    return false;
+  }
+
+  return availableTimeSlotsForSelectedDate.some((slot) => {
+    const slotStartTime = slot.startTime || slot.start_time;
+    if (!slotStartTime) return true;
+    return !isPastTime(selectedDate, slotStartTime);
+  });
+}, [isStay, selectedDate, availableTimeSlotsForSelectedDate]);
+
+const selectedSlotPassed = useMemo(() => {
+  if (isStay || !selectedDate || !selectedTimeSlot) return false;
+  if (isPastDate(selectedDate)) return true;
+
+  const bookingTime = selectedDateAvailability?.start_time || selectedTimeSlotData?.startTime;
+  if (!bookingTime) return false;
+
+  return isPastTime(selectedDate, bookingTime);
+}, [isStay, selectedDate, selectedTimeSlot, selectedDateAvailability, selectedTimeSlotData]);
 
 // Get the selected timeSlot object for display
 const selectedTimeSlotDisplay = useMemo(() => {
@@ -1303,11 +1354,17 @@ const lowestRoomPrice = useMemo(() => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (reserveSubmitLockRef.current) {
+    // Prevent reserve if selected slot has already passed or no future slots exist
+    if (selectedSlotPassed) {
+      alert("The selected time slot has already passed. Please choose another date or time.");
+      return;
+    }
+    if (!hasFutureTimeSlots) {
+      alert("No upcoming time slots are available for this experience.");
       return;
     }
 
-    if (isStay) {
+    if (reserveSubmitLockRef.current) {
       return;
     }
 
@@ -2537,13 +2594,11 @@ return (
                 }
                 if (index === 1) {
                   if (isStay) {
-                    const stayPickerSelected =
-                      stayActiveDateField === "checkout" ? selectedEndDate : selectedDate;
                     return (
-                      <div ref={dateItemRef} style={{ position: 'relative' }}>
+                      <div ref={checkoutItemRef} style={{ position: 'relative' }}>
                         <div
                           className={receiptStyles.item}
-                          onClick={() => handleOpenDateTime(0)}
+                          onClick={() => handleOpenDateTime(1)}
                           role="button"
                         >
                           <div className={receiptStyles.icon}>
@@ -2555,10 +2610,10 @@ return (
                           </div>
                         </div>
                         <InlineDatePicker
-                          visible={isStay ? (showDatePicker && stayActiveDateField === "checkin") : showDatePicker}
+                          visible={isStay ? (showDatePicker && stayActiveDateField === "checkout") : showDatePicker}
                           onClose={() => setShowDatePicker(false)}
                           onDateSelect={handleDateSelect}
-                          selectedDate={selectedDate ? selectedDate.toDate().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null}
+                          selectedDate={selectedEndDate ? selectedEndDate.toDate().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null}
                           timeSlots={transformedTimeSlots.length > 0 ? transformedTimeSlots : (listing?.timeSlots || [])}
                           availabilityData={filteredAvailabilityData}
                         />
@@ -2696,61 +2751,78 @@ return (
                       </div>
                     </div>
                   );
-                }
 
-                return null;
-              }}
-            >
-              <div className={styles.btns}>
-                <button className={cn("button-stroke", styles.button)}>
-                  <span>Save</span>
-                  <Icon name="plus" size="16" />
-                </button>
-                {isStay ? (
-                  <button
-                    type="button"
-                    className={cn("button", styles.button)}
-                    onClick={(isPropertyBased || stayAvailabilityChecked) ? handleBookStay : handleCheckStayAvailability}
-                    disabled={!selectedDate || !selectedEndDate || stayAvailabilityLoading}
-                    title={!selectedDate || !selectedEndDate ? "Please select check-in and check-out dates" : ""}
-                  >
-                    <span>
-                      {stayAvailabilityLoading
-                        ? ((isPropertyBased || stayAvailabilityChecked) ? "Processing..." : "Checking...")
-                        : ((isPropertyBased || stayAvailabilityChecked) ? "Book now" : "Check availability")
+                  }
+
+                  return null;
+                }}
+              >
+                <div className={styles.btns}>
+                  <button className={cn("button-stroke", styles.button)}>
+                    <span>Save</span>
+                    <Icon name="plus" size="16" />
+                  </button>
+                  {isStay ? (
+                    <button
+                      type="button"
+                      className={cn("button", styles.button)}
+                      onClick={(isPropertyBased || stayAvailabilityChecked) ? handleBookStay : handleCheckStayAvailability}
+                      disabled={!selectedDate || !selectedEndDate || stayAvailabilityLoading}
+                      title={!selectedDate || !selectedEndDate ? "Please select check-in and check-out dates" : ""}
+                    >
+                      <span>
+                        {stayAvailabilityLoading
+                          ? ((isPropertyBased || stayAvailabilityChecked) ? "Processing..." : "Checking...")
+                          : ((isPropertyBased || stayAvailabilityChecked) ? "Book now" : "Check availability")
+                        }
+                      </span>
+                      <Icon name="bag" size="16" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={cn("button", styles.button)}
+                      onClick={handleReserveClick}
+                      disabled={!isReserveEnabled || isReserveSubmitting || selectedSlotPassed || !hasFutureTimeSlots}
+                      title={
+                        !isReserveEnabled ? "Please select date, time slot, and guests" :
+                        (!hasFutureTimeSlots ? "No upcoming time slots available for this experience" :
+                          (selectedSlotPassed ? "Selected time slot has already passed" : ""))
                       }
-                    </span>
-                    <Icon name="bag" size="16" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className={cn("button", styles.button)}
-                    onClick={handleReserveClick}
-                    disabled={!isReserveEnabled || isReserveSubmitting}
-                    title={!isReserveEnabled ? "Please select date, time slot, and guests" : ""}
-                  >
-                    <span>{isReserveSubmitting ? "Processing..." : (isFullyBooked ? "Fully Booked" : "Reserve")}</span>
-                    <Icon name="bag" size="16" />
-                  </button>
+                    >
+                      <span>{isReserveSubmitting ? "Processing..." : (isFullyBooked ? "Fully Booked" : "Reserve")}</span>
+                      <Icon name="bag" size="16" />
+                    </button>
+                  )}
+                </div>
+                {isFullyBooked && (
+                  <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
+                    This slot is fully booked. Please select another date or time.
+                  </div>
                 )}
-              </div>
-              {isFullyBooked && (
-                <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
-                  This slot is fully booked. Please select another date or time.
-                </div>
-              )}
-              {!isFullyBooked && selectedDate && selectedTimeSlot && selectedDateAvailability && getGuestCount(guests) > (selectedDateAvailability.available_seats ?? 999) && (
-                <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
-                  Only {selectedDateAvailability.available_seats} seat(s) available for this slot.
-                </div>
-              )}
+                {/* New warnings for passed/absent slots */}
+                {!isFullyBooked && !hasFutureTimeSlots && (
+                  <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "600", textAlign: "center" }}>
+                    No upcoming time slots available for this experience.
+                    Please contact the host or check back later.
+                  </div>
+                )}
+                {!isFullyBooked && selectedSlotPassed && (
+                  <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "600", textAlign: "center" }}>
+                    The selected time slot has already passed for the chosen date. Please select another date or time.
+                  </div>
+                )}
+                {!isFullyBooked && selectedDate && selectedTimeSlot && selectedDateAvailability && getGuestCount(guests) > (selectedDateAvailability.available_seats ?? 999) && (
+                  <div style={{ color: "#FF6A55", marginTop: 12, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
+                    Only {selectedDateAvailability.available_seats} seat(s) available for this slot.
+                  </div>
+                )}
 
-              <div className={styles.table}>
+                <div className={styles.table}>
                   {/* For room-based stays: hide receipt until a room type is chosen.
                       For property-based stays: hide until dates are selected.
-                      For experiences/other: always show when receipt has items. */}
-                  {((!isStay) ||
+                      For experiences/other: only show after guests are explicitly selected. */}
+                  {((!isStay && hasSelectedGuests) ||
                     (isStay && isPropertyBased && selectedDate && selectedEndDate) ||
                     (isStay && !isPropertyBased && staySelectedRoomType)
                   ) && receipt.map((x, index) => (
@@ -2758,25 +2830,9 @@ return (
                       <div className={styles.cell}>{x.title}</div>
                       <div className={styles.cell}>{x.content}</div>
                     </div>
-                  ))}
+                  ))
+                }
                 </div>
-
-              <div className={styles.table}>
-                {/* For room-based stays: hide receipt until a room type is chosen.
-                      For property-based stays: hide until dates are selected.
-                      For experiences/other: only show after guests are explicitly selected. */}
-                {((!isStay && hasSelectedGuests) ||
-                  (isStay && isPropertyBased && selectedDate && selectedEndDate) ||
-                  (isStay && !isPropertyBased && staySelectedRoomType)
-                ) && receipt.map((x, index) => (
-                  <div className={styles.line} key={index}>
-                    <div className={styles.cell}>{x.title}</div>
-                    <div className={styles.cell}>{x.content}</div>
-                  </div>
-                ))}
-              </div>
-
-
               <div className={styles.foot}>
                 <button className={styles.report}>
                   <Icon name="flag" size="12" />
