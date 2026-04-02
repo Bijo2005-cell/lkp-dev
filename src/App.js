@@ -38,6 +38,8 @@ import Listings from "./pages/listings";
 import EventProduct from "./screens/EventProduct";
 import EventFlowHome from "./eventFlowTheme/pages/home";
 import EventDetailsPage from "./eventFlowTheme/pages/event-details";
+import EventFlowHome from "./eventFlowTheme/pages/home";
+import EventDetailsPage from "./eventFlowTheme/pages/event-details";
 import StayProduct from "./screens/StayProduct";
 import StayDetails from "./screens/StayDetails";
 import FoodDetails from "./screens/FoodDetails";
@@ -85,6 +87,15 @@ function App() {
             render={() => (
               <Page separatorHeader>
                 <ExperienceProduct />
+              </Page>
+            )}
+          />
+          <Route
+            exact
+            path="/event-product"
+            render={() => (
+              <Page separatorHeader>
+                <EventProduct />
               </Page>
             )}
           />
@@ -347,53 +358,62 @@ function App() {
             render={() => (
               <Page separatorHeader fooferHide>
                 <EventFlowHome />
-              </Page>
+                <Page separatorHeader fooferHide>
+                  <EventFlowHome />
+                </Page>
             )}
           />
-          <Route
-            exact
-            path="/event-details"
-            render={() => (
-                <EventDetailsPage />
-            )}
-          />
-          <Route
-            exact
-            path="/stays"
-            render={() => (
-              <Page separatorHeader>
-                <StayProduct />
-              </Page>
-            )}
-          />
-          <Route
-            exact
-            path="/stay-details"
-            render={() => (
-              <Page separatorHeader>
-                <StayDetails />
-              </Page>
-            )}
-          />
-          <Route
-            exact
-            path="/food-details"
-            render={() => (
-              <Page separatorHeader>
-                <FoodDetails />
-              </Page>
-            )}
-          />
-          <Route
-            exact
-            path="/place-details"
-            render={() => (
-              <Page separatorHeader>
-                <PlaceDetails />
-              </Page>
-            )}
-          />
-        </Switch>
+                <Route
+                  exact
+                  path="/event-details"
+                  render={() => (
+                    <EventDetailsPage />
+                  )}
+                />
+                <Route
+                  exact
+                  path="/event-details"
+                  render={() => (
+                    <EventDetailsPage />
+                  )}
+                />
+                <Route
+                  exact
+                  path="/stays"
+                  render={() => (
+                    <Page separatorHeader>
+                      <StayProduct />
+                    </Page>
+                  )}
+                />
+                <Route
+                  exact
+                  path="/stay-details"
+                  render={() => (
+                    <Page separatorHeader>
+                      <StayDetails />
+                    </Page>
+                  )}
+                />
+                <Route
+                  exact
+                  path="/food-details"
+                  render={() => (
+                    <Page separatorHeader>
+                      <FoodDetails />
+                    </Page>
+                  )}
+                />
+                <Route
+                  exact
+                  path="/place-details"
+                  render={() => (
+                    <Page separatorHeader>
+                      <PlaceDetails />
+                    </Page>
+                  )}
+                />
+              </Switch>
       </Router>
     </GoogleOAuthProvider>
   );
