@@ -11,6 +11,7 @@
     "body-scroll-lock": "^4.0.0-beta.0",
     "classnames": "^2.3.1",
     "gsap": "3.12.5",
+    "html2pdf.js": "^0.14.0",
     "http-proxy-middleware": "^3.0.5",
     "moment": "^2.30.1",
     "moment-timezone": "^0.6.0",
@@ -33,6 +34,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "dev": "npm start",
     "build": "cross-env CI=false react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -57,5 +59,9 @@
   },
   "devDependencies": {
     "cross-env": "^10.1.0"
+  },
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom"
   }
 }

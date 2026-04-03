@@ -3,8 +3,9 @@ import { useLocation, Link } from "react-router-dom";
 import cn from "classnames";
 import styles from "./ViewDetails.module.sass";
 import Icon from "../../components/Icon";
+import Modal from "../../components/Modal";
 import { getBookingDetails } from "../../mocks/bookings";
-import { getListing, getOrderDetails, getEventOrderDetails, getEventDetails, submitOrderReview, getStayDetails } from "../../utils/api";
+import { getListing, getOrderDetails, getEventOrderDetails, getEventDetails, submitOrderReview, getStayDetails, cancelOrder, cancelEventOrder, getOrderCancelPreview } from "../../utils/api";
 import Rating from "../../components/Rating";
 
 // Helper function to format image URLs
@@ -588,6 +589,12 @@ const ViewDetails = () => {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [reviewError, setReviewError] = useState(null);
 
+  // Cancellation modal state
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState(null);
+
   useEffect(() => {
     const loadBooking = async () => {
       setLoading(true);
@@ -1045,6 +1052,176 @@ const ViewDetails = () => {
       setReviewError(errorMessage);
     } finally {
       setIsSubmittingReview(false);
+    }
+  };
+
+  // Handle booking cancellation
+  const handleCancelClick = async () => {
+    setCancelReason("");
+    setCancelError(null);
+
+    // Fetch cancel preview for event orders if needed (optional)
+    if (booking?.isEventOrder && booking?.orderId) {
+      try {
+        await getOrderCancelPreview(booking.orderId);
+      } catch (e) {
+        console.warn("⚠️ Failed to fetch cancel preview:", e?.response?.data || e?.message || e);
+      }
+    }
+
+    setCancelModalVisible(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!booking || !cancelReason.trim()) {
+      setCancelError("Please enter a reason for cancellation");
+      return;
+    }
+
+    setIsCancelling(true);
+    setCancelError(null);
+
+    try {
+      const cancelRequestBody = {
+        reason: cancelReason.trim(),
+        adminOverride: false,
+      };
+
+      const orderIdForCancel = booking.orderId;
+
+      if (booking.isEventOrder) {
+        await cancelEventOrder(orderIdForCancel, cancelRequestBody);
+      } else {
+        await cancelOrder(orderIdForCancel, cancelRequestBody);
+      }
+
+      // Update local state to reflect cancellation
+      // This will automatically update the UI status badge and action buttons
+      setBooking((prev) => ({
+        ...prev,
+        status: "Cancelled",
+        statusTone: "cancelled",
+        originalOrderStatus: "CANCELLED",
+        originalData: {
+          ...prev.originalData,
+          orderStatus: "CANCELLED",
+        }
+      }));
+
+      setCancelModalVisible(false);
+      setCancelReason("");
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      setCancelError(
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to cancel booking. Please try again."
+      );
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleCloseCancelModal = () => {
+    setCancelModalVisible(false);
+    setCancelReason("");
+    setCancelError(null);
+  };
+
+  // Helper to download receipt for the current booking (Frontend-rendered as PDF)
+  const handleDownloadReceipt = async () => {
+    if (!booking) return;
+
+    const receiptContent = `
+      <div id="receipt-content-for-pdf" style="padding: 40px; font-family: 'Poppins', sans-serif; color: #23262F; line-height: 1.6; max-width: 800px; margin: 0 auto; background: white;">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 40px; border-bottom: 2px solid #F4F5F6; padding-bottom: 20px;">
+          <div>
+            <div style="font-size: 24px; font-weight: 700; color: #353945;">Little known planet</div>
+            <p style="margin: 4px 0 0 0; color: #777E90;">Official Booking Receipt</p>
+          </div>
+          <div style="text-align: right">
+            <h1 style="font-size: 32px; font-weight: 700; margin: 0; color: #23262F;">RECEIPT</h1>
+            <p style="margin: 8px 0 0 0; font-weight: 600;">Order ID: ${booking.bookingId}</p>
+            <p style="margin: 4px 0 0 0; color: #777E90;">Date: ${new Date().toLocaleDateString()}</p>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+          <div>
+            <div style="font-size: 14px; font-weight: 700; text-transform: uppercase; color: #777E90; margin-bottom: 12px; letter-spacing: 1px;">Customer Details</div>
+            <p style="font-size: 16px; margin: 0;"><strong>${booking.guest.name}</strong></p>
+            ${booking.guest.email ? `<p style="font-size: 16px; margin: 0;">${booking.guest.email}</p>` : ""}
+            ${booking.guest.phone ? `<p style="font-size: 16px; margin: 0;">${booking.guest.phone}</p>` : ""}
+          </div>
+          <div>
+            <div style="font-size: 14px; font-weight: 700; text-transform: uppercase; color: #777E90; margin-bottom: 12px; letter-spacing: 1px;">Booking Details</div>
+            <p style="font-size: 16px; margin: 0;"><strong>${booking.title}</strong></p>
+            <p style="font-size: 16px; margin: 0;">${booking.startDate}${booking.endDate !== booking.startDate ? ` - ${booking.endDate}` : ""}</p>
+            <p style="font-size: 16px; margin: 0;">${booking.location.city}, ${booking.location.country}</p>
+          </div>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+          <thead>
+            <tr>
+              <th style="text-align: left; padding: 12px; border-bottom: 1px solid #E6E8EC; color: #777E90; font-size: 12px; text-transform: uppercase;">Description</th>
+              <th style="text-align: right; padding: 12px; border-bottom: 1px solid #E6E8EC; color: #777E90; font-size: 12px; text-transform: uppercase;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #F4F5F6;">Base Booking Fee (${booking.guestCount} guests)</td>
+              <td style="text-align: right; padding: 12px; border-bottom: 1px solid #F4F5F6;">${booking.pricing.basePrice}</td>
+            </tr>
+            ${booking.addons.map(addon => `
+              <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #F4F5F6;">${addon.name} x ${addon.quantity}</td>
+                <td style="text-align: right; padding: 12px; border-bottom: 1px solid #F4F5F6;">${addon.total}</td>
+              </tr>
+            `).join('')}
+            ${booking.pricing.taxAmount ? `
+              <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #F4F5F6;">Taxes</td>
+                <td style="text-align: right; padding: 12px; border-bottom: 1px solid #F4F5F6;">${booking.pricing.taxAmount}</td>
+              </tr>` : ""}
+            ${booking.pricing.platformFee ? `
+              <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #F4F5F6;">Service Fee</td>
+                <td style="text-align: right; padding: 12px; border-bottom: 1px solid #F4F5F6;">${booking.pricing.platformFee}</td>
+              </tr>` : ""}
+            <tr style="background: #F4F5F6; font-weight: 700; font-size: 18px;">
+              <td style="padding: 12px; border-bottom: 1px solid #F4F5F6;">GRAND TOTAL</td>
+              <td style="text-align: right; padding: 12px; border-bottom: 1px solid #F4F5F6;">${booking.pricing.total}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 14px; font-weight: 700; text-transform: uppercase; color: #777E90; margin-bottom: 12px; letter-spacing: 1px;">Payment Information</div>
+          <p style="font-size: 16px; margin: 0;">Status: <strong>${booking.paymentStatus}</strong></p>
+          <p style="font-size: 16px; margin: 0;">Method: ${booking.paymentMethod || "Not specified"}</p>
+        </div>
+        <div style="text-align: center; margin-top: 40px; color: #777E90; font-size: 14px;">
+          <p>Thank you for choosing Little known planet. We hope you enjoy your experience!</p>
+          <p style="font-size: 11px; margin-top: 12px;">This is a computer-generated receipt and does not require a signature.</p>
+        </div>
+      </div>
+    `;
+
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.createElement('div');
+      element.innerHTML = receiptContent;
+      
+      const opt = {
+        margin:       10,
+        filename:     `Receipt-${booking.bookingId}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      html2pdf().from(element.firstElementChild).set(opt).save();
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+      alert("There was an error generating the PDF receipt. Ensure 'html2pdf.js' is installed.");
     }
   };
 
@@ -1622,12 +1799,77 @@ const ViewDetails = () => {
                 key={index}
                 type="button"
                 className={getButtonClassName(action.variant)}
+                onClick={() => {
+                  if (action.label === "Cancel Booking") {
+                    handleCancelClick();
+                  } else if (action.label === "Download Receipt") {
+                    handleDownloadReceipt();
+                  } else if (action.label === "Message Host") {
+                    // Placeholder for message host
+                    console.log("Message Host clicked");
+                  }
+                }}
               >
                 {action.label}
               </button>
             ))}
           </div>
         </div>
+
+        {/* Cancellation Modal */}
+        <Modal
+          visible={cancelModalVisible}
+          onClose={handleCloseCancelModal}
+          outerClassName={styles.cancelModalOuter}
+        >
+          <div className={styles.cancelModalContent}>
+            <div className={styles.cancelModalHeader}>
+              <h3 className={styles.cancelModalTitle}>Cancel Booking</h3>
+              <p className={styles.cancelModalDescription}>
+                Are you sure you want to cancel this booking? This action cannot be undone.
+              </p>
+            </div>
+            <div className={styles.cancelModalBody}>
+              <div className={styles.cancelModalFormGroup}>
+                <label className={styles.cancelModalLabel}>
+                  Reason for cancellation <span className={styles.required}>*</span>
+                </label>
+                <textarea
+                  className={cn(styles.cancelModalTextarea, {
+                    [styles.inputError]: cancelError && !cancelReason.trim(),
+                  })}
+                  value={cancelReason}
+                  onChange={(e) => {
+                    setCancelReason(e.target.value);
+                    setCancelError(null);
+                  }}
+                  placeholder="Please tell us why you're cancelling..."
+                  rows={4}
+                  disabled={isCancelling}
+                />
+              </div>
+              {cancelError && <div className={styles.cancelModalError}>{cancelError}</div>}
+            </div>
+            <div className={styles.cancelModalFooter}>
+              <button
+                type="button"
+                className={cn("button-stroke", styles.cancelModalBtn)}
+                onClick={handleCloseCancelModal}
+                disabled={isCancelling}
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                className={cn("button", styles.cancelModalBtn)}
+                onClick={handleConfirmCancel}
+                disabled={isCancelling || !cancelReason.trim()}
+              >
+                {isCancelling ? "Cancelling..." : "Confirm Cancellation"}
+              </button>
+            </div>
+          </div>
+        </Modal>
       </div>
     </div>
   );
