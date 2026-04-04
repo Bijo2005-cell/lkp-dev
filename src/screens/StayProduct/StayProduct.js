@@ -6,6 +6,7 @@ import styles from "./StayProduct.module.sass";
 import Icon from "../../components/Icon";
 import InlineDatePicker from "../../components/InlineDatePicker";
 import Loader from "../../components/Loader";
+import RoomPicker from "../../components/RoomPicker";
 import { getStayDetails, getStayRoomAvailability, createStayOrder } from "../../utils/api";
 
 // Helper to format image URLs
@@ -178,6 +179,8 @@ const BookingSidebar = ({
   filteredRoomsByGuests,
   onSelectRoom,
   selectedRoom,
+  roomsCount,
+  setRoomsCount,
   discountPercentage,
   onBooking,
   numberOfNights,
@@ -186,6 +189,7 @@ const BookingSidebar = ({
 }) => {
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [showRoomTypeDropdown, setShowRoomTypeDropdown] = useState(false);
+  const [showRoomPickerCount, setShowRoomPickerCount] = useState(false);
   const [showStayDatePicker, setShowStayDatePicker] = useState(false);
   const [activeDateField, setActiveDateField] = useState("checkin");
 
@@ -507,6 +511,61 @@ return (
         )}
       </div>
 
+      <div className={styles.roomField} onMouseDown={(e) => e.stopPropagation()}>
+        <div
+          className={cn(styles.guestSelector, showRoomPickerCount && styles.guestSelectorOpen)}
+          onClick={() => setShowRoomPickerCount(!showRoomPickerCount)}
+          role="button"
+          tabIndex={0}
+          aria-expanded={showRoomPickerCount}
+          aria-haspopup="listbox"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setShowRoomPickerCount(!showRoomPickerCount);
+            }
+          }}
+        >
+          <div className={styles.guestLabel}>ROOMS</div>
+          <div className={styles.guestValueRow}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className={styles.guestValue}>{roomsCount} room{roomsCount !== 1 ? "s" : ""}</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} onMouseDown={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  aria-label="Decrease rooms"
+                  style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+                  onClick={(e) => { e.stopPropagation(); setRoomsCount(Math.max(1, (roomsCount || 1) - 1)); }}
+                >−</button>
+                <button
+                  type="button"
+                  aria-label="Increase rooms"
+                  style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #1e90ff', background: '#1e90ff', color: '#fff', cursor: 'pointer' }}
+                  onClick={(e) => { e.stopPropagation(); setRoomsCount(Math.min(10, (roomsCount || 1) + 1)); }}
+                >+</button>
+              </div>
+            </div>
+            <div className={styles.guestIconGroup}>
+              <Icon name="home" size="16" />
+              <span className={cn(styles.guestChevron, showRoomPickerCount && styles.guestChevronOpen)}>
+                <Icon name="arrow-down" size="14" />
+              </span>
+            </div>
+          </div>
+        </div>
+        {showRoomPickerCount && (
+          <div className={styles.guestPicker} onMouseDown={(e) => e.stopPropagation()}>
+            <RoomPicker
+              visible={showRoomPickerCount}
+              onClose={() => setShowRoomPickerCount(false)}
+              initialRooms={roomsCount}
+              maxRooms={10}
+              onChange={(val) => setRoomsCount(val)}
+            />
+          </div>
+        )}
+      </div>
+
       {/* Room type selector - always visible for room-based stays; options from availability API (auto-called when dates set) */}
       {isRoomBased && (
         <div className={styles.roomTypeField}>
@@ -704,7 +763,7 @@ const PropertyDetails = ({ stay }) => {
 };
 
 // Room Card Component
-const RoomCard = ({ room, onSelect, discountPercentage, guests, stay }) => {
+const RoomCard = ({ room, onSelect, discountPercentage, guests, stay, isSelected = false }) => {
   const images = room?.roomImages || room?.images || [];
   const image = room?.imageUrl || images[0] || room?.coverImageUrl;
   const roomTags = room?.roomAmenities || room?.amenities || [];
@@ -734,6 +793,12 @@ const RoomCard = ({ room, onSelect, discountPercentage, guests, stay }) => {
   const totalExtraPrice = (extraAdults * extraAdultPrice) + (extraChildren * extraChildPrice);
 
   const price = discountedBasePrice + totalExtraPrice;
+  const [roomCount, setRoomCount] = useState(1);
+  const [showCounter, setShowCounter] = useState(Boolean(isSelected));
+
+  React.useEffect(() => {
+    setShowCounter(Boolean(isSelected));
+  }, [isSelected]);
 
   return (
     <div className={styles.roomCard}>
@@ -826,10 +891,52 @@ const RoomCard = ({ room, onSelect, discountPercentage, guests, stay }) => {
               </div>
             </div>
           </div>
-          <button className={styles.selectRoomBtn} onClick={() => onSelect(room)}>
-            Select Room
-            <Icon name="arrow-right" size="14" />
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            <button
+              className={styles.selectRoomBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(room, roomCount);
+                setShowCounter(true);
+              }}
+            >
+              {showCounter ? "Selected Room" : "Select Room"}
+              <Icon name="arrow-right" size="14" />
+            </button>
+
+            {showCounter && (
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                background: "#f5f5f5",
+                borderRadius: 8,
+                padding: "6px 12px",
+                border: "1px solid #e0e0e0"
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>Rooms</span>
+                <button
+                  style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid #ccc", background: "#fff", cursor: "pointer", fontSize: 16 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const next = Math.max(1, roomCount - 1);
+                    setRoomCount(next);
+                    onSelect(room, next);
+                  }}
+                >−</button>
+                <span style={{ minWidth: 20, textAlign: "center", fontWeight: 600 }}>{roomCount}</span>
+                <button
+                  style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid #ccc", background: "#fff", cursor: "pointer", fontSize: 16 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const next = Math.min(10, roomCount + 1);
+                    setRoomCount(next);
+                    onSelect(room, next);
+                  }}
+                >+</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -878,6 +985,7 @@ const AvailableRooms = ({ rooms, availabilityChecked, onSelectRoom, selectedRoom
             discountPercentage={discountPercentage}
             guests={guests}
             stay={stay}
+            isSelected={!!selectedRoom && ((selectedRoom.roomId === room.roomId) || (selectedRoom.id === room.id))}
           />
         ))}
       </div>
@@ -1059,6 +1167,8 @@ const StayProduct = () => {
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
   const [availableRooms, setAvailableRooms] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [roomsCount, setRoomsCount] = useState(1);
+  
 
   const numberOfNights = useMemo(() => {
     if (!checkInDate || !checkOutDate) return 0;
@@ -1417,8 +1527,9 @@ const StayProduct = () => {
     }
   };
 
-  const handleSelectRoom = (room) => {
+  const handleSelectRoom = (room, count = 1) => {
     setSelectedRoom(room);
+    setRoomsCount(count || 1);
   };
 
   const handleShare = () => {
@@ -1480,6 +1591,7 @@ const StayProduct = () => {
   return (
     <div className={styles.outer}>
       <div className={styles.container}>
+        
         <Header stay={stay} onShare={handleShare} onSave={handleSave} />
         <Gallery images={galleryImages} />
 
@@ -1527,6 +1639,8 @@ const StayProduct = () => {
               filteredRoomsByGuests={filteredRoomsByGuests}
               onSelectRoom={handleSelectRoom}
               selectedRoom={selectedRoom}
+              roomsCount={roomsCount}
+              setRoomsCount={setRoomsCount}
               discountPercentage={discountPercentage}
               numberOfNights={numberOfNights}
               roomsNeeded={roomsNeeded}

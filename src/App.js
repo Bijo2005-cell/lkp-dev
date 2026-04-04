@@ -367,7 +367,7 @@ function App() {
             exact
             path="/stay-details"
             render={() => (
-              <Page separatorHeader>
+              <Page separatorHeader fooferHide>
                 <StayDetails />
               </Page>
             )}

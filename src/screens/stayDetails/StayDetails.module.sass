@@ -1,6 +1,948 @@
 @import ../../styles/helpers
 
-.comment
-    margin-top: 64px
+.page
+    min-height: 100vh
+    padding: 10px 18px 64px
+    background: #ffffff
+    color: #1B2234
+
+.content
+    max-width: 1080px
+    margin: 0 auto
+
+.hero
+    margin-bottom: 24px
+    padding-top: 8px
+
+.statusText
+    margin-top: 10px
+    color: #7C8599
+    font-size: 13px
+
+.badges
+    display: flex
+    align-items: center
+    flex-wrap: wrap
+    gap: 10px
+    margin-bottom: 18px
+
+.badge
+    display: inline-flex
+    align-items: center
+    gap: 6px
+    padding: 7px 11px
+    border-radius: 10px
+    background: #F4F6FA
+    color: #7F889B
+    font-size: 11px
+    font-weight: 700
+    letter-spacing: .06em
+    text-transform: uppercase
+
+.badgeAccent
+    background: #EAF2FF
+    color: #3A6CF6
+
+.badgeGold
+    background: #FFF5D7
+    color: #D49A00
+
+.heroHead
+    display: flex
+    align-items: flex-start
+    justify-content: space-between
+    gap: 24px
     +m
-        margin-top: 48px
+        flex-direction: column
+
+.title
+    margin-bottom: 12px
+    font-size: clamp(34px, 4.2vw, 56px)
+    line-height: .98
+    font-weight: 800
+    letter-spacing: -.04em
+    color: #192033
+
+.location
+    display: inline-flex
+    align-items: center
+    gap: 8px
+    color: #7C8599
+    font-size: 16px
+
+.heroActions
+    display: flex
+    align-items: center
+    gap: 10px
+    +m
+        width: 100%
+
+.actionButton
+    display: inline-flex
+    align-items: center
+    gap: 8px
+    padding: 13px 16px
+    border: 1px solid #E5EAF3
+    border-radius: 12px
+    background: #ffffff
+    color: #1D2435
+    font-size: 14px
+    font-weight: 600
+    +m
+        flex: 1
+        justify-content: center
+
+.gallery
+    display: grid
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr)
+    gap: 12px
+    margin-bottom: 36px
+    +t
+        grid-template-columns: 1fr
+
+.galleryGrid
+    display: grid
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+    gap: 12px
+    +a
+        grid-template-columns: 1fr
+
+.galleryCard
+    overflow: hidden
+    border-radius: 18px
+    background: #EEF2F8
+    min-height: 178px
+
+.galleryCardFeatured
+    min-height: 370px
+    +t
+        min-height: 300px
+
+.galleryImage
+    width: 100%
+    height: 100%
+    object-fit: cover
+    display: block
+
+.mainGrid
+    display: grid
+    grid-template-columns: minmax(0, 1fr) 360px
+    gap: 32px
+    align-items: start
+    +d
+        grid-template-columns: 1fr
+
+.primaryColumn
+    min-width: 0
+
+.tabContent
+    margin-bottom: 22px
+
+.secondaryTabs
+    display: grid
+    grid-template-columns: repeat(3, minmax(0, 1fr))
+    margin-bottom: 28px
+    border-bottom: 1px solid #E8ECF4
+    +a
+        grid-template-columns: 1fr
+
+.secondaryTab
+    padding: 18px 16px
+    border: 1px solid transparent
+    border-bottom: 0
+    background: transparent
+    color: #2B3144
+    font-size: 15px
+    font-weight: 500
+
+.secondaryTabActive
+    border-color: #3A6CF6
+    border-bottom-color: transparent
+    color: #2F64F5
+
+.sectionBlock
+    padding: 4px 0 28px
+    border-bottom: 1px solid #E8ECF4
+
+.sectionBlock + .sectionBlock
+    margin-top: 22px
+
+.panelSection
+    padding-top: 12px
+
+.sectionTitle
+    margin-bottom: 10px
+    font-size: 20px
+    font-weight: 800
+    letter-spacing: -.02em
+    color: #1C2336
+
+.sectionSubtitle
+    color: #7A859C
+    font-size: 14px
+
+.bodyCopy
+    max-width: 92%
+    margin-bottom: 28px
+    color: #616C84
+    font-size: 14px
+    line-height: 1.85
+    +m
+        max-width: 100%
+
+.statsCard
+    display: grid
+    grid-template-columns: repeat(4, minmax(0, 1fr))
+    gap: 18px
+    padding: 22px
+    border: 1px solid #EEF2F7
+    border-radius: 16px
+    background: #FBFCFE
+    +m
+        grid-template-columns: repeat(2, minmax(0, 1fr))
+    +a
+        grid-template-columns: 1fr
+
+.statLabel
+    margin-bottom: 8px
+    color: #98A1B2
+    font-size: 11px
+    font-weight: 700
+    text-transform: uppercase
+
+.statValue
+    color: #242C3F
+    font-size: 16px
+    font-weight: 600
+
+.sectionRow
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 16px
+    margin-bottom: 24px
+    +m
+        flex-direction: column
+        align-items: flex-start
+
+.infoBadge
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    min-height: 28px
+    padding: 0 12px
+    border-radius: 999px
+    background: #F3F5FA
+    color: #74809A
+    font-size: 12px
+    white-space: nowrap
+
+.roomList
+    display: grid
+    gap: 20px
+
+.roomCard
+    display: grid
+    grid-template-columns: 214px minmax(0, 1fr)
+    gap: 22px
+    padding: 18px
+    border: 1px solid #E9EDF5
+    border-radius: 20px
+    background: #ffffff
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.03)
+    +m
+        grid-template-columns: 1fr
+
+.roomImageWrap
+    position: relative
+    overflow: hidden
+    border-radius: 18px
+    min-height: 208px
+
+.roomType
+    position: absolute
+    top: 12px
+    left: 12px
+    z-index: 2
+    padding: 6px 10px
+    border-radius: 999px
+    background: rgba(255, 255, 255, 0.94)
+    color: #1A2032
+    font-size: 11px
+    font-weight: 700
+
+.roomImage
+    width: 100%
+    height: 100%
+    object-fit: cover
+
+.roomContent
+    display: flex
+    flex-direction: column
+
+.roomTitle
+    margin-bottom: 10px
+    font-size: 22px
+    font-weight: 800
+    color: #1A2134
+
+.roomMeta
+    display: flex
+    align-items: center
+    flex-wrap: wrap
+    gap: 16px
+    margin-bottom: 14px
+    color: #78839A
+    font-size: 14px
+
+.roomMeta span
+    display: inline-flex
+    align-items: center
+    gap: 6px
+
+.roomDescription
+    margin-bottom: 16px
+    color: #657188
+    font-size: 14px
+    line-height: 1.7
+
+.amenityList
+    display: flex
+    flex-wrap: wrap
+    gap: 8px
+    margin-bottom: 18px
+
+.amenityChip
+    padding: 7px 10px
+    border-radius: 10px
+    background: #F6F8FB
+    color: #768199
+    font-size: 12px
+
+.roomFooter
+    margin-top: auto
+    display: flex
+    align-items: flex-end
+    justify-content: space-between
+    gap: 16px
+    +a
+        flex-direction: column
+        align-items: flex-start
+
+.roomPriceLabel
+    display: inline-block
+    margin-bottom: 8px
+    color: #9AA3B4
+    font-size: 11px
+    font-weight: 700
+    text-transform: uppercase
+
+.roomPriceRow
+    display: flex
+    align-items: baseline
+    gap: 6px
+
+.roomPrice
+    font-size: 24px
+    font-weight: 800
+    color: #1B2234
+
+.roomPriceSuffix
+    color: #8B95A8
+    font-size: 14px
+
+.roomCapacityHint
+    margin-top: 8px
+    color: #5B739E
+    font-size: 12px
+    line-height: 1.4
+
+.roomCapacityHintError
+    color: #C53A3A
+
+.selectButton
+    display: inline-flex
+    align-items: center
+    gap: 10px
+    padding: 14px 18px
+    border: 0
+    border-radius: 14px
+    background: linear-gradient(180deg, #2E67FF 0%, #235AF0 100%)
+    color: #ffffff !important
+    font-size: 14px
+    font-weight: 600
+
+.selectButton span,
+.selectButton svg
+    color: #ffffff !important
+    fill: #ffffff !important
+
+.selectButton *
+    color: #ffffff !important
+    fill: #ffffff !important
+
+.selectButtonDisabled
+    background: linear-gradient(180deg, #C9D3EA 0%, #B7C3DE 100%)
+    cursor: not-allowed
+    opacity: .8
+
+.roomActionGroup
+    display: flex
+    flex-direction: column
+    align-items: flex-end
+    gap: 10px
+    +a
+        width: 100%
+        align-items: stretch
+
+.roomPickerWrap
+    position: relative
+    min-width: 132px
+    +a
+        width: 100%
+
+.roomPickerTrigger
+    width: 100%
+    min-height: 38px
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 10px
+    padding: 0 12px
+    border: 1px solid #DDE5F1
+    border-radius: 12px
+    background: #ffffff
+    color: #283043
+    font-size: 13px
+    +a
+        width: 100%
+
+.roomPickerChevron
+    transform: rotate(90deg)
+    transition: transform .2s
+
+.roomPickerChevronOpen
+    transform: rotate(270deg)
+
+.roomPicker
+    position: absolute
+    top: calc(100% + 8px)
+    left: 0
+    right: 0
+    z-index: 20
+    overflow: hidden
+    border-radius: 16px
+    background: #ffffff
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12)
+    border: 1px solid #E8ECF3
+
+.roomPickerHeader
+    display: flex
+    align-items: center
+    justify-content: space-between
+    padding: 14px 16px
+    border-bottom: 1px solid #EEF2F7
+
+.roomPickerHeader span
+    color: #8993A7
+    font-size: 10px
+    font-weight: 700
+    text-transform: uppercase
+
+.roomPickerClose
+    border: 0
+    background: transparent
+    color: #2E67FF
+    font-size: 12px
+    font-weight: 600
+
+.roomPickerList
+    padding: 10px
+    display: grid
+    gap: 6px
+
+.roomPickerItem
+    min-height: 38px
+    border: 0
+    border-radius: 12px
+    background: #F7F9FC
+    color: #283043
+    font-size: 13px
+    text-align: left
+    padding: 0 12px
+
+.roomPickerItemActive
+    background: #EAF2FF
+    color: #2E67FF
+
+.sidebar
+    display: grid
+    gap: 18px
+
+.sidebarCard
+    padding: 18px
+    border: 1px solid #E8ECF3
+    border-radius: 18px
+    background: #ffffff
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.04)
+    width: 100%
+
+.bookingHeader
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 12px
+    margin-bottom: 20px
+
+.priceValue
+    font-size: 18px
+    font-weight: 800
+    color: #1B2234
+
+.priceSuffix
+    color: #8B95A8
+    font-size: 14px
+
+.ratingPill
+    display: inline-flex
+    align-items: center
+    gap: 4px
+    color: #D49A00
+    font-size: 14px
+    font-weight: 700
+
+.bookingGrid
+    display: grid
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+    gap: 10px
+    margin-bottom: 14px
+
+.field
+    padding: 10px 12px
+    border: 1px solid #E8ECF3
+    border-radius: 14px
+    background: #ffffff
+    min-height: 64px
+    min-width: 0
+
+.field span
+    display: block
+
+.field > span
+    margin-bottom: 6px
+    color: #8993A7
+    font-size: 10px
+    font-weight: 700
+    text-transform: uppercase
+
+.fieldWide
+    grid-column: 1 / -1
+
+.dateField
+    position: relative
+    display: flex
+    align-items: center
+    min-height: 20px
+    width: 100%
+    min-width: 0
+    overflow: visible
+
+.datePicker
+    width: 100%
+    min-width: 0
+
+.dateField :global(.SingleDatePicker)
+    width: 100%
+    min-width: 0
+
+.dateField :global(.SingleDatePickerInput)
+    width: 100%
+    min-width: 0
+    border: 0
+    background: transparent
+    display: flex
+    align-items: center
+
+.dateField :global(.DateInput)
+    flex: 1 1 auto
+    width: 100%
+    min-width: 0
+    background: transparent
+
+.dateField :global(.DateInput_input)
+    width: 100%
+    min-height: 20px
+    padding: 0 28px 0 0 !important
+    border: 0
+    background: transparent
+    color: #283043 !important
+    font-size: 12px
+    font-weight: 500
+    line-height: 1.2
+    caret-color: transparent
+    cursor: pointer
+    user-select: none
+    overflow: visible
+    text-overflow: clip
+    white-space: nowrap
+    text-align: left
+
+.dateField :global(.DateInput_input__focused)
+    border: 0
+
+.dateField :global(.DateInput_input::placeholder)
+    color: #283043 !important
+    opacity: 1
+
+:global(.dark-mode) .dateField :global(.DateInput_input)
+    color: #283043 !important
+    -webkit-text-fill-color: #283043 !important
+
+:global(.dark-mode) .dateField :global(.DateInput_input::placeholder)
+    color: #283043 !important
+    -webkit-text-fill-color: #283043 !important
+    opacity: 1
+
+.dateField :global(.SingleDatePicker_picker)
+    z-index: 40
+
+.fieldIcon
+    position: absolute
+    right: 2px
+    top: 50%
+    transform: translateY(-50%)
+    color: #9AA3B4
+    pointer-events: none
+
+.priceSummary
+    margin-bottom: 14px
+    padding: 12px 14px
+    border: 1px solid #E8ECF3
+    border-radius: 14px
+    background: #F8FAFD
+
+.priceSummaryRow
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 12px
+    color: #5E6880
+    font-size: 12px
+
+.priceSummaryRow strong
+    color: #1B2234
+    font-size: 13px
+    font-weight: 700
+
+.priceSummaryRow + .priceSummaryRow
+    margin-top: 8px
+
+.infoText
+    margin-bottom: 10px
+    padding: 10px 12px
+    border-radius: 12px
+    background: #F3F7FF
+    color: #4B628E
+    font-size: 12px
+    line-height: 1.5
+
+.errorText
+    margin-bottom: 10px
+    padding: 10px 12px
+    border-radius: 12px
+    background: #FFF1F1
+    color: #C53A3A
+    font-size: 12px
+    font-weight: 600
+    line-height: 1.5
+
+.guestFieldWrap
+    position: relative
+
+.fieldButton
+    width: 100%
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 10px
+    padding: 0
+    border: 0
+    background: transparent
+    color: #283043
+    font-size: 13px
+    font-weight: 500
+    text-align: left
+    min-height: 28px
+
+.fieldButtonIcon
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    width: 20px
+    height: 20px
+    color: #9AA3B4
+    font-size: 14px
+    line-height: 1
+
+.guestPickerWrap
+    position: relative
+
+.guestPickerPopover
+    left: auto
+    right: 0
+    width: 100%
+    min-width: 320px
+    margin-top: 6px
+
+.availabilityButton
+    width: 100%
+    min-height: 44px
+    border: 0
+    border-radius: 14px
+    background: linear-gradient(180deg, #2E67FF 0%, #235AF0 100%)
+    color: #ffffff !important
+    font-size: 14px
+    font-weight: 700
+
+.availabilityButton:disabled
+    cursor: not-allowed
+    opacity: .65
+
+.availabilityButton span,
+.availabilityButton svg
+    color: #ffffff !important
+    fill: #ffffff !important
+
+.availabilityButton *
+    color: #ffffff !important
+    fill: #ffffff !important
+
+:global(.dark-mode) .availabilityButton
+    color: #ffffff !important
+
+:global(.dark-mode) .availabilityButton span,
+:global(.dark-mode) .availabilityButton svg,
+:global(.dark-mode) .selectButton,
+:global(.dark-mode) .selectButton span,
+:global(.dark-mode) .selectButton svg
+    color: #ffffff !important
+
+.helperText
+    margin-top: 10px
+    text-align: center
+    color: #97A0B1
+    font-size: 12px
+
+.contactTitle
+    margin-bottom: 20px
+    font-size: 22px
+    font-weight: 800
+    color: #1C2336
+
+.managerRow
+    display: flex
+    align-items: center
+    gap: 14px
+    margin-bottom: 18px
+
+.managerBadge
+    display: grid
+    place-items: center
+    width: 34px
+    height: 34px
+    border-radius: 50%
+    background: #EEF4FF
+    color: #2A63F6
+    font-size: 18px
+    font-weight: 800
+
+.managerMeta
+    color: #98A1B2
+    font-size: 12px
+
+.managerName
+    color: #222A3E
+    font-size: 18px
+    font-weight: 700
+
+.contactAction
+    width: 100%
+    display: flex
+    align-items: center
+    gap: 12px
+    padding: 12px 14px
+    border: 1px solid #E8ECF3
+    border-radius: 12px
+    background: #ffffff
+    color: #5A667E
+    font-size: 13px
+
+.contactAction + .contactAction
+    margin-top: 10px
+
+.mapCard
+    position: relative
+    overflow: hidden
+    min-height: 320px
+    border-radius: 20px
+    background: radial-gradient(circle at 20% 15%, rgba(255,255,255,.95), rgba(244, 246, 250, .92) 22%, transparent 23%), radial-gradient(circle at 72% 42%, rgba(214, 218, 226, .28), transparent 14%), linear-gradient(135deg, #EEEFF2 0%, #D7DADF 100%)
+
+.mapCard::before
+    content: ""
+    position: absolute
+    inset: 0
+    background-image: linear-gradient(rgba(112, 120, 136, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(112, 120, 136, 0.08) 1px, transparent 1px)
+    background-size: 72px 72px
+    opacity: .6
+
+.mapCard::after
+    content: ""
+    position: absolute
+    inset: 10% 8%
+    background: radial-gradient(circle at 16% 38%, rgba(138, 145, 158, 0.16) 0 7%, transparent 8%), radial-gradient(circle at 28% 58%, rgba(138, 145, 158, 0.18) 0 10%, transparent 11%), radial-gradient(circle at 52% 45%, rgba(138, 145, 158, 0.14) 0 13%, transparent 14%), radial-gradient(circle at 70% 50%, rgba(138, 145, 158, 0.18) 0 9%, transparent 10%), radial-gradient(circle at 86% 42%, rgba(138, 145, 158, 0.14) 0 6%, transparent 7%)
+    filter: blur(6px)
+    opacity: .7
+
+.mapLabel
+    position: absolute
+    top: 18px
+    left: 18px
+    z-index: 2
+    max-width: 280px
+    padding: 18px
+    border-radius: 16px
+    background: rgba(255, 255, 255, 0.9)
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08)
+
+.mapLabel h3
+    margin-bottom: 8px
+    font-size: 20px
+    font-weight: 800
+    color: #1C2336
+
+.mapLabel p
+    color: #707B91
+    font-size: 14px
+    line-height: 1.6
+
+.mapButton
+    position: absolute
+    left: 50%
+    bottom: 36px
+    z-index: 2
+    transform: translateX(-50%)
+    display: inline-flex
+    align-items: center
+    gap: 10px
+    padding: 14px 18px
+    border: 0
+    border-radius: 14px
+    background: #ffffff
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08)
+    color: #20283A
+    font-size: 14px
+    font-weight: 700
+    white-space: nowrap
+    +a
+        bottom: 18px
+
+.panelGrid
+    display: grid
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+    gap: 48px
+    +m
+        grid-template-columns: 1fr
+        gap: 28px
+
+.panelHeading
+    display: flex
+    align-items: center
+    gap: 12px
+    margin-bottom: 22px
+    color: #16325C
+
+.panelHeading .sectionTitle
+    margin-bottom: 0
+
+.featureGrid
+    display: grid
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+    gap: 14px 24px
+    +a
+        grid-template-columns: 1fr
+
+.featureItem
+    display: flex
+    align-items: center
+    gap: 12px
+    color: #253451
+    font-size: 14px
+    min-height: 38px
+
+.featureIcon
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    width: 26px
+    height: 26px
+    border-radius: 50%
+
+.featureIconGreen
+    background: #DFF7E9
+    color: #22A260
+
+.featureIconBlue
+    background: #E9F1FF
+    color: #3970F5
+
+.policyShell
+    padding: 22px
+    border-radius: 24px
+    background: #F7F9FC
+    border: 1px solid #E9EDF5
+    +a
+        padding: 18px
+
+.policyGrid
+    display: grid
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+    gap: 28px
+    margin-bottom: 28px
+    +m
+        grid-template-columns: 1fr
+
+.policyBlock + .policyBlock
+    margin-top: 0
+
+.policyCard
+    padding: 18px
+    border: 1px solid #E1E7F0
+    border-radius: 20px
+    background: #ffffff
+
+.policyRow
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 12px
+    padding: 12px 0
+    color: #55637E
+    font-size: 14px
+
+.policyRow strong
+    color: #13213D
+    font-weight: 800
+
+.policyRow + .policyRow
+    border-top: 1px solid #E9EDF5
+
+.policyText
+    color: #465775
+    font-size: 14px
+    line-height: 1.7
+
+.policyBlock
+    margin-bottom: 24px
+
+.policyBlock:last-child
+    margin-bottom: 0
