@@ -4,8 +4,11 @@ import cn from "classnames";
 import styles from "./ViewDetails.module.sass";
 import Icon from "../../components/Icon";
 import { getBookingDetails } from "../../mocks/bookings";
-import { getListing, getOrderDetails, getEventOrderDetails, getEventDetails, submitOrderReview, getStayDetails } from "../../utils/api";
+import { getListing, getOrderDetails, getEventOrderDetails, getEventDetails, submitOrderReview, getStayDetails, cancelOrder, cancelEventOrder } from "../../utils/api";
 import Rating from "../../components/Rating";
+import Modal from "../../components/Modal";
+import Receipt from "../../components/Receipt";
+import html2pdf from "html2pdf.js";
 
 // Helper function to format image URLs
 const formatImageUrl = (url) => {
@@ -632,6 +635,92 @@ const ViewDetails = () => {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [reviewError, setReviewError] = useState(null);
 
+  // Cancellation state
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState(null);
+
+  // Receipt state
+  const [receiptModalVisible, setReceiptModalVisible] = useState(false);
+
+  const handleCancelBookingClick = () => {
+    setCancelModalVisible(true);
+    setCancelReason("");
+    setCancelError(null);
+  };
+
+  const handleCloseCancelModal = () => {
+    setCancelModalVisible(false);
+    setCancelReason("");
+    setCancelError(null);
+  };
+
+  const handleCancelBooking = async () => {
+    if (!cancelReason.trim()) {
+      setCancelError("Please provide a reason for cancellation.");
+      return;
+    }
+
+    setIsCancelling(true);
+    setCancelError(null);
+
+    try {
+      const cancelRequestBody = {
+        reason: cancelReason.trim(),
+        adminOverride: false,
+      };
+
+      if (booking.isEventOrder) {
+        await cancelEventOrder(booking.orderId, cancelRequestBody);
+      } else {
+        await cancelOrder(booking.orderId, cancelRequestBody);
+      }
+
+      // Update local state to show as cancelled
+      setBooking(prev => ({
+        ...prev,
+        status: "Cancelled",
+        statusTone: "cancelled",
+        originalOrderStatus: "CANCELLED",
+        originalData: {
+          ...prev.originalData,
+          orderStatus: "CANCELLED"
+        }
+      }));
+
+      handleCloseCancelModal();
+    } catch (err) {
+      console.error("Error cancelling booking:", err);
+      setCancelError(
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to cancel booking. Please try again."
+      );
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleDownloadReceiptClick = () => {
+    setReceiptModalVisible(true);
+  };
+
+  const handlePrintReceipt = () => {
+    const element = document.getElementById("receipt-ticket-pdf");
+    if (!element) return;
+    
+    const opt = {
+      margin:       10,
+      filename:     `LKP_Receipt_${booking.orderId}.pdf`,
+      image:        { type: 'jpeg', quality: 1 },
+      html2canvas:  { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' },
+      jsPDF:        { unit: 'px', format: [element.offsetWidth + 20, element.offsetHeight + 20], orientation: 'portrait' }
+    };
+
+    html2pdf().from(element).set(opt).save();
+  };
+
   useEffect(() => {
     const loadBooking = async () => {
       setLoading(true);
@@ -1182,35 +1271,34 @@ const ViewDetails = () => {
   };
 
   const getActionButtons = () => {
-    // Get status from multiple sources for reliability
     const status = booking.status?.toLowerCase() ||
       booking.statusTone ||
       (booking.originalData?.orderStatus ? String(booking.originalData.orderStatus).toLowerCase() : "");
 
     if (status === "upcoming" || status === "pending" || status === "confirmed") {
       return [
-        { label: "Message Host", variant: "primary" },
-        { label: "Download Receipt", variant: "secondary" },
-        { label: "Cancel Booking", variant: "secondary" },
+        { label: "Download Receipt", variant: "primary", onClick: handleDownloadReceiptClick },
+        { label: "Cancel Booking", variant: "secondary", onClick: handleCancelBookingClick },
       ];
     } else if (status === "completed") {
       return [
-        { label: "Message Host", variant: "primary" },
-        { label: "Download Receipt", variant: "secondary" },
-        { label: "Leave Review", variant: "secondary" },
+        { label: "Download Receipt", variant: "primary", onClick: handleDownloadReceiptClick },
+        { label: "Leave Review", variant: "secondary", onClick: () => {
+          const reviewSection = document.querySelector(`.${styles.reviewCard}`);
+          if (reviewSection) {
+            reviewSection.scrollIntoView({ behavior: 'smooth' });
+          }
+        }},
       ];
     } else if (status === "cancelled" || status === "canceled") {
       return [
-        { label: "Explore Alternatives", variant: "primary" },
-        { label: "View Cancellation", variant: "secondary" },
-        { label: "Contact Support", variant: "secondary" },
+        { label: "Explore Alternatives", variant: "primary", onClick: () => window.location.href = "/catalog" },
+        { label: "Contact Support", variant: "secondary", onClick: () => window.location.href = "/support" },
       ];
     } else {
-      // Default actions
       return [
-        { label: "Message Host", variant: "primary" },
-        { label: "Download Receipt", variant: "secondary" },
-        { label: "Contact Support", variant: "secondary" },
+        { label: "Download Receipt", variant: "primary", onClick: handleDownloadReceiptClick },
+        { label: "Contact Support", variant: "secondary", onClick: () => window.location.href = "/support" },
       ];
     }
   };
@@ -1666,6 +1754,7 @@ const ViewDetails = () => {
                 key={index}
                 type="button"
                 className={getButtonClassName(action.variant)}
+                onClick={action.onClick}
               >
                 {action.label}
               </button>
@@ -1673,6 +1762,170 @@ const ViewDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Cancellation Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        onClose={handleCloseCancelModal}
+        outerClassName={styles.cancelModalOuter}
+      >
+        <div className={styles.cancelModalContent}>
+          <div className={styles.cancelModalHeader}>
+            <h2 className={styles.cancelModalTitle}>
+              Cancel Booking
+            </h2>
+            <p className={styles.cancelModalDescription}>
+              Please provide a reason for cancelling this booking.
+            </p>
+          </div>
+          <div className={styles.cancelModalBody}>
+            <div className={styles.cancelModalFormGroup}>
+              <label htmlFor="cancelReason" className={styles.cancelModalLabel}>
+                Reason for Cancellation <span className={styles.required}>*</span>
+              </label>
+              <textarea
+                id="cancelReason"
+                className={cn(styles.cancelModalInput, styles.cancelModalTextarea, {
+                  [styles.inputError]: cancelError && !cancelReason.trim(),
+                })}
+                value={cancelReason}
+                onChange={(e) => {
+                  setCancelReason(e.target.value);
+                  setCancelError(null);
+                }}
+                placeholder="Enter the reason for cancellation..."
+                rows={4}
+                disabled={isCancelling}
+              />
+            </div>
+            {cancelError && (
+              <div className={styles.cancelModalError}>
+                {cancelError}
+              </div>
+            )}
+          </div>
+          <div className={styles.cancelModalFooter}>
+            <button
+              type="button"
+              className={cn("button-stroke", styles.cancelModalBtn)}
+              onClick={handleCloseCancelModal}
+              disabled={isCancelling}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={cn("button", styles.cancelModalBtn)}
+              onClick={handleCancelBooking}
+              disabled={isCancelling || !cancelReason.trim()}
+            >
+              {isCancelling ? "Cancelling..." : "Submit"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Receipt Modal */}
+      <Modal
+        visible={receiptModalVisible}
+        onClose={() => setReceiptModalVisible(false)}
+        outerClassName={styles.receiptModalOuter}
+        containerClassName={styles.receiptModalContainer}
+      >
+        <div className={styles.receiptModalContent}>
+          <div className={styles.receiptModalHeader}>
+            <h2 className={styles.receiptModalTitle}>Booking Receipt</h2>
+            <button 
+              className={cn("button-small", styles.downloadPdfButton)}
+              onClick={handlePrintReceipt}
+            >
+              <Icon name="download" size="16" />
+              <span>Download PDF</span>
+            </button>
+          </div>
+          <div className={styles.receiptPrintArea}>
+            <div id="receipt-ticket-pdf" className={styles.receiptTicket}>
+              <div className={styles.receiptBrand}>
+                <div className={styles.brandLogo}>
+                  <Icon name="star" size="24" />
+                </div>
+                <div className={styles.brandName}>LKP Experiences</div>
+              </div>
+              
+              <div className={styles.receiptTicketBody}>
+                <div className={styles.receiptTitle}>{booking.title}</div>
+                <div className={styles.receiptBookingId}>Order Reference: #LKP-{booking.orderId}</div>
+                
+                <div className={styles.dottedDivider}></div>
+                
+                <div className={styles.receiptInfoSections}>
+                  <div className={styles.infoCol}>
+                    <div className={styles.receiptLabel}>Date & Time</div>
+                    <div className={styles.infoText}>{booking.startDate}</div>
+                    <div className={styles.infoSubtext}>
+                      {booking.startTime && booking.endTime 
+                        ? `${booking.startTime} - ${booking.endTime}` 
+                        : (booking.bookingTime || "Confirmed Slot")}
+                    </div>
+                  </div>
+                  <div className={styles.infoCol}>
+                    <div className={styles.receiptLabel}>Guests</div>
+                    <div className={styles.infoText}>{booking.guestCount} {booking.guestCount === 1 ? "Guest" : "Guests"}</div>
+                  </div>
+                </div>
+
+                <div className={styles.dottedDivider}></div>
+                
+                <div className={styles.pricingBreakdown}>
+                  <div className={styles.receiptPriceRow}>
+                    <span className={styles.priceLabel}>Base Fare</span>
+                    <span className={styles.priceValue}>{booking.pricing.basePrice}</span>
+                  </div>
+                  {booking.addons?.map((addon, index) => (
+                    <div key={index} className={styles.receiptPriceRow}>
+                      <span className={styles.priceLabel}>{addon.name} (x{addon.quantity})</span>
+                      <span className={styles.priceValue}>{addon.total}</span>
+                    </div>
+                  ))}
+                  {booking.pricing.discountAmount && (
+                    <div className={cn(styles.receiptPriceRow, styles.discountRow)}>
+                      <span className={styles.priceLabel}>Privilege Discount</span>
+                      <span className={styles.priceValue}>-{booking.pricing.discountAmount}</span>
+                    </div>
+                  )}
+                  
+                  <div className={styles.dottedDivider}></div>
+                  
+                  <div className={cn(styles.receiptPriceRow, styles.invoiceTotal)}>
+                    <span className={styles.totalLabel}>Total Paid</span>
+                    <span className={styles.totalValue}>{booking.pricing.total}</span>
+                  </div>
+                </div>
+                
+                <div className={styles.dottedDivider}></div>
+                
+                <div className={styles.receiptInfoSections}>
+                  <div className={styles.infoCol}>
+                    <div className={styles.receiptLabel}>Guest Profile</div>
+                    <div className={styles.infoText}>{booking.guest.name}</div>
+                    <div className={styles.infoSubtext}>{booking.guest.email}</div>
+                  </div>
+                  <div className={styles.infoCol}>
+                    <div className={styles.receiptLabel}>Venue Location</div>
+                    <div className={styles.infoText}>{booking.location.city}</div>
+                    <div className={styles.infoSubtext}>{booking.location.address}</div>
+                  </div>
+                </div>
+                
+                <div className={styles.receiptFooterNote}>
+                  <p>Thank you for choosing Little Known Planet. We hope you have an extraordinary experience!</p>
+                  <div className={styles.stamp}>VERIFIED</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

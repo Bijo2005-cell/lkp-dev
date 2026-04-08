@@ -410,7 +410,6 @@ const actionsByStatus = {
   Upcoming: [
     { label: "View Details", variant: "primary" },
     { label: "Cancel Booking", variant: "secondary" },
-    { label: "Message Host", variant: "secondary" },
   ],
   Completed: [
     { label: "View Details", variant: "primary" },
