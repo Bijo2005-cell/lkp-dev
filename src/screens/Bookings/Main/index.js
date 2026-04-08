@@ -166,7 +166,9 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null, 
 
   // Determine status mapping
   const statusMap = {
-    PENDING: "Upcoming",
+    // PENDING means reservation was initiated but not confirmed/paid.
+    // Show these in Cancelled tab instead of Upcoming.
+    PENDING: "Cancelled",
     CONFIRMED: "Upcoming",
     COMPLETED: "Completed",
     CANCELLED: "Cancelled",
