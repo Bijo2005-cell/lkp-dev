@@ -4,7 +4,7 @@ import cn from "classnames";
 import styles from "./ViewDetails.module.sass";
 import Icon from "../../components/Icon";
 import { getBookingDetails } from "../../mocks/bookings";
-import { getListing, getOrderDetails, getEventOrderDetails, getEventDetails, submitOrderReview, getStayDetails, cancelOrder, cancelEventOrder } from "../../utils/api";
+import { getListing, getOrderDetails, getEventOrderDetails, getEventDetails, submitOrderReview, getStayDetails, cancelOrder, cancelEventOrder, getEligibleBookings } from "../../utils/api";
 import Rating from "../../components/Rating";
 import Modal from "../../components/Modal";
 import Receipt from "../../components/Receipt";
@@ -634,6 +634,7 @@ const ViewDetails = () => {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [reviewError, setReviewError] = useState(null);
+  const [orderIdsEligibleForReview, setOrderIdsEligibleForReview] = useState(new Set());
 
   // Cancellation state
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
@@ -643,6 +644,8 @@ const ViewDetails = () => {
 
   // Receipt state
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
+  const isCompletedOrder = String(booking?.originalData?.orderStatus || "").toUpperCase() === "COMPLETED";
+  const canLeaveReview = booking?.orderId != null && orderIdsEligibleForReview.has(Number(booking.orderId));
 
   const handleCancelBookingClick = () => {
     setCancelModalVisible(true);
@@ -1096,6 +1099,27 @@ const ViewDetails = () => {
     loadBooking();
   }, [bookingId, bookingType]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const loadReviewEligibility = async () => {
+      if (!booking?.orderId || !isCompletedOrder) return;
+      try {
+        const eligibleData = await getEligibleBookings();
+        const eligibleList = Array.isArray(eligibleData) ? eligibleData : [];
+        const eligibleIds = new Set(
+          eligibleList
+            .map((item) => (item?.orderId != null ? Number(item.orderId) : null))
+            .filter(Boolean)
+        );
+        setOrderIdsEligibleForReview(eligibleIds);
+      } catch (err) {
+        console.warn("⚠️ Failed to fetch review eligibility in details page:", err?.message || err);
+        setOrderIdsEligibleForReview(new Set());
+      }
+    };
+
+    loadReviewEligibility();
+  }, [booking?.orderId, isCompletedOrder]);
+
   const getInitialTab = () => {
     if (!booking) return "cancellation";
     if (booking.notes.cancellationPolicy) return "cancellation";
@@ -1165,6 +1189,11 @@ const ViewDetails = () => {
         customerId: customerId,
       });
 
+      setOrderIdsEligibleForReview((prev) => {
+        const next = new Set(prev);
+        next.delete(Number(booking.orderId));
+        return next;
+      });
       setReviewSubmitted(true);
       setReviewText("");
       setReviewRating(0);
@@ -1281,15 +1310,22 @@ const ViewDetails = () => {
         { label: "Cancel Booking", variant: "secondary", onClick: handleCancelBookingClick },
       ];
     } else if (status === "completed") {
-      return [
+      const actions = [
         { label: "Download Receipt", variant: "primary", onClick: handleDownloadReceiptClick },
-        { label: "Leave Review", variant: "secondary", onClick: () => {
-          const reviewSection = document.querySelector(`.${styles.reviewCard}`);
-          if (reviewSection) {
-            reviewSection.scrollIntoView({ behavior: 'smooth' });
-          }
-        }},
       ];
+      if (canLeaveReview) {
+        actions.push({
+          label: "Leave Review",
+          variant: "secondary",
+          onClick: () => {
+            const reviewSection = document.querySelector(`.${styles.reviewCard}`);
+            if (reviewSection) {
+              reviewSection.scrollIntoView({ behavior: "smooth" });
+            }
+          },
+        });
+      }
+      return actions;
     } else if (status === "cancelled" || status === "canceled") {
       return [
         { label: "Explore Alternatives", variant: "primary", onClick: () => window.location.href = "/catalog" },
@@ -1686,7 +1722,7 @@ const ViewDetails = () => {
         </div>
 
         {/* Review Section - Only show for completed orders */}
-        {(booking.originalData?.orderStatus && String(booking.originalData.orderStatus).toUpperCase() === "COMPLETED") && (
+        {(isCompletedOrder && (canLeaveReview || reviewSubmitted)) && (
           <div className={cn(styles.card, styles.reviewCard)}>
             <h2 className={styles.cardTitle}>Leave a Review</h2>
             {reviewSubmitted ? (
