@@ -16,9 +16,11 @@ body
 // These rules intentionally target broad element types in the light theme
 // (they do not modify eventFlowTheme files) and use specificity to win
 // against third-party CSS that may load later.
+// Note: interactive elements (buttons/links) are excluded so their
+// hover/active states can override this base color.
 body:not(.dark-mode)
     h1, h2, h3, h4, h5, h6,
-    p, span, div, label, button, a,
+    p, label,
     input, textarea, li, strong, em
         color: $n2 !important
 

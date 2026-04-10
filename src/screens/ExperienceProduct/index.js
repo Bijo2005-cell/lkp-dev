@@ -10,7 +10,12 @@ import CommentsProduct from "../../components/CommentsProduct";
 import Browse from "../../components/Browse";
 import Loader from "../../components/Loader";
 import { browse2 } from "../../mocks/browse";
-import { getListing, getHost, getLeadDetails } from "../../utils/api";
+import {
+  DEFAULT_API_BASE_URL,
+  getListing,
+  getHost,
+  getLeadDetails,
+} from "../../utils/api";
 import { buildExperienceUrl, extractExperienceIdFromSlugAndId } from "../../utils/experienceUrl";
 
 // Helper function to format image URLs (from Azure blob storage or full URLs)
@@ -302,7 +307,7 @@ useEffect(() => {
   const fetchKeralaListings = async () => {
     try {
       const resp = await fetch(
-        "http://69.62.77.33:8080/api/public/listings/filter?businessInterestId=1&categoryType=States&limit=12&offset=0&sortBy=newest",
+        `${DEFAULT_API_BASE_URL}/public/listings/filter?businessInterestId=1&categoryType=States&limit=12&offset=0&sortBy=newest`,
         {
           headers: {
             "ngrok-skip-browser-warning": "true"

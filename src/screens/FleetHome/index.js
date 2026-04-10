@@ -228,6 +228,7 @@ const FleetHome = () => {
             }
 
 
+
             console.log(`✅ Section ${section.sectionId} has ${listings.length} listings`);
 
             // Filter out expired experience listings: if an experience has an end
