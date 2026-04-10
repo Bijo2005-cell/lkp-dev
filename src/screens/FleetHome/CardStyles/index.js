@@ -7,7 +7,6 @@ import DestinationCard from "../DestinationCard";
 import Destination from "../../../components/Destination";
 import HorizontalScroll from "../../../components/HorizontalScroll";
 import styles from "../FleetHome.module.sass";
-import { buildExperienceUrl } from "../../../utils/experienceUrl";
 
 /**
  * Card Styles Components for Homepage Sections
@@ -87,7 +86,7 @@ const getEntityImageUrl = (listing) => {
 };
 
 const getEntityUrl = (listing, id) => {
-  if (!listing || typeof listing !== "object") return buildExperienceUrl("experience", id);
+  if (!listing || typeof listing !== "object") return `/experience-product?id=${id}`;
   const isEvent = listing.eventId !== undefined || listing.event_id !== undefined;
   const isStay = listing.stayId !== undefined || listing.stay_id !== undefined;
   const isFood = listing.foodMenuId !== undefined;
@@ -98,7 +97,7 @@ const getEntityUrl = (listing, id) => {
   if (isFood) return `/food-details?id=${id}`;
   if (isPlace) return `/place-details?id=${id}`;
 
-  return buildExperienceUrl(listing.title || "experience", id);
+  return `/experience-product?id=${id}`;
 };
 
 // Transform API listing to Card component format

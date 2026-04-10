@@ -166,9 +166,7 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null, 
 
   // Determine status mapping
   const statusMap = {
-    // PENDING means reservation was initiated but not confirmed/paid.
-    // Show these in Cancelled tab instead of Upcoming.
-    PENDING: "Cancelled",
+    PENDING: "Upcoming",
     CONFIRMED: "Upcoming",
     COMPLETED: "Completed",
     CANCELLED: "Cancelled",
@@ -188,20 +186,10 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null, 
       null;
 
     if (bookingDateStr) {
-      // Compare against end-of-experience time if available, otherwise end-of-day
-      const deadline = new Date(bookingDateStr);
-      
-      const endTimeStr = apiBooking.timeSlotEndTime || apiBooking.checkOutTime || apiBooking.endTime || apiBooking.bookingTime;
-      
-      if (endTimeStr && typeof endTimeStr === 'string' && endTimeStr.includes(':')) {
-        const [hours, minutes, seconds] = endTimeStr.split(':').map(Number);
-        deadline.setHours(hours || 0, minutes || 0, seconds || 0, 0);
-      } else {
-        // Fallback to end-of-day if no specific time is provided
-        deadline.setHours(23, 59, 59, 999);
-      }
-
-      if (deadline < new Date()) {
+      // Compare against end-of-day so same-day bookings stay in Upcoming
+      const bookingEndOfDay = new Date(bookingDateStr);
+      bookingEndOfDay.setHours(23, 59, 59, 999);
+      if (bookingEndOfDay < new Date()) {
         status = "Completed";
       }
     }
@@ -368,8 +356,6 @@ const transformBookingData = (apiBooking, listingData = null, eventData = null, 
         null;
     } else if (apiBooking?.listingCoverPhoto) {
       coverPhotoUrl = apiBooking.listingCoverPhoto;
-    } else if (apiBooking?.listingCoverPhotoUrl) {
-      coverPhotoUrl = apiBooking.listingCoverPhotoUrl;
     } else if (apiBooking?.listing?.coverPhotoUrl) {
       coverPhotoUrl = apiBooking.listing.coverPhotoUrl;
     } else if (apiBooking?.coverPhotoUrl) {
@@ -414,6 +400,7 @@ const actionsByStatus = {
   Upcoming: [
     { label: "View Details", variant: "primary" },
     { label: "Cancel Booking", variant: "secondary" },
+    { label: "Message Host", variant: "secondary" },
   ],
   Completed: [
     { label: "View Details", variant: "primary" },

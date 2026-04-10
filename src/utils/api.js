@@ -1319,26 +1319,6 @@ export const getPlaceDetails = async (placeId) => {
     throw error;
   }
 };
-// ✅ Get current authenticated customer profile
-export const getCustomerProfile = async () => {
-  try {
-    const response = await ListingsAPI.get("/customers/auth/me");
-    const payload = response.data;
-    console.log("✅ Customer profile fetched (raw):", payload);
-
-    // Response shape: { customer: { customerId, firstName, lastName, email, phone, ... } }
-    if (payload && typeof payload === "object") {
-      if (payload.customer) return payload.customer;
-      if (payload.data) return payload.data;
-    }
-
-    return payload;
-  } catch (error) {
-    console.error("❌ Error fetching customer profile:", error.response?.data || error.message);
-    throw error;
-  }
-};
-
 // ✅ Get lead details (host details) from leads API
 export const getLeadDetails = async (leadId) => {
   try {

@@ -38,9 +38,8 @@ export const useListings = ({
         offset: reset ? 0 : currentOffset,
       };
 
-      // Add search/keyword if provided
+      // Add location if provided
       if (location) {
-        params.search = location;
         params.location = location;
       }
 
@@ -172,32 +171,10 @@ export const useListings = ({
         reset,
       });
 
-      // Client-side filtering as an extra layer to ensure name/title matches
-      let processedListings = listings;
-      if (location) {
-        const query = location.toLowerCase();
-        processedListings = listings.filter(l => 
-          (l.title && l.title.toLowerCase().includes(query)) ||
-          (l.name && l.name.toLowerCase().includes(query)) ||
-          (l.city && l.city.toLowerCase().includes(query)) ||
-          (l.categoryTitle && l.categoryTitle.toLowerCase().includes(query)) ||
-          (l.propertyName && l.propertyName.toLowerCase().includes(query)) ||
-          (l.description && l.description.toLowerCase().includes(query)) ||
-          (l.host?.displayName && l.host.displayName.toLowerCase().includes(query)) ||
-          (l.host?.name && l.host.name.toLowerCase().includes(query))
-        );
-        
-        // If we filtered out everything, but API returned results, 
-        // fallback to API results to avoid showing nothing
-        if (processedListings.length === 0 && listings.length > 0) {
-          processedListings = listings;
-        }
-      }
-
       if (reset || currentOffset === 0) {
-        setData(processedListings);
+        setData(listings);
       } else {
-        setData((prev) => [...prev, ...processedListings]);
+        setData((prev) => [...prev, ...listings]);
       }
     } catch (err) {
       console.error("Error fetching listings:", err);

@@ -96,7 +96,7 @@ const Gallery = ({ images }) => {
 };
 
 // Header Component
-const Header = ({ stay, onShare }) => {
+const Header = ({ stay, onShare, onSave }) => {
   const tags = [];
   {
     const propertyTypeLabel = toDisplayString(stay?.propertyType);
@@ -128,6 +128,10 @@ const Header = ({ stay, onShare }) => {
           <button className={styles.actionBtn} onClick={onShare}>
             <Icon name="share" size="16" />
             Share
+          </button>
+          <button className={styles.actionBtn} onClick={onSave}>
+            <Icon name="heart" size="16" />
+            Save
           </button>
         </div>
       </div>
@@ -1429,6 +1433,10 @@ const StayProduct = () => {
     }
   };
 
+  const handleSave = () => {
+    alert("Saved to favorites!");
+  };
+
   // Build gallery images
   const galleryImages = useMemo(() => {
     const images = [];
@@ -1472,7 +1480,7 @@ const StayProduct = () => {
   return (
     <div className={styles.outer}>
       <div className={styles.container}>
-        <Header stay={stay} onShare={handleShare} />
+        <Header stay={stay} onShare={handleShare} onSave={handleSave} />
         <Gallery images={galleryImages} />
 
         <div className={styles.contentWrapper}>

@@ -4,7 +4,6 @@ import styles from "./List.module.sass";
 import Card from "../../../../components/Card";
 import Icon from "../../../../components/Icon";
 import Slider from "react-slick";
-import { buildExperienceUrl } from "../../../../utils/experienceUrl";
 
 // Helper to format image URL from API
 const formatImageUrl = (url) => {
@@ -42,7 +41,7 @@ const transformListingToCard = (listing) => {
     title: listing.title || "Listing",
     src: coverPhotoUrl,
     srcSet: coverPhotoUrl,
-    url: buildExperienceUrl(listing.title || "experience", listing.listingId),
+    url: `/experience-product?id=${listing.listingId}`,
     location: location,
     priceActual: priceDisplay, // Only show price if individualPrice exists
     hasPrice: hasPrice,

@@ -21,25 +21,14 @@ const Listings = () => {
 
   // Search state
   const [searchLocation, setSearchLocation] = useState(
-    searchParams.get("location") || searchParams.get("search") || locationState.location || ""
+    searchParams.get("location") || locationState.location || ""
   );
-  
-  // Track the actual search query that has been submitted
-  const [activeSearch, setActiveSearch] = useState(searchLocation);
-  
-  const initialDate = searchParams.get("date") 
-    ? moment(searchParams.get("date")).toDate() 
-    : (locationState.dateRange?.startDate ? moment(locationState.dateRange.startDate).toDate() : null);
-    
-  const [selectedDate, setSelectedDate] = useState(initialDate);
-  
-  const initialGuests = searchParams.get("guests")
-    ? { adults: parseInt(searchParams.get("guests")), children: 0, infants: 0, pets: 0 }
-    : (locationState.guests || { adults: 1, children: 0, infants: 0, pets: 0 });
-
-  const [guests, setGuests] = useState(initialGuests);
-  
-  const businessInterest = searchParams.get("businessInterest") || locationState.businessInterest || "EXPERIENCE";
+  const [selectedDate, setSelectedDate] = useState(
+    locationState.dateRange?.startDate ? moment(locationState.dateRange.startDate).toDate() : null
+  );
+  const [guests, setGuests] = useState(
+    locationState.guests || { adults: 1, children: 0, infants: 0, pets: 0 }
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const dateItemRef = useRef(null);
@@ -67,14 +56,14 @@ const Listings = () => {
 
   const sortOptions = ["Relevance", "Price: Low to High", "Price: High to Low", "Rating", "Newest"];
 
-  // Use listings hook - only re-renders when activeSearch or other filters change
+  // Use listings hook
   const { data: listings, loading, error, hasMore, fetchMore } = useListings({
-    location: activeSearch,
+    location: searchLocation,
     dateRange,
     guests,
     filters,
     limit: 20,
-    businessInterest: businessInterest,
+    businessInterest: "EXPERIENCE",
   });
   
   // eslint-disable-next-line no-unused-vars
@@ -116,11 +105,11 @@ const Listings = () => {
     setGuests(newGuests);
   };
 
-  // Handle search button click or Enter key
+  // Handle search button click
   const handleSearch = () => {
-    // Update the active search state to trigger a re-fetch
-    setActiveSearch(searchLocation);
-    
+    // Update listings with new search parameters
+    // The useListings hook will automatically refetch when dependencies change
+    // We can also update URL if needed
     const newState = {
       location: searchLocation,
       dateRange: dateRange,
@@ -128,7 +117,7 @@ const Listings = () => {
     };
     history.replace({
       pathname: "/listings",
-      search: searchLocation ? `?search=${encodeURIComponent(searchLocation)}` : "",
+      search: searchLocation ? `?location=${encodeURIComponent(searchLocation)}` : "",
       state: newState,
     });
   };
@@ -160,7 +149,6 @@ const Listings = () => {
                 className={styles.searchInput}
                 value={searchLocation}
                 onChange={(e) => setSearchLocation(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               />
             </div>
           </div>
