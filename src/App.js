@@ -43,7 +43,7 @@ import FoodDetails from "./screens/FoodDetails";
 import PlaceDetails from "./screens/PlaceDetails";
 
 function App() {
-  // Get Google Client ID from environment variable
+  // Get Google Client ID from environment variablee
   // Fallback to hardcoded value if env var is not set (for development/testing)
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID ||
     "876306099009-inkldmfdu3ilqufhr6v9te3jom3u4odh.apps.googleusercontent.com";
