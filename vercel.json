@@ -2,7 +2,8 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://api.dev.littleknownplanet.com/api/:path*"
+      "destination": "https://api.dev.littleknownplanet.com/:path*"
+
     }
   ]
 }
