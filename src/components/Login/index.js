@@ -217,8 +217,8 @@ const Login = ({ onClose }) => {
       {/* Step 1: Phone Number Input */}
       {step === "phone" && (
         <div className={styles.item}>
-          <div className={cn("h3", styles.title)}>Sign up on Fleet</div>
-          <div className={styles.info}>Use Your OpenID to Sign up</div>
+          <div className={cn("h3", styles.title)}>Sign up on Littleknownplanet</div>
+          <div className={styles.info}>Use Your Google Account to Sign up</div>
           <div className={styles.btns}>
             <button 
               className={cn("button-stroke", styles.googleBtn)} 
