@@ -2730,16 +2730,7 @@ const lowestRoomPrice = useMemo(() => {
         specialRequests: "",
         amount: calculatedAmount,
         paymentMethod: "razorpay",
-        rooms: [
-          {
-            roomId: 0, // 0 for full property
-            roomsBooked: 1,
-            adults: guests.adults || 1,
-            children: guests.children || 0,
-            mealPlanCode: null,
-            extraBeds: 0,
-          }
-        ],
+        rooms: [],
       };
     }
 
