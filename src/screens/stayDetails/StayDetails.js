@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import cn from "classnames";
 
@@ -8,6 +8,7 @@ import TabSection from "../ExperienceProduct/TabSection";
 import CommentsProduct from "../../components/CommentsProduct";
 import Browse from "../../components/Browse";
 import Loader from "../../components/Loader";
+import RoomCards from "./RoomCards";
 
 import { browse2 } from "../../mocks/browse";
 import { getStayDetails, getHost } from "../../utils/api";
@@ -68,6 +69,14 @@ const StayDetails = () => {
   const [hostData, setHostData] = useState(null);
   const [galleryItems, setGalleryItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Shared room + meal plan selection (set by RoomCards, consumed by Description)
+  const [externalRoomId, setExternalRoomId] = useState(null);
+  const [externalMealPlan, setExternalMealPlan] = useState(null);
+
+  const handleRoomSelect = useCallback((roomId, mealPlan) => {
+    setExternalRoomId(String(roomId));
+    setExternalMealPlan(mealPlan || null);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -193,7 +202,15 @@ const StayDetails = () => {
 
       {stay && (
         <>
-          <Description classSection="section" listing={stay} hostData={hostData} />
+          <Description 
+            classSection="section" 
+            listing={stay} 
+            hostData={hostData} 
+            externalRoomId={externalRoomId} 
+            externalMealPlan={externalMealPlan} 
+            onRoomSelect={handleRoomSelect}
+            selectedRoomId={externalRoomId}
+          />
           <TabSection classSection="section" listing={stay} />
           <CommentsProduct
             className={cn("section")}

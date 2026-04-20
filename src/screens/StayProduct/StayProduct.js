@@ -1225,6 +1225,17 @@ const StayProduct = () => {
       return;
     }
 
+    // Get customer info for the order
+    const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+    const customerName = userInfo.name ||
+      (userInfo.firstName ? `${userInfo.firstName} ${userInfo.lastName || ""}`.trim() : "") ||
+      userInfo.customerName || "Guest User";
+    const customerEmail = userInfo.email || userInfo.customerEmail || "guest@example.com";
+    const customerPhone = userInfo.customerPhone ||
+      (userInfo.phone ? (userInfo.countryCode || "+91") + userInfo.phone : "") ||
+      userInfo.phoneNumber ||
+      userInfo.phone || "+911234567890";
+
     let bookingPayload;
 
     if (isRoomBased && selectedRoom) {
@@ -1275,12 +1286,17 @@ const StayProduct = () => {
         checkInDate,
         checkOutDate,
         numberOfGuests: (guests.adults || 1) + (guests.children || 0),
+        customerName,
+        customerEmail,
+        customerPhone,
         amount: calculatedAmount * roomsNeeded, // Multiply by rooms needed for group bookings
         paymentMethod: "razorpay", // Explicitly request Razorpay
         rooms: [
           {
             roomId: selectedRoom.roomId || selectedRoom.id,
             roomsBooked: roomsNeeded,
+            adults: guests.adults || 1,
+            children: guests.children || 0,
             mealPlanCode: mealPlanCode,
           },
         ],
@@ -1304,8 +1320,12 @@ const StayProduct = () => {
         checkInDate,
         checkOutDate,
         numberOfGuests: (guests.adults || 1) + (guests.children || 0),
+        customerName,
+        customerEmail,
+        customerPhone,
         amount: calculatedAmountProperty,
         paymentMethod: "razorpay",
+        rooms: [],
       };
     }
 
