@@ -5,7 +5,7 @@ import Icon from "../../../../components/Icon";
 import Switch from "../../../../components/Switch";
 import Counter from "../../../../components/Counter";
 import Modal from "../../../../components/Modal";
-import RoomCards from "../../../stayDetails_fix/RoomCards";
+import RoomCards from "../../../StayDetails/RoomCards";
 
 const facts = [
   {
