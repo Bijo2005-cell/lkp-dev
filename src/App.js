@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import "react-dates/lib/css/_datepicker.css";
 import "./styles/app.sass";
-import Page from "./components/Page";  //njj
+import Page from "./components/Page";
 import ExperienceCategory from "./screens/ExperienceCategory";
 import ExperienceProduct from "./screens/ExperienceProduct";
 import ExperienceCheckout from "./screens/ExperienceCheckout";
@@ -38,7 +38,7 @@ import EventProduct from "./screens/EventProduct";
 import EventFlowHome from "./eventFlowTheme/pages/home";
 import EventDetailsPage from "./eventFlowTheme/pages/event-details";
 import StayProduct from "./screens/StayProduct";
-import StayDetails from "./screens/stayDetails/StayDetails";
+import StayDetails from "./screens/StayDetails/StayDetails";
 import FoodDetails from "./screens/FoodDetails";
 import PlaceDetails from "./screens/PlaceDetails";
 

@@ -1,6 +1,6 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
-const BACKEND = 'https://api.dev.littleknownplanet.com'
+const BACKEND = 'http://127.0.0.1:5000'
 module.exports = function (app) {
   // Event orders (legacy): /api/event-orders/* → BACKEND/api/event-orders/*
   app.use(
@@ -106,7 +106,7 @@ module.exports = function (app) {
       target: BACKEND,
       changeOrigin: true,
       secure: true,
-      pathRewrite: (path) => `/leads${path}`,
+      pathRewrite: (path) => `/api/leads${path}`,
       logLevel: 'debug',
       proxyTimeout: 60000,
       timeout: 60000,
